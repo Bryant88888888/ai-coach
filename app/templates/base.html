@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI 新人訓練系統{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sidebar-link.active {
+            background-color: rgb(79 70 229);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- 手機版導航列 -->
+    <nav class="lg:hidden bg-indigo-600 text-white p-4 flex justify-between items-center">
+        <h1 class="text-lg font-bold">AI 訓練系統</h1>
+        <button id="mobile-menu-btn" class="text-2xl">
+            <i class="fas fa-bars"></i>
+        </button>
+    </nav>
+
+    <!-- 手機版側邊選單 (預設隱藏) -->
+    <div id="mobile-sidebar" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white w-64 h-full p-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-indigo-600">選單</h2>
+                <button id="close-menu-btn" class="text-2xl text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav class="space-y-2">
+                <a href="/dashboard" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3"></i>儀表板
+                </a>
+                <a href="/dashboard/users" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'users' %}active{% endif %}">
+                    <i class="fas fa-users mr-3"></i>用戶列表
+                </a>
+                <a href="/dashboard/messages" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'messages' %}active{% endif %}">
+                    <i class="fas fa-comments mr-3"></i>對話記錄
+                </a>
+                <a href="/dashboard/days" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'days' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt mr-3"></i>課程管理
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="flex">
+        <!-- 電腦版側邊欄 -->
+        <aside class="hidden lg:block w-64 bg-white shadow-lg min-h-screen fixed">
+            <div class="p-6 border-b">
+                <h1 class="text-xl font-bold text-indigo-600">
+                    <i class="fas fa-robot mr-2"></i>AI 訓練系統
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">管理後台</p>
+            </div>
+            <nav class="p-4 space-y-2">
+                <a href="/dashboard" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3"></i>儀表板
+                </a>
+                <a href="/dashboard/users" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'users' %}active{% endif %}">
+                    <i class="fas fa-users mr-3"></i>用戶列表
+                </a>
+                <a href="/dashboard/messages" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'messages' %}active{% endif %}">
+                    <i class="fas fa-comments mr-3"></i>對話記錄
+                </a>
+                <a href="/dashboard/days" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'days' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt mr-3"></i>課程管理
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 主要內容區 -->
+        <main class="flex-1 lg:ml-64 p-4 lg:p-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        // 手機版選單開關
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const closeMenuBtn = document.getElementById('close-menu-btn');
+        const mobileSidebar = document.getElementById('mobile-sidebar');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileSidebar.classList.remove('hidden');
+        });
+
+        closeMenuBtn.addEventListener('click', () => {
+            mobileSidebar.classList.add('hidden');
+        });
+
+        mobileSidebar.addEventListener('click', (e) => {
+            if (e.target === mobileSidebar) {
+                mobileSidebar.classList.add('hidden');
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

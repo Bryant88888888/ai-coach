@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.name or user.line_user_id[:8] }} - 用戶詳情{% endblock %}
+
+{% block content %}
+<!-- 返回按鈕 -->
+<div class="mb-4">
+    <a href="/dashboard/users" class="inline-flex items-center text-indigo-600 hover:underline">
+        <i class="fas fa-arrow-left mr-2"></i>返回用戶列表
+    </a>
+</div>
+
+<!-- 用戶資訊卡片 -->
+<div class="bg-white rounded-xl shadow p-6 mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="flex items-center mb-4 md:mb-0">
+            <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                <i class="fas fa-user text-2xl text-indigo-600"></i>
+            </div>
+            <div>
+                <h1 class="text-xl lg:text-2xl font-bold text-gray-800">{{ user.name or '未命名用戶' }}</h1>
+                <p class="text-sm text-gray-500 font-mono">{{ user.line_user_id }}</p>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% if user.persona %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if 'A' in user.persona.value %}bg-pink-100 text-pink-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <i class="fas fa-tag mr-1"></i>{{ user.persona.value }}
+            </span>
+            {% endif %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if user.status.value == 'Active' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                <i class="fas fa-circle text-xs mr-1"></i>{{ user.status.value }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- 統計卡片 -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-gray-500 text-sm">目前進度</p>
+        <p class="text-2xl font-bold text-indigo-600">Day {{ user.current_day }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-gray-500 text-sm">總對話數</p>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.total_messages }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-gray-500 text-sm">通過率</p>
+        <p class="text-2xl font-bold text-green-600">{{ stats.pass_rate }}%</p>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-gray-500 text-sm">平均分數</p>
+        <p class="text-2xl font-bold text-blue-600">{{ stats.average_score }}</p>
+    </div>
+</div>
+
+<!-- 進度條 -->
+<div class="bg-white rounded-xl shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">訓練進度</h3>
+    <div class="relative">
+        <div class="w-full bg-gray-200 rounded-full h-4">
+            {% set progress = (user.current_day / 14 * 100) %}
+            <div class="h-4 rounded-full {% if progress >= 100 %}bg-green-500{% else %}bg-indigo-500{% endif %} transition-all"
+                 style="width: {{ progress }}%"></div>
+        </div>
+        <div class="flex justify-between mt-2 text-sm text-gray-600">
+            <span>Day 0</span>
+            <span>Day 7</span>
+            <span>Day 14</span>
+        </div>
+    </div>
+</div>
+
+<!-- 對話記錄 -->
+<div class="bg-white rounded-xl shadow p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-comments mr-2 text-indigo-600"></i>對話記錄
+        </h3>
+        <!-- Day 篩選 -->
+        <select id="day-filter" class="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+            <option value="">所有天數</option>
+            {% for d in range(15) %}
+            <option value="{{ d }}">Day {{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if messages %}
+    <div class="space-y-4" id="messages-container">
+        {% for msg in messages %}
+        <div class="border rounded-lg p-4 message-item" data-day="{{ msg.training_day }}">
+            <!-- 對話標頭 -->
+            <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+                <span class="bg-gray-100 px-2 py-1 rounded">Day {{ msg.training_day }}</span>
+                <span class="text-gray-500">{{ msg.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                {% if msg.passed %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <i class="fas fa-check mr-1"></i>通過
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <i class="fas fa-times mr-1"></i>未通過
+                </span>
+                {% endif %}
+                <span class="px-2 py-1 rounded text-xs font-medium
+                    {% if msg.score >= 80 %}bg-green-100 text-green-800
+                    {% elif msg.score >= 60 %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-red-100 text-red-800{% endif %}">
+                    {{ msg.score }} 分
+                </span>
+            </div>
+
+            <!-- 用戶訊息 -->
+            <div class="mb-3">
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <i class="fas fa-user text-gray-500 text-sm"></i>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg px-4 py-2 max-w-full">
+                        <p class="text-gray-800 break-words">{{ msg.user_message }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI 回覆 -->
+            <div class="mb-3">
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <i class="fas fa-robot text-indigo-600 text-sm"></i>
+                    </div>
+                    <div class="bg-indigo-50 rounded-lg px-4 py-2 max-w-full">
+                        <p class="text-gray-800 break-words whitespace-pre-wrap">{{ msg.ai_reply }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 評分原因 -->
+            {% if msg.reason %}
+            <div class="mt-2 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2">
+                <i class="fas fa-info-circle mr-1"></i>{{ msg.reason }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+        <i class="fas fa-inbox text-4xl mb-3"></i>
+        <p>尚無對話記錄</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Day 篩選功能
+    const dayFilter = document.getElementById('day-filter');
+    const messageItems = document.querySelectorAll('.message-item');
+
+    dayFilter.addEventListener('change', () => {
+        const selectedDay = dayFilter.value;
+
+        messageItems.forEach(item => {
+            if (!selectedDay || item.dataset.day === selectedDay) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

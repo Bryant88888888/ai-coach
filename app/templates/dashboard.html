@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}儀表板 - AI 新人訓練系統{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">儀表板</h1>
+    <p class="text-gray-600 mt-1">系統總覽與統計</p>
+</div>
+
+<!-- 統計卡片 -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">總用戶數</p>
+                <p class="text-2xl lg:text-3xl font-bold text-gray-800">{{ stats.total_users }}</p>
+            </div>
+            <div class="bg-indigo-100 p-3 rounded-full">
+                <i class="fas fa-users text-indigo-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">活躍用戶</p>
+                <p class="text-2xl lg:text-3xl font-bold text-green-600">{{ stats.active_users }}</p>
+            </div>
+            <div class="bg-green-100 p-3 rounded-full">
+                <i class="fas fa-user-check text-green-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">已完成訓練</p>
+                <p class="text-2xl lg:text-3xl font-bold text-blue-600">{{ stats.completed_users }}</p>
+            </div>
+            <div class="bg-blue-100 p-3 rounded-full">
+                <i class="fas fa-graduation-cap text-blue-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">完成率</p>
+                <p class="text-2xl lg:text-3xl font-bold text-purple-600">{{ stats.completion_rate }}%</p>
+            </div>
+            <div class="bg-purple-100 p-3 rounded-full">
+                <i class="fas fa-percentage text-purple-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 圖表區 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Persona 分佈 -->
+    <div class="bg-white rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">
+            <i class="fas fa-chart-pie mr-2 text-indigo-600"></i>Persona 分佈
+        </h3>
+        <div class="space-y-4">
+            {% for persona, count in stats.persona_distribution.items() %}
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="text-gray-600">{{ persona }}</span>
+                    <span class="font-semibold">{{ count }} 人</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    {% set percentage = (count / stats.total_users * 100) if stats.total_users > 0 else 0 %}
+                    <div class="h-3 rounded-full {% if 'A' in persona %}bg-pink-500{% elif 'B' in persona %}bg-blue-500{% else %}bg-gray-400{% endif %}"
+                         style="width: {{ percentage }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 各天進度分佈 -->
+    <div class="bg-white rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">
+            <i class="fas fa-chart-bar mr-2 text-indigo-600"></i>訓練進度分佈
+        </h3>
+        <div class="space-y-2 max-h-64 overflow-y-auto">
+            {% for day in range(15) %}
+            {% set count = stats.day_distribution.get(day, 0) %}
+            <div class="flex items-center">
+                <span class="w-16 text-sm text-gray-600">Day {{ day }}</span>
+                <div class="flex-1 bg-gray-200 rounded-full h-4 mx-2">
+                    {% set percentage = (count / stats.total_users * 100) if stats.total_users > 0 else 0 %}
+                    <div class="h-4 rounded-full bg-indigo-500" style="width: {{ percentage }}%"></div>
+                </div>
+                <span class="w-12 text-right text-sm font-medium">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- 最近對話 -->
+<div class="bg-white rounded-xl shadow p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-clock mr-2 text-indigo-600"></i>最近對話
+        </h3>
+        <a href="/dashboard/messages" class="text-indigo-600 hover:underline text-sm">
+            查看全部 <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+    </div>
+
+    {% if recent_messages %}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">時間</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">用戶</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">Day</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">狀態</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden lg:table-cell">分數</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for msg in recent_messages[:10] %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ msg.created_at.strftime('%m/%d %H:%M') }}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <a href="/dashboard/users/{{ msg.user.line_user_id }}" class="text-indigo-600 hover:underline">
+                            {{ msg.user.line_user_id[:8] }}...
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-sm hidden md:table-cell">
+                        <span class="bg-gray-100 px-2 py-1 rounded">Day {{ msg.training_day }}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if msg.passed %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="fas fa-check mr-1"></i>通過
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <i class="fas fa-times mr-1"></i>未通過
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm hidden lg:table-cell">
+                        <span class="font-medium {% if msg.score >= 80 %}text-green-600{% elif msg.score >= 60 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                            {{ msg.score }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+        <i class="fas fa-inbox text-4xl mb-3"></i>
+        <p>尚無對話記錄</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

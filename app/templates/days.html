@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}課程管理 - AI 新人訓練系統{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">課程管理</h1>
+    <p class="text-gray-600 mt-1">Day 0 ~ Day 14 訓練課程內容</p>
+</div>
+
+<!-- 課程列表 -->
+<div class="space-y-4">
+    {% for day in days %}
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <div class="p-4 lg:p-6 cursor-pointer day-header" data-day="{{ day.day }}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                        <span class="text-indigo-600 font-bold">{{ day.day }}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">{{ day.title }}</h3>
+                        <p class="text-gray-600 text-sm">{{ day.goal }}</p>
+                    </div>
+                </div>
+                <button class="text-gray-400 hover:text-gray-600 transition expand-btn">
+                    <i class="fas fa-chevron-down text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 展開的詳細內容 -->
+        <div class="day-content hidden border-t bg-gray-50" data-day="{{ day.day }}">
+            <div class="p-4 lg:p-6">
+                <h4 class="font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-file-alt mr-2 text-indigo-600"></i>Prompt 內容
+                </h4>
+                <div class="bg-white rounded-lg p-4 border">
+                    <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono overflow-x-auto">{{ day.prompt }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not days %}
+<div class="bg-white rounded-xl shadow p-12 text-center text-gray-500">
+    <i class="fas fa-calendar-alt text-5xl mb-4"></i>
+    <p class="text-lg">尚無課程資料</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 展開/收合功能
+    document.querySelectorAll('.day-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const day = header.dataset.day;
+            const content = document.querySelector(`.day-content[data-day="${day}"]`);
+            const btn = header.querySelector('.expand-btn i');
+
+            content.classList.toggle('hidden');
+            btn.classList.toggle('fa-chevron-down');
+            btn.classList.toggle('fa-chevron-up');
+        });
+    });
+</script>
+{% endblock %}
