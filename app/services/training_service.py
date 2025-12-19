@@ -115,6 +115,6 @@ class TrainingService:
             "total_days": total_days,
             "progress_percent": round((current_day / MAX_TRAINING_DAY) * 100, 1),
             "current_title": current_title,
-            "persona": user.persona.value if user.persona else None,
+            "persona": user.persona if user.persona else None,
             "is_completed": current_day > MAX_TRAINING_DAY
         }

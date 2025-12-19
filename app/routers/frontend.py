@@ -26,7 +26,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # 計算統計資料
     total_users = len(users)
-    active_users = len([u for u in users if u.status.value == "Active"])
+    active_users = len([u for u in users if u.status == "Active"])
     completed_users = len([u for u in users if u.current_day > 14])
 
     # 各天數的用戶分佈
@@ -39,8 +39,8 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     persona_distribution = {"A_無經驗": 0, "B_有經驗": 0, "未分類": 0}
     for user in users:
         if user.persona:
-            persona_distribution[user.persona.value] = (
-                persona_distribution.get(user.persona.value, 0) + 1
+            persona_distribution[user.persona] = (
+                persona_distribution.get(user.persona, 0) + 1
             )
         else:
             persona_distribution["未分類"] += 1
