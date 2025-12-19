@@ -1,18 +1,18 @@
 import json
 import re
-from openai import OpenAI
+from anthropic import Anthropic
 from app.config import get_settings
 from app.schemas.ai_response import AIResponse
 from app.models.user import Persona
 
 
 class AIService:
-    """AI 服務（GPT 串接與評分）"""
+    """AI 服務（Claude 串接與評分）"""
 
     def __init__(self):
         settings = get_settings()
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
+        self.client = Anthropic(api_key=settings.anthropic_api_key)
+        self.model = settings.claude_model
 
     def generate_response(
         self,
@@ -22,7 +22,7 @@ class AIService:
         conversation_history: list[dict] | None = None,
     ) -> AIResponse:
         """
-        呼叫 GPT 產生回覆
+        呼叫 Claude 產生回覆
 
         Args:
             prompt: 當天的訓練 prompt
@@ -37,7 +37,7 @@ class AIService:
         system_prompt = self._build_system_prompt(prompt, persona)
 
         # 建立訊息列表
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = []
 
         # 加入對話歷史（如果有）
         if conversation_history:
@@ -46,16 +46,16 @@ class AIService:
         # 加入用戶訊息
         messages.append({"role": "user", "content": user_message})
 
-        # 呼叫 GPT
-        response = self.client.chat.completions.create(
+        # 呼叫 Claude
+        response = self.client.messages.create(
             model=self.model,
-            messages=messages,
-            temperature=0.7,
             max_tokens=1000,
+            system=system_prompt,
+            messages=messages,
         )
 
         # 解析回應
-        content = response.choices[0].message.content
+        content = response.content[0].text
         return self._parse_response(content)
 
     def _build_system_prompt(self, prompt: str, persona: Persona | None) -> str:
@@ -110,26 +110,23 @@ class AIService:
         """
         使用 AI 分類用戶 Persona（更精準的分類方式）
         """
-        prompt = """你是一個用戶分類專家。根據新人的第一句話，判斷他是：
+        system_prompt = """你是一個用戶分類專家。根據新人的第一句話，判斷他是：
 
 A. 無經驗新人（特徵：擔心安全、害怕、問基本問題、對行業不了解）
 B. 有經驗新人（特徵：問待遇、抽成、比較其他店、使用行業術語）
 
-請只回覆 "A" 或 "B"，不要有其他內容。
+請只回覆 "A" 或 "B"，不要有其他內容。"""
 
-新人的訊息："""
-
-        response = self.client.chat.completions.create(
+        response = self.client.messages.create(
             model=self.model,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": first_message}
-            ],
-            temperature=0.3,
             max_tokens=10,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": f"新人的訊息：{first_message}"}
+            ],
         )
 
-        result = response.choices[0].message.content.strip().upper()
+        result = response.content[0].text.strip().upper()
 
         if "B" in result:
             return Persona.B_HAS_EXPERIENCE

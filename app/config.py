@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     line_channel_access_token: str = ""
     line_channel_secret: str = ""
 
-    # OpenAI 設定
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
+    # Anthropic Claude 設定
+    anthropic_api_key: str = ""
+    claude_model: str = "claude-sonnet-4-20250514"
 
     # 資料庫設定
     database_url: str = "sqlite:///./aicoach.db"
