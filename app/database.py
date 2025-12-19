@@ -35,4 +35,5 @@ def get_db():
 def init_db():
     """初始化資料庫（建立所有表）"""
     from app.models import user, day, message  # noqa: F401
-    Base.metadata.create_all(bind=engine)
+    # checkfirst=True: 如果表已存在就跳過，避免多 worker 競爭問題
+    Base.metadata.create_all(bind=engine, checkfirst=True)
