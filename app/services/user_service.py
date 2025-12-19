@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.user import User, UserStatus, Persona
 from typing import Optional
-import re
 
 
 class UserService:
@@ -20,7 +19,7 @@ class UserService:
             line_user_id=line_user_id,
             name=name,
             current_day=0,
-            status=UserStatus.ACTIVE,
+            status=UserStatus.ACTIVE.value,
         )
         self.db.add(user)
         self.db.commit()
@@ -44,14 +43,14 @@ class UserService:
         self.db.refresh(user)
         return user
 
-    def set_persona(self, user: User, persona: Persona) -> User:
+    def set_persona(self, user: User, persona: str) -> User:
         """設定用戶 Persona（經驗類別）"""
         user.persona = persona
         self.db.commit()
         self.db.refresh(user)
         return user
 
-    def classify_persona(self, user: User, first_message: str) -> Persona:
+    def classify_persona(self, user: User, first_message: str) -> str:
         """
         根據用戶第一句話分類 Persona
 
@@ -88,9 +87,9 @@ class UserService:
 
         # 判斷 Persona
         if exp_score > inexp_score:
-            persona = Persona.B_HAS_EXPERIENCE
+            persona = Persona.B_HAS_EXPERIENCE.value
         else:
-            persona = Persona.A_NO_EXPERIENCE
+            persona = Persona.A_NO_EXPERIENCE.value
 
         # 更新用戶 Persona
         return self.set_persona(user, persona).persona
@@ -101,4 +100,4 @@ class UserService:
 
     def get_active_users(self) -> list[User]:
         """取得所有活躍用戶"""
-        return self.db.query(User).filter(User.status == UserStatus.ACTIVE).all()
+        return self.db.query(User).filter(User.status == UserStatus.ACTIVE.value).all()

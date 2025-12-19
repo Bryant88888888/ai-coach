@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -25,8 +25,8 @@ class User(Base):
     line_user_id = Column(String(255), unique=True, index=True, nullable=False)
     name = Column(String(100), nullable=True)
     current_day = Column(Integer, default=0)
-    status = Column(Enum(UserStatus), default=UserStatus.ACTIVE)
-    persona = Column(Enum(Persona), nullable=True)
+    status = Column(String(20), default=UserStatus.ACTIVE.value)
+    persona = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -35,3 +35,13 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(id={self.id}, line_user_id={self.line_user_id}, current_day={self.current_day})>"
+
+    @property
+    def status_enum(self) -> UserStatus:
+        """取得狀態的 Enum 值"""
+        return UserStatus(self.status) if self.status else UserStatus.ACTIVE
+
+    @property
+    def persona_enum(self) -> Persona | None:
+        """取得 Persona 的 Enum 值"""
+        return Persona(self.persona) if self.persona else None
