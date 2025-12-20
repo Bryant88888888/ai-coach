@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import webhook_router, admin_router, frontend_router
+from app.routers import webhook_router, admin_router, frontend_router, cron_router
 
 
 @asynccontextmanager
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(webhook_router)
 app.include_router(admin_router)
 app.include_router(frontend_router)
+app.include_router(cron_router)
 
 
 @app.get("/")

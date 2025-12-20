@@ -50,6 +50,11 @@ class LineService:
         # 取得或建立用戶
         user, is_new = user_service.get_or_create_user(line_user_id)
 
+        # 標記今日推送為已回覆（如果有的話）
+        from app.services.push_service import PushService
+        push_service = PushService(db)
+        push_service.mark_as_responded(user.id)
+
         # 處理訓練流程
         if is_new:
             # 新用戶：分類 Persona 並開始訓練

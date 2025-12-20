@@ -59,6 +59,57 @@
     </div>
 </div>
 
+<!-- 推送統計卡片 -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-orange-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">今日推送</p>
+                <p class="text-2xl lg:text-3xl font-bold text-gray-800">{{ push_stats.today.total }}</p>
+            </div>
+            <div class="bg-orange-100 p-3 rounded-full">
+                <i class="fas fa-paper-plane text-orange-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-green-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">今日已回覆</p>
+                <p class="text-2xl lg:text-3xl font-bold text-green-600">{{ push_stats.today.responded }}</p>
+            </div>
+            <div class="bg-green-100 p-3 rounded-full">
+                <i class="fas fa-reply text-green-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-red-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">今日未回覆</p>
+                <p class="text-2xl lg:text-3xl font-bold text-red-600">{{ push_stats.today.unresponded }}</p>
+            </div>
+            <div class="bg-red-100 p-3 rounded-full">
+                <i class="fas fa-exclamation-circle text-red-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-blue-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">本週回覆率</p>
+                <p class="text-2xl lg:text-3xl font-bold text-blue-600">{{ push_stats.week.response_rate }}%</p>
+            </div>
+            <div class="bg-blue-100 p-3 rounded-full">
+                <i class="fas fa-chart-line text-blue-600 text-xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 圖表區 -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Persona 分佈 -->
@@ -103,6 +154,54 @@
         </div>
     </div>
 </div>
+
+<!-- 未回覆推送 -->
+{% if unresponded_pushes %}
+<div class="bg-white rounded-xl shadow p-6 mb-8 border-l-4 border-red-500">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-exclamation-triangle mr-2 text-red-600"></i>未回覆推送
+            <span class="ml-2 text-sm font-normal text-gray-500">(最近 7 天)</span>
+        </h3>
+        <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+            {{ unresponded_pushes|length }} 則
+        </span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">日期</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">用戶</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Day</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">推送內容</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for push in unresponded_pushes[:10] %}
+                <tr class="hover:bg-red-50">
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ push.push_date }}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <a href="/dashboard/users/{{ push.line_user_id }}" class="text-indigo-600 hover:underline">
+                            {{ push.user_name or push.line_user_id[:8] + '...' }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="bg-gray-100 px-2 py-1 rounded">Day {{ push.training_day }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600 hidden md:table-cell max-w-xs truncate">
+                        {{ push.push_message[:50] }}...
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <!-- 最近對話 -->
 <div class="bg-white rounded-xl shadow p-6">

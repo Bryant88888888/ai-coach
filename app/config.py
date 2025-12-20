@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # 應用程式設定
     debug: bool = False
 
+    # Cron Job 設定（可選，用於驗證排程請求）
+    cron_secret: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

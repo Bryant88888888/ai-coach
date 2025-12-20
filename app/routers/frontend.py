@@ -7,6 +7,7 @@ from pathlib import Path
 from app.database import get_db
 from app.services.user_service import UserService
 from app.services.message_service import MessageService
+from app.services.push_service import PushService
 from app.data.days_data import get_all_days, get_day_data
 
 # 設定模板目錄
@@ -21,6 +22,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     """儀表板首頁"""
     user_service = UserService(db)
     message_service = MessageService(db)
+    push_service = PushService(db)
 
     users = user_service.get_all_users()
 
@@ -57,11 +59,19 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     # 取得最近對話
     recent_messages = message_service.get_recent_messages(hours=24)
 
+    # 取得推送統計
+    push_stats = push_service.get_push_stats()
+
+    # 取得未回覆的推送
+    unresponded_pushes = push_service.get_unresponded_pushes(days=7)
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "active_page": "dashboard",
         "stats": stats,
-        "recent_messages": recent_messages
+        "recent_messages": recent_messages,
+        "push_stats": push_stats,
+        "unresponded_pushes": unresponded_pushes
     })
 
 
