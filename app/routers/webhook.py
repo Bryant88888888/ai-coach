@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.line_service import LineService
+from app.services.user_service import UserService
+from app.services.push_service import PushService
 
 router = APIRouter(prefix="/webhook", tags=["LINE Webhook"])
 
@@ -28,6 +30,34 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
     handler = line_service.get_handler()
 
     try:
+        # 註冊加好友事件處理器
+        @handler.add(FollowEvent)
+        def handle_follow(event: FollowEvent):
+            """
+            處理加好友事件
+
+            當用戶加入好友時：
+            1. 建立用戶記錄
+            2. 立即發送 Day 0 開場白
+            3. 記錄推送
+            """
+            line_user_id = event.source.user_id
+
+            # 建立用戶
+            user_service = UserService(db)
+            user, is_new = user_service.get_or_create_user(line_user_id)
+
+            if is_new:
+                # 新用戶：立即推送 Day 0 開場白
+                push_service = PushService(db)
+                push_service.push_to_user(user)
+                print(f"✅ 新用戶加入: {line_user_id}, 已發送 Day 0 開場白")
+            else:
+                # 舊用戶回歸，發送當前進度的課程
+                push_service = PushService(db)
+                push_service.push_to_user(user)
+                print(f"👋 舊用戶回歸: {line_user_id}, Day {user.current_day}")
+
         # 註冊訊息處理器
         @handler.add(MessageEvent, message=TextMessageContent)
         def handle_text_message(event: MessageEvent):
@@ -44,7 +74,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
     except InvalidSignatureError:
         raise HTTPException(status_code=400, detail="Invalid signature")
     except Exception as e:
-        # 記錄錯誤但不中斷
+        # 記錯錯誤但不中斷
         print(f"Error handling webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
