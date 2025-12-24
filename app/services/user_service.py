@@ -44,8 +44,21 @@ class UserService:
         return user
 
     def set_persona(self, user: User, persona: str) -> User:
-        """設定用戶 Persona（經驗類別）"""
-        user.persona = persona
+        """
+        設定用戶 Persona（經驗類別）
+
+        Args:
+            user: 用戶物件
+            persona: "A" 或 "B" 或完整值
+        """
+        # 轉換為完整的 Persona 值
+        if persona == "A":
+            user.persona = Persona.A_NO_EXPERIENCE.value
+        elif persona == "B":
+            user.persona = Persona.B_HAS_EXPERIENCE.value
+        else:
+            user.persona = persona
+
         self.db.commit()
         self.db.refresh(user)
         return user

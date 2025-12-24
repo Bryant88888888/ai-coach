@@ -25,6 +25,7 @@ class User(Base):
     line_user_id = Column(String(255), unique=True, index=True, nullable=False)
     name = Column(String(100), nullable=True)
     current_day = Column(Integer, default=0)
+    current_round = Column(Integer, default=0)  # 當天訓練的對話輪數
     status = Column(String(20), default=UserStatus.ACTIVE.value)
     persona = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

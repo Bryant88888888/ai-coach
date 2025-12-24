@@ -72,24 +72,29 @@ class LineService:
         """
         格式化回覆訊息
 
-        包含：
-        1. AI 的回覆內容
-        2. 如果通過，顯示進度資訊
+        多輪對話：
+        - is_final=False: 只回覆 AI 的對話內容
+        - is_final=True: 顯示評分結果
         """
         ai_response = result.ai_response
 
         # 基本回覆
         reply = ai_response.reply
 
-        # 如果通過，加上進度資訊
-        if ai_response.pass_ and not result.is_completed:
-            reply += f"\n\n✅ 通過！分數：{ai_response.score}\n"
-            reply += f"📚 進度：Day {result.current_day} → Day {result.next_day}"
-        elif ai_response.pass_ and result.is_completed:
-            reply += "\n\n🎉 恭喜完成所有訓練！"
-        elif not ai_response.pass_:
-            reply += f"\n\n❌ 未通過，請再試一次\n"
-            reply += f"💡 提示：{ai_response.reason}"
+        # 如果是最終評分
+        if ai_response.is_final:
+            if ai_response.pass_ and not result.is_completed:
+                reply += f"\n\n✅ 通過！分數：{ai_response.score}\n"
+                reply += f"📚 進度：Day {result.current_day} → Day {result.next_day}"
+                if ai_response.reason:
+                    reply += f"\n💬 評語：{ai_response.reason}"
+            elif ai_response.pass_ and result.is_completed:
+                reply += "\n\n🎉 恭喜完成所有訓練！"
+            elif not ai_response.pass_:
+                reply += f"\n\n❌ 本輪未通過\n"
+                reply += f"💡 原因：{ai_response.reason}\n"
+                reply += f"📝 分數：{ai_response.score}\n"
+                reply += "明天會再發送同一天的訓練，加油！"
 
         return reply
 

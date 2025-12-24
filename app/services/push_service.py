@@ -1,7 +1,6 @@
 from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from anthropic import Anthropic
 from linebot.v3.messaging import (
     Configuration,
     ApiClient,
@@ -25,8 +24,6 @@ class PushService:
     def __init__(self, db: Session):
         self.db = db
         settings = get_settings()
-        self.client = Anthropic(api_key=settings.anthropic_api_key)
-        self.model = settings.claude_model
         self.line_config = Configuration(access_token=settings.line_channel_access_token)
 
     def _send_push_message(self, user_id: str, message: str) -> None:
@@ -68,52 +65,39 @@ class PushService:
         )
         return existing is not None
 
-    def generate_opening_message(self, day: int, persona: str | None) -> str:
+    def get_opening_message(self, day: int, persona: str | None) -> str:
         """
-        使用 AI 生成當日訓練的開場訊息
+        取得當日訓練的固定開場白
 
-        根據每天的主題，生成一個擬真的客人/教官開場白
+        Args:
+            day: 訓練天數
+            persona: 用戶 Persona（包含 "A" 或 "B"）
+
+        Returns:
+            固定的開場白訊息
         """
         day_data = get_day_data(day)
         if not day_data:
-            return "你好，今天的訓練開始了！"
+            return "你好，準備開始今天的訓練了嗎？"
 
-        # 建立系統提示，讓 AI 生成開場白
-        system_prompt = f"""你是一個角色扮演專家。根據以下訓練主題，生成一個開場白。
+        # Day 0 是純教學
+        if day_data.get("type") == "teaching":
+            return day_data.get("teaching_content", "")
 
-## 訓練主題：{day_data['title']}
-## 訓練目標：{day_data['goal']}
+        # 判斷 Persona 字母
+        persona_letter = "a"  # 預設
+        if persona and "B" in persona:
+            persona_letter = "b"
 
-## 任務
-請生成一個開場訊息，這個訊息會發送給正在接受訓練的新人。
+        # 取得對應 Persona 的開場白
+        opening_key = f"opening_{persona_letter}"
+        opening = day_data.get(opening_key, "")
 
-根據不同的訓練天數，你要扮演不同的角色：
-- Day 0-6：扮演「資深訓練教官」，用溫和但專業的口吻開始今天的教學
-- Day 7-12：扮演「模擬客人」，用自然的口吻開始對話
-- Day 13-14：扮演「刁難型客人」，用試探的口吻開始對話
-
-## 用戶經驗
-{"無經驗新人 - 請更溫和親切" if persona and "A" in persona else "有經驗新人 - 可以直接專業"}
-
-## 規則
-1. 只輸出開場白內容，不要有任何其他說明
-2. 開場白要自然、口語化，像真人說話
-3. 長度控制在 50-150 字之間
-4. 不要使用 emoji
-5. 如果是教官角色，可以適當提及今天要教什麼
-6. 如果是客人角色，就直接開始模擬對話
-"""
-
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=300,
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": f"請生成 Day {day}「{day_data['title']}」的開場白"}
-            ],
-        )
-
-        return response.content[0].text.strip()
+        if opening:
+            return opening
+        else:
+            # 如果沒有對應的開場白，使用 A 版本
+            return day_data.get("opening_a", "準備開始今天的訓練！")
 
     def push_to_user(self, user: User) -> dict:
         """
@@ -132,8 +116,8 @@ class PushService:
             }
 
         try:
-            # 生成開場訊息
-            opening_message = self.generate_opening_message(
+            # 取得固定開場訊息
+            opening_message = self.get_opening_message(
                 user.current_day,
                 user.persona
             )
