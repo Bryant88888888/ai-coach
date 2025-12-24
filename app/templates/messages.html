@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}對話記錄 - AI 新人訓練系統{% endblock %}
+{% block title %}對話記錄 - 寶格教育訓練{% endblock %}
 
 {% block content %}
 <div class="mb-6">
@@ -44,7 +44,7 @@
             <div class="flex items-center gap-3">
                 <a href="/dashboard/users/{{ msg.user.line_user_id }}"
                    class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
-                    <i class="fas fa-user mr-1"></i>{{ msg.user.line_user_id[:12] }}...
+                    <i class="fas fa-user mr-1"></i>{{ msg.user.name or msg.user.line_user_id[:12] + '...' }}
                 </a>
                 <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm">Day {{ msg.training_day }}</span>
             </div>

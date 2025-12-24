@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}用戶列表 - AI 新人訓練系統{% endblock %}
+{% block title %}用戶列表 - 寶格教育訓練{% endblock %}
 
 {% block content %}
 <div class="mb-6">
@@ -12,7 +12,7 @@
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-6">
     <div class="flex flex-col md:flex-row gap-4">
         <div class="flex-1">
-            <input type="text" id="search-input" placeholder="搜尋 LINE User ID..."
+            <input type="text" id="search-input" placeholder="搜尋用戶名稱..."
                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]">
         </div>
         <div class="flex gap-2">
@@ -49,6 +49,7 @@
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 user-row"
                     data-persona="{{ user.persona if user.persona else '' }}"
                     data-status="{{ user.status }}"
+                    data-name="{{ user.name or '' }}"
                     data-line-id="{{ user.line_user_id }}">
                     <td class="px-4 py-4">
                         <div>
@@ -126,10 +127,11 @@
 
         rows.forEach(row => {
             const lineId = row.dataset.lineId.toLowerCase();
+            const userName = row.dataset.name.toLowerCase();
             const rowPersona = row.dataset.persona;
             const rowStatus = row.dataset.status;
 
-            const matchSearch = lineId.includes(search);
+            const matchSearch = userName.includes(search) || lineId.includes(search);
             const matchPersona = !persona || rowPersona === persona;
             const matchStatus = !status || rowStatus === status;
 

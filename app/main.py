@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from app.config import get_settings
 from app.database import init_db
@@ -28,11 +30,15 @@ settings = get_settings()
 
 # 建立 FastAPI 應用程式
 app = FastAPI(
-    title="AI 新人訓練系統",
+    title="寶格教育訓練",
     description="透過 LINE Chatbot 進行新人訓練、話術演練、安全教育的 AI 系統",
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# 掛載靜態檔案
+static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # 設定 Session（認證用）
 app.add_middleware(
