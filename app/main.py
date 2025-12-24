@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
@@ -33,6 +34,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 設定 Session（認證用）
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    max_age=86400 * 7,  # 7 天
+)
+
 # 設定 CORS（跨域請求）
 app.add_middleware(
     CORSMiddleware,
@@ -50,9 +58,11 @@ app.include_router(cron_router)
 
 
 @app.get("/")
-async def root():
-    """根路徑 - 重導向到儀表板"""
-    return RedirectResponse(url="/dashboard")
+async def root(request: Request):
+    """根路徑 - 重導向到儀表板或登入頁"""
+    if request.session.get("authenticated"):
+        return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/login")
 
 
 @app.get("/health")

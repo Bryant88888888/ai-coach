@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request, Depends, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -8,6 +8,7 @@ from app.database import get_db
 from app.services.user_service import UserService
 from app.services.message_service import MessageService
 from app.services.push_service import PushService
+from app.services.auth_service import AuthService
 from app.data.days_data import get_all_days, get_day_data
 
 # 設定模板目錄
@@ -17,9 +18,50 @@ templates = Jinja2Templates(directory=str(templates_dir))
 router = APIRouter(tags=["前端頁面"])
 
 
+def require_auth(request: Request):
+    """檢查是否已登入"""
+    if not request.session.get("authenticated"):
+        return False
+    return True
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """登入頁面"""
+    # 如果已登入，直接跳轉到儀表板
+    if request.session.get("authenticated"):
+        return RedirectResponse(url="/dashboard", status_code=303)
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@router.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    """處理登入"""
+    auth_service = AuthService()
+    if auth_service.verify_credentials(username, password):
+        request.session["authenticated"] = True
+        request.session["username"] = username
+        return RedirectResponse(url="/dashboard", status_code=303)
+    else:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "帳號或密碼錯誤"
+        })
+
+
+@router.get("/logout")
+async def logout(request: Request):
+    """登出"""
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
     """儀表板首頁"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     user_service = UserService(db)
     message_service = MessageService(db)
     push_service = PushService(db)
@@ -78,6 +120,9 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 @router.get("/dashboard/users", response_class=HTMLResponse)
 async def users_list(request: Request, db: Session = Depends(get_db)):
     """用戶列表頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     user_service = UserService(db)
     users = user_service.get_all_users()
 
@@ -91,6 +136,9 @@ async def users_list(request: Request, db: Session = Depends(get_db)):
 @router.get("/dashboard/users/{line_user_id}", response_class=HTMLResponse)
 async def user_detail(request: Request, line_user_id: str, db: Session = Depends(get_db)):
     """用戶詳情頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     user_service = UserService(db)
     message_service = MessageService(db)
 
@@ -116,6 +164,9 @@ async def user_detail(request: Request, line_user_id: str, db: Session = Depends
 @router.get("/dashboard/messages", response_class=HTMLResponse)
 async def messages_list(request: Request, db: Session = Depends(get_db)):
     """對話記錄頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     message_service = MessageService(db)
     messages = message_service.get_all_messages(limit=200)
 
@@ -129,6 +180,9 @@ async def messages_list(request: Request, db: Session = Depends(get_db)):
 @router.get("/dashboard/days", response_class=HTMLResponse)
 async def days_list(request: Request):
     """課程管理頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     days = []
     for d in get_all_days():
         day_data = get_day_data(d["day"])
@@ -139,4 +193,70 @@ async def days_list(request: Request):
         "request": request,
         "active_page": "days",
         "days": days
+    })
+
+
+@router.get("/dashboard/days/{day}/edit", response_class=HTMLResponse)
+async def day_edit_page(request: Request, day: int):
+    """課程編輯頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    day_data = get_day_data(day)
+    if not day_data:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": f"Day {day} 不存在"
+        }, status_code=404)
+
+    return templates.TemplateResponse("day_edit.html", {
+        "request": request,
+        "active_page": "days",
+        "day": day_data
+    })
+
+
+@router.post("/dashboard/days/{day}/edit")
+async def day_edit_save(
+    request: Request,
+    day: int,
+    title: str = Form(...),
+    goal: str = Form(...),
+    opening_a: str = Form(None),
+    opening_b: str = Form(None),
+    criteria: str = Form(None),
+    min_rounds: int = Form(3),
+    max_rounds: int = Form(5),
+    teaching_content: str = Form(None)
+):
+    """儲存課程編輯"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    day_data = get_day_data(day)
+    if not day_data:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": f"Day {day} 不存在"
+        }, status_code=404)
+
+    # 更新 day_data（顯示用）
+    day_data["title"] = title
+    day_data["goal"] = goal
+    day_data["opening_a"] = opening_a
+    day_data["opening_b"] = opening_b
+    day_data["criteria"] = [c.strip() for c in criteria.split("\n") if c.strip()] if criteria else []
+    day_data["min_rounds"] = min_rounds
+    day_data["max_rounds"] = max_rounds
+    day_data["teaching_content"] = teaching_content
+
+    # 注意：目前資料儲存在 days_data.py 中（靜態檔案）
+    # 實際修改需要透過資料庫儲存，這裡僅顯示成功訊息
+    # TODO: 實作資料庫儲存功能
+
+    return templates.TemplateResponse("day_edit.html", {
+        "request": request,
+        "active_page": "days",
+        "day": day_data,
+        "success": True
     })

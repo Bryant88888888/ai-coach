@@ -4,25 +4,25 @@
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">對話記錄</h1>
-    <p class="text-gray-600 mt-1">查看所有新人的對話紀錄</p>
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">對話記錄</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">查看所有新人的對話紀錄</p>
 </div>
 
 <!-- 篩選區 -->
-<div class="bg-white rounded-xl shadow p-4 mb-6">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-6">
     <div class="flex flex-col md:flex-row gap-4">
         <div class="flex-1">
             <input type="text" id="search-input" placeholder="搜尋用戶或訊息內容..."
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
         </div>
         <div class="flex gap-2 flex-wrap">
-            <select id="filter-day" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+            <select id="filter-day" class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 <option value="">所有天數</option>
                 {% for d in range(15) %}
                 <option value="{{ d }}">Day {{ d }}</option>
                 {% endfor %}
             </select>
-            <select id="filter-status" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+            <select id="filter-status" class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 <option value="">所有狀態</option>
                 <option value="passed">通過</option>
                 <option value="failed">未通過</option>
@@ -34,37 +34,37 @@
 <!-- 對話列表 -->
 <div class="space-y-4" id="messages-list">
     {% for msg in messages %}
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6 message-card"
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 message-card"
          data-day="{{ msg.training_day }}"
          data-passed="{{ 'passed' if msg.passed else 'failed' }}"
          data-content="{{ msg.user_message|lower }} {{ msg.ai_reply|lower }}">
 
         <!-- 標頭資訊 -->
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b dark:border-gray-700">
             <div class="flex items-center gap-3">
                 <a href="/dashboard/users/{{ msg.user.line_user_id }}"
-                   class="text-indigo-600 hover:underline font-medium">
+                   class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
                     <i class="fas fa-user mr-1"></i>{{ msg.user.line_user_id[:12] }}...
                 </a>
-                <span class="bg-gray-100 px-2 py-1 rounded text-sm">Day {{ msg.training_day }}</span>
+                <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm">Day {{ msg.training_day }}</span>
             </div>
             <div class="flex items-center gap-2">
                 {% if msg.passed %}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">
                     <i class="fas fa-check mr-1"></i>通過
                 </span>
                 {% else %}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300">
                     <i class="fas fa-times mr-1"></i>未通過
                 </span>
                 {% endif %}
                 <span class="px-2 py-1 rounded text-xs font-medium
-                    {% if msg.score >= 80 %}bg-green-100 text-green-800
-                    {% elif msg.score >= 60 %}bg-yellow-100 text-yellow-800
-                    {% else %}bg-red-100 text-red-800{% endif %}">
+                    {% if msg.score >= 80 %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300
+                    {% elif msg.score >= 60 %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300
+                    {% else %}bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300{% endif %}">
                     {{ msg.score }} 分
                 </span>
-                <span class="text-gray-500 text-sm">{{ msg.created_at.strftime('%m/%d %H:%M') }}</span>
+                <span class="text-gray-500 dark:text-gray-400 text-sm">{{ msg.created_at.strftime('%m/%d %H:%M') }}</span>
             </div>
         </div>
 
@@ -73,33 +73,33 @@
             <!-- 用戶訊息 -->
             <div>
                 <div class="flex items-center mb-2">
-                    <div class="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center mr-2">
-                        <i class="fas fa-user text-gray-500 text-xs"></i>
+                    <div class="w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center mr-2">
+                        <i class="fas fa-user text-gray-500 dark:text-gray-300 text-xs"></i>
                     </div>
-                    <span class="text-sm font-medium text-gray-600">用戶訊息</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">用戶訊息</span>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-3">
-                    <p class="text-gray-800 break-words">{{ msg.user_message }}</p>
+                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                    <p class="text-gray-800 dark:text-gray-200 break-words">{{ msg.user_message }}</p>
                 </div>
             </div>
 
             <!-- AI 回覆 -->
             <div>
                 <div class="flex items-center mb-2">
-                    <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center mr-2">
-                        <i class="fas fa-robot text-indigo-600 text-xs"></i>
+                    <div class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-2">
+                        <i class="fas fa-robot text-indigo-600 dark:text-indigo-400 text-xs"></i>
                     </div>
-                    <span class="text-sm font-medium text-gray-600">AI 回覆</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">AI 回覆</span>
                 </div>
-                <div class="bg-indigo-50 rounded-lg p-3">
-                    <p class="text-gray-800 break-words whitespace-pre-wrap">{{ msg.ai_reply[:300] }}{% if msg.ai_reply|length > 300 %}...{% endif %}</p>
+                <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-3">
+                    <p class="text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap">{{ msg.ai_reply[:300] }}{% if msg.ai_reply|length > 300 %}...{% endif %}</p>
                 </div>
             </div>
         </div>
 
         <!-- 評分原因 -->
         {% if msg.reason %}
-        <div class="mt-3 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2">
+        <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded px-3 py-2">
             <i class="fas fa-lightbulb text-yellow-500 mr-1"></i>{{ msg.reason }}
         </div>
         {% endif %}
@@ -108,7 +108,7 @@
 </div>
 
 {% if not messages %}
-<div class="bg-white rounded-xl shadow p-12 text-center text-gray-500">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center text-gray-500 dark:text-gray-400">
     <i class="fas fa-comments text-5xl mb-4"></i>
     <p class="text-lg">尚無對話記錄</p>
 </div>

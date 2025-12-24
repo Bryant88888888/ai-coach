@@ -4,56 +4,56 @@
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">儀表板</h1>
-    <p class="text-gray-600 mt-1">系統總覽與統計</p>
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">儀表板</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">系統總覽與統計</p>
 </div>
 
 <!-- 統計卡片 -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">總用戶數</p>
-                <p class="text-2xl lg:text-3xl font-bold text-gray-800">{{ stats.total_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">總用戶數</p>
+                <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">{{ stats.total_users }}</p>
             </div>
-            <div class="bg-indigo-100 p-3 rounded-full">
-                <i class="fas fa-users text-indigo-600 text-xl"></i>
+            <div class="bg-indigo-100 dark:bg-indigo-900/50 p-3 rounded-full">
+                <i class="fas fa-users text-indigo-600 dark:text-indigo-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">活躍用戶</p>
-                <p class="text-2xl lg:text-3xl font-bold text-green-600">{{ stats.active_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">活躍用戶</p>
+                <p class="text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.active_users }}</p>
             </div>
-            <div class="bg-green-100 p-3 rounded-full">
-                <i class="fas fa-user-check text-green-600 text-xl"></i>
+            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-full">
+                <i class="fas fa-user-check text-green-600 dark:text-green-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">已完成訓練</p>
-                <p class="text-2xl lg:text-3xl font-bold text-blue-600">{{ stats.completed_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">已完成訓練</p>
+                <p class="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.completed_users }}</p>
             </div>
-            <div class="bg-blue-100 p-3 rounded-full">
-                <i class="fas fa-graduation-cap text-blue-600 text-xl"></i>
+            <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full">
+                <i class="fas fa-graduation-cap text-blue-600 dark:text-blue-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">完成率</p>
-                <p class="text-2xl lg:text-3xl font-bold text-purple-600">{{ stats.completion_rate }}%</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">完成率</p>
+                <p class="text-2xl lg:text-3xl font-bold text-purple-600 dark:text-purple-400">{{ stats.completion_rate }}%</p>
             </div>
-            <div class="bg-purple-100 p-3 rounded-full">
-                <i class="fas fa-percentage text-purple-600 text-xl"></i>
+            <div class="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-full">
+                <i class="fas fa-percentage text-purple-600 dark:text-purple-400 text-xl"></i>
             </div>
         </div>
     </div>
@@ -61,50 +61,50 @@
 
 <!-- 推送統計卡片 -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-orange-500">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-orange-500">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">今日推送</p>
-                <p class="text-2xl lg:text-3xl font-bold text-gray-800">{{ push_stats.today.total }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日推送</p>
+                <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">{{ push_stats.today.total }}</p>
             </div>
-            <div class="bg-orange-100 p-3 rounded-full">
-                <i class="fas fa-paper-plane text-orange-600 text-xl"></i>
+            <div class="bg-orange-100 dark:bg-orange-900/50 p-3 rounded-full">
+                <i class="fas fa-paper-plane text-orange-600 dark:text-orange-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-green-500">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-green-500">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">今日已回覆</p>
-                <p class="text-2xl lg:text-3xl font-bold text-green-600">{{ push_stats.today.responded }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日已回覆</p>
+                <p class="text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">{{ push_stats.today.responded }}</p>
             </div>
-            <div class="bg-green-100 p-3 rounded-full">
-                <i class="fas fa-reply text-green-600 text-xl"></i>
+            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-full">
+                <i class="fas fa-reply text-green-600 dark:text-green-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-red-500">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-red-500">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">今日未回覆</p>
-                <p class="text-2xl lg:text-3xl font-bold text-red-600">{{ push_stats.today.unresponded }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日未回覆</p>
+                <p class="text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-400">{{ push_stats.today.unresponded }}</p>
             </div>
-            <div class="bg-red-100 p-3 rounded-full">
-                <i class="fas fa-exclamation-circle text-red-600 text-xl"></i>
+            <div class="bg-red-100 dark:bg-red-900/50 p-3 rounded-full">
+                <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-xl"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow p-4 lg:p-6 border-l-4 border-blue-500">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-blue-500">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 text-sm">本週回覆率</p>
-                <p class="text-2xl lg:text-3xl font-bold text-blue-600">{{ push_stats.week.response_rate }}%</p>
+                <p class="text-gray-500 dark:text-gray-400 text-sm">本週回覆率</p>
+                <p class="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400">{{ push_stats.week.response_rate }}%</p>
             </div>
-            <div class="bg-blue-100 p-3 rounded-full">
-                <i class="fas fa-chart-line text-blue-600 text-xl"></i>
+            <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full">
+                <i class="fas fa-chart-line text-blue-600 dark:text-blue-400 text-xl"></i>
             </div>
         </div>
     </div>
@@ -113,18 +113,18 @@
 <!-- 圖表區 -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Persona 分佈 -->
-    <div class="bg-white rounded-xl shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">
-            <i class="fas fa-chart-pie mr-2 text-indigo-600"></i>Persona 分佈
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-chart-pie mr-2 text-indigo-600 dark:text-indigo-400"></i>Persona 分佈
         </h3>
         <div class="space-y-4">
             {% for persona, count in stats.persona_distribution.items() %}
             <div>
                 <div class="flex justify-between mb-1">
-                    <span class="text-gray-600">{{ persona }}</span>
-                    <span class="font-semibold">{{ count }} 人</span>
+                    <span class="text-gray-600 dark:text-gray-300">{{ persona }}</span>
+                    <span class="font-semibold text-gray-800 dark:text-white">{{ count }} 人</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-3">
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                     {% set percentage = (count / stats.total_users * 100) if stats.total_users > 0 else 0 %}
                     <div class="h-3 rounded-full {% if 'A' in persona %}bg-pink-500{% elif 'B' in persona %}bg-blue-500{% else %}bg-gray-400{% endif %}"
                          style="width: {{ percentage }}%"></div>
@@ -135,20 +135,20 @@
     </div>
 
     <!-- 各天進度分佈 -->
-    <div class="bg-white rounded-xl shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">
-            <i class="fas fa-chart-bar mr-2 text-indigo-600"></i>訓練進度分佈
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-chart-bar mr-2 text-indigo-600 dark:text-indigo-400"></i>訓練進度分佈
         </h3>
         <div class="space-y-2 max-h-64 overflow-y-auto">
             {% for day in range(15) %}
             {% set count = stats.day_distribution.get(day, 0) %}
             <div class="flex items-center">
-                <span class="w-16 text-sm text-gray-600">Day {{ day }}</span>
-                <div class="flex-1 bg-gray-200 rounded-full h-4 mx-2">
+                <span class="w-16 text-sm text-gray-600 dark:text-gray-400">Day {{ day }}</span>
+                <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-4 mx-2">
                     {% set percentage = (count / stats.total_users * 100) if stats.total_users > 0 else 0 %}
                     <div class="h-4 rounded-full bg-indigo-500" style="width: {{ percentage }}%"></div>
                 </div>
-                <span class="w-12 text-right text-sm font-medium">{{ count }}</span>
+                <span class="w-12 text-right text-sm font-medium text-gray-800 dark:text-white">{{ count }}</span>
             </div>
             {% endfor %}
         </div>
@@ -157,42 +157,42 @@
 
 <!-- 未回覆推送 -->
 {% if unresponded_pushes %}
-<div class="bg-white rounded-xl shadow p-6 mb-8 border-l-4 border-red-500">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8 border-l-4 border-red-500">
     <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">
-            <i class="fas fa-exclamation-triangle mr-2 text-red-600"></i>未回覆推送
-            <span class="ml-2 text-sm font-normal text-gray-500">(最近 7 天)</span>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-exclamation-triangle mr-2 text-red-600 dark:text-red-400"></i>未回覆推送
+            <span class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">(最近 7 天)</span>
         </h3>
-        <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+        <span class="bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 px-3 py-1 rounded-full text-sm font-medium">
             {{ unresponded_pushes|length }} 則
         </span>
     </div>
 
     <div class="overflow-x-auto">
         <table class="w-full">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">日期</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">用戶</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Day</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">推送內容</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">日期</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Day</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">推送內容</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for push in unresponded_pushes[:10] %}
-                <tr class="hover:bg-red-50">
-                    <td class="px-4 py-3 text-sm text-gray-600">
+                <tr class="hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                         {{ push.push_date }}
                     </td>
                     <td class="px-4 py-3 text-sm">
-                        <a href="/dashboard/users/{{ push.line_user_id }}" class="text-indigo-600 hover:underline">
+                        <a href="/dashboard/users/{{ push.line_user_id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
                             {{ push.user_name or push.line_user_id[:8] + '...' }}
                         </a>
                     </td>
                     <td class="px-4 py-3 text-sm">
-                        <span class="bg-gray-100 px-2 py-1 rounded">Day {{ push.training_day }}</span>
+                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Day {{ push.training_day }}</span>
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-600 hidden md:table-cell max-w-xs truncate">
+                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell max-w-xs truncate">
                         {{ push.push_message[:50] }}...
                     </td>
                 </tr>
@@ -204,12 +204,12 @@
 {% endif %}
 
 <!-- 最近對話 -->
-<div class="bg-white rounded-xl shadow p-6">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
     <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">
-            <i class="fas fa-clock mr-2 text-indigo-600"></i>最近對話
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-clock mr-2 text-indigo-600 dark:text-indigo-400"></i>最近對話
         </h3>
-        <a href="/dashboard/messages" class="text-indigo-600 hover:underline text-sm">
+        <a href="/dashboard/messages" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">
             查看全部 <i class="fas fa-arrow-right ml-1"></i>
         </a>
     </div>
@@ -217,42 +217,42 @@
     {% if recent_messages %}
     <div class="overflow-x-auto">
         <table class="w-full">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">時間</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">用戶</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">Day</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">狀態</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden lg:table-cell">分數</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">時間</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">Day</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">狀態</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden lg:table-cell">分數</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for msg in recent_messages[:10] %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-600">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                         {{ msg.created_at.strftime('%m/%d %H:%M') }}
                     </td>
                     <td class="px-4 py-3 text-sm">
-                        <a href="/dashboard/users/{{ msg.user.line_user_id }}" class="text-indigo-600 hover:underline">
+                        <a href="/dashboard/users/{{ msg.user.line_user_id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
                             {{ msg.user.line_user_id[:8] }}...
                         </a>
                     </td>
                     <td class="px-4 py-3 text-sm hidden md:table-cell">
-                        <span class="bg-gray-100 px-2 py-1 rounded">Day {{ msg.training_day }}</span>
+                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Day {{ msg.training_day }}</span>
                     </td>
                     <td class="px-4 py-3">
                         {% if msg.passed %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">
                             <i class="fas fa-check mr-1"></i>通過
                         </span>
                         {% else %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300">
                             <i class="fas fa-times mr-1"></i>未通過
                         </span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-sm hidden lg:table-cell">
-                        <span class="font-medium {% if msg.score >= 80 %}text-green-600{% elif msg.score >= 60 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                        <span class="font-medium {% if msg.score >= 80 %}text-green-600 dark:text-green-400{% elif msg.score >= 60 %}text-yellow-600 dark:text-yellow-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                             {{ msg.score }}
                         </span>
                     </td>
@@ -262,7 +262,7 @@
         </table>
     </div>
     {% else %}
-    <div class="text-center py-8 text-gray-500">
+    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
         <i class="fas fa-inbox text-4xl mb-3"></i>
         <p>尚無對話記錄</p>
     </div>

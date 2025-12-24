@@ -4,83 +4,166 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI 新人訓練系統{% endblock %}</title>
+    <!-- 載入主題設定（防止閃爍） -->
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .sidebar-link.active {
             background-color: rgb(79 70 229);
             color: white;
         }
+        .dark .sidebar-link.active {
+            background-color: rgb(99 102 241);
+        }
+        /* 側邊欄摺疊狀態 */
+        .sidebar-collapsed {
+            width: 5rem !important;
+        }
+        .sidebar-collapsed .sidebar-text {
+            display: none;
+        }
+        .sidebar-collapsed .sidebar-link {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .sidebar-collapsed .sidebar-link i {
+            margin-right: 0;
+        }
+        .sidebar-collapsed .sidebar-header {
+            justify-content: center;
+        }
+        .sidebar-collapsed .sidebar-header-text {
+            display: none;
+        }
+        .main-expanded {
+            margin-left: 5rem !important;
+        }
+        /* 過渡效果 */
+        #sidebar, #main-content {
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
     <!-- 手機版導航列 -->
-    <nav class="lg:hidden bg-indigo-600 text-white p-4 flex justify-between items-center">
+    <nav class="lg:hidden bg-indigo-600 dark:bg-gray-800 text-white p-4 flex justify-between items-center sticky top-0 z-40">
         <h1 class="text-lg font-bold">AI 訓練系統</h1>
-        <button id="mobile-menu-btn" class="text-2xl">
-            <i class="fas fa-bars"></i>
-        </button>
+        <div class="flex items-center gap-2">
+            <!-- 主題切換 -->
+            <button id="mobile-theme-toggle" class="p-2 hover:bg-indigo-700 dark:hover:bg-gray-700 rounded-lg min-w-[44px] min-h-[44px]">
+                <i class="fas fa-sun dark:hidden"></i>
+                <i class="fas fa-moon hidden dark:block text-yellow-400"></i>
+            </button>
+            <!-- 選單按鈕 -->
+            <button id="mobile-menu-btn" class="p-2 hover:bg-indigo-700 dark:hover:bg-gray-700 rounded-lg min-w-[44px] min-h-[44px]">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
     </nav>
 
     <!-- 手機版側邊選單 (預設隱藏) -->
     <div id="mobile-sidebar" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
-        <div class="bg-white w-64 h-full p-4">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-indigo-600">選單</h2>
-                <button id="close-menu-btn" class="text-2xl text-gray-600">
+        <div class="bg-white dark:bg-gray-800 w-72 h-full p-4 shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b dark:border-gray-700">
+                <h2 class="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                    <i class="fas fa-robot mr-2"></i>選單
+                </h2>
+                <button id="close-menu-btn" class="text-2xl text-gray-600 dark:text-gray-400 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg min-w-[44px] min-h-[44px]">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <nav class="space-y-2">
-                <a href="/dashboard" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'dashboard' %}active{% endif %}">
-                    <i class="fas fa-chart-line mr-3"></i>儀表板
+                <a href="/dashboard" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 min-h-[44px] {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3 w-5 text-center"></i>儀表板
                 </a>
-                <a href="/dashboard/users" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'users' %}active{% endif %}">
-                    <i class="fas fa-users mr-3"></i>用戶列表
+                <a href="/dashboard/users" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 min-h-[44px] {% if active_page == 'users' %}active{% endif %}">
+                    <i class="fas fa-users mr-3 w-5 text-center"></i>用戶列表
                 </a>
-                <a href="/dashboard/messages" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'messages' %}active{% endif %}">
-                    <i class="fas fa-comments mr-3"></i>對話記錄
+                <a href="/dashboard/messages" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 min-h-[44px] {% if active_page == 'messages' %}active{% endif %}">
+                    <i class="fas fa-comments mr-3 w-5 text-center"></i>對話記錄
                 </a>
-                <a href="/dashboard/days" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 {% if active_page == 'days' %}active{% endif %}">
-                    <i class="fas fa-calendar-alt mr-3"></i>課程管理
+                <a href="/dashboard/days" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 min-h-[44px] {% if active_page == 'days' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt mr-3 w-5 text-center"></i>課程管理
                 </a>
             </nav>
+            <!-- 登出按鈕 -->
+            <div class="absolute bottom-4 left-4 right-4">
+                <a href="/logout" class="flex items-center justify-center px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 min-h-[44px]">
+                    <i class="fas fa-sign-out-alt mr-2"></i>登出
+                </a>
+            </div>
         </div>
     </div>
 
     <div class="flex">
         <!-- 電腦版側邊欄 -->
-        <aside class="hidden lg:block w-64 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-6 border-b">
-                <h1 class="text-xl font-bold text-indigo-600">
-                    <i class="fas fa-robot mr-2"></i>AI 訓練系統
-                </h1>
-                <p class="text-sm text-gray-500 mt-1">管理後台</p>
+        <aside id="sidebar" class="hidden lg:flex flex-col w-64 bg-white dark:bg-gray-800 shadow-lg min-h-screen fixed">
+            <!-- 摺疊按鈕 -->
+            <button id="sidebar-toggle" class="absolute -right-3 top-8 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 z-10">
+                <i id="collapse-icon" class="fas fa-chevron-left text-xs"></i>
+            </button>
+
+            <div class="p-6 border-b dark:border-gray-700 sidebar-header flex items-center">
+                <i class="fas fa-robot text-2xl text-indigo-600 dark:text-indigo-400"></i>
+                <div class="ml-3 sidebar-header-text">
+                    <h1 class="text-xl font-bold text-indigo-600 dark:text-indigo-400">AI 訓練系統</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">管理後台</p>
+                </div>
             </div>
-            <nav class="p-4 space-y-2">
-                <a href="/dashboard" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'dashboard' %}active{% endif %}">
-                    <i class="fas fa-chart-line mr-3"></i>儀表板
+
+            <nav class="p-4 space-y-2 flex-1">
+                <a href="/dashboard" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[44px] {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3 w-5 text-center"></i>
+                    <span class="sidebar-text">儀表板</span>
                 </a>
-                <a href="/dashboard/users" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'users' %}active{% endif %}">
-                    <i class="fas fa-users mr-3"></i>用戶列表
+                <a href="/dashboard/users" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[44px] {% if active_page == 'users' %}active{% endif %}">
+                    <i class="fas fa-users mr-3 w-5 text-center"></i>
+                    <span class="sidebar-text">用戶列表</span>
                 </a>
-                <a href="/dashboard/messages" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'messages' %}active{% endif %}">
-                    <i class="fas fa-comments mr-3"></i>對話記錄
+                <a href="/dashboard/messages" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[44px] {% if active_page == 'messages' %}active{% endif %}">
+                    <i class="fas fa-comments mr-3 w-5 text-center"></i>
+                    <span class="sidebar-text">對話記錄</span>
                 </a>
-                <a href="/dashboard/days" class="sidebar-link block px-4 py-3 rounded-lg hover:bg-indigo-100 transition {% if active_page == 'days' %}active{% endif %}">
-                    <i class="fas fa-calendar-alt mr-3"></i>課程管理
+                <a href="/dashboard/days" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[44px] {% if active_page == 'days' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt mr-3 w-5 text-center"></i>
+                    <span class="sidebar-text">課程管理</span>
                 </a>
             </nav>
+
+            <!-- 底部區域：主題切換 + 登出 -->
+            <div class="p-4 border-t dark:border-gray-700 space-y-2">
+                <button id="theme-toggle" class="sidebar-link flex items-center w-full px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[44px]">
+                    <i class="fas fa-sun dark:hidden mr-3 w-5 text-center text-yellow-500"></i>
+                    <i class="fas fa-moon hidden dark:block mr-3 w-5 text-center text-yellow-400"></i>
+                    <span class="sidebar-text dark:hidden">深色模式</span>
+                    <span class="sidebar-text hidden dark:inline">淺色模式</span>
+                </button>
+                <a href="/logout" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition min-h-[44px]">
+                    <i class="fas fa-sign-out-alt mr-3 w-5 text-center"></i>
+                    <span class="sidebar-text">登出</span>
+                </a>
+            </div>
         </aside>
 
         <!-- 主要內容區 -->
-        <main class="flex-1 lg:ml-64 p-4 lg:p-8">
+        <main id="main-content" class="flex-1 lg:ml-64 p-4 lg:p-8 min-h-screen">
             {% block content %}{% endblock %}
         </main>
     </div>
 
     <script>
-        // 手機版選單開關
+        // ===== 手機版選單 =====
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const closeMenuBtn = document.getElementById('close-menu-btn');
         const mobileSidebar = document.getElementById('mobile-sidebar');
@@ -96,6 +179,46 @@
         mobileSidebar.addEventListener('click', (e) => {
             if (e.target === mobileSidebar) {
                 mobileSidebar.classList.add('hidden');
+            }
+        });
+
+        // ===== 主題切換 =====
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        }
+
+        document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+        document.getElementById('mobile-theme-toggle')?.addEventListener('click', toggleTheme);
+
+        // ===== 側邊欄摺疊 =====
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const collapseIcon = document.getElementById('collapse-icon');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+
+        // 載入摺疊狀態
+        if (localStorage.sidebarCollapsed === 'true') {
+            sidebar.classList.add('sidebar-collapsed');
+            mainContent.classList.add('main-expanded');
+            collapseIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+        }
+
+        sidebarToggle?.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-collapsed');
+            mainContent.classList.toggle('main-expanded');
+
+            if (sidebar.classList.contains('sidebar-collapsed')) {
+                collapseIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                localStorage.sidebarCollapsed = 'true';
+            } else {
+                collapseIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                localStorage.sidebarCollapsed = 'false';
             }
         });
     </script>

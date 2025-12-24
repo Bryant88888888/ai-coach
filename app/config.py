@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # Cron Job 設定（可選，用於驗證排程請求）
     cron_secret: str = ""
 
+    # Admin 後台設定
+    admin_username: str = "admin"
+    admin_password: str = "ilovetaiwan"
+    session_secret_key: str = "aicoach-secret-key-change-in-production-2024"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
