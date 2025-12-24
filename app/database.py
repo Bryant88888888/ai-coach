@@ -45,16 +45,25 @@ def run_migrations():
     """執行資料庫遷移（加入缺少的欄位）"""
     from sqlalchemy import text, inspect
 
-    inspector = inspect(engine)
+    try:
+        inspector = inspect(engine)
 
-    # 檢查並加入 users.current_round 欄位
-    if 'users' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('users')]
+        # 檢查並加入 users.current_round 欄位
+        if 'users' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('users')]
 
-        if 'current_round' not in columns:
-            with engine.connect() as conn:
-                conn.execute(text(
-                    "ALTER TABLE users ADD COLUMN current_round INTEGER DEFAULT 0"
-                ))
-                conn.commit()
-                print("Migration: Added 'current_round' column to users table")
+            if 'current_round' not in columns:
+                try:
+                    with engine.connect() as conn:
+                        # PostgreSQL 語法：IF NOT EXISTS 避免重複加入
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 0"
+                        ))
+                        conn.commit()
+                        print("Migration: Added 'current_round' column to users table")
+                except Exception as e:
+                    # 如果欄位已存在或其他錯誤，忽略（可能另一個 worker 已經加入）
+                    print(f"Migration note: {e}")
+    except Exception as e:
+        # 避免 migration 錯誤導致應用程式無法啟動
+        print(f"Migration warning: {e}")
