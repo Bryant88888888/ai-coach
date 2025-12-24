@@ -37,3 +37,24 @@ def init_db():
     from app.models import user, day, message, push_log  # noqa: F401
     # checkfirst=True: 如果表已存在就跳過，避免多 worker 競爭問題
     Base.metadata.create_all(bind=engine, checkfirst=True)
+    # 執行資料庫遷移（加入缺少的欄位）
+    run_migrations()
+
+
+def run_migrations():
+    """執行資料庫遷移（加入缺少的欄位）"""
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(engine)
+
+    # 檢查並加入 users.current_round 欄位
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+
+        if 'current_round' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN current_round INTEGER DEFAULT 0"
+                ))
+                conn.commit()
+                print("Migration: Added 'current_round' column to users table")
