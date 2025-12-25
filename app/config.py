@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     admin_password: str = "ilovetaiwan"
     session_secret_key: str = "aicoach-secret-key-change-in-production-2024"
 
+    # LIFF 設定（LINE 前端框架）
+    liff_id: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

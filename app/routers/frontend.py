@@ -9,6 +9,7 @@ import uuid
 import os
 
 from app.database import get_db
+from app.config import get_settings
 from app.services.user_service import UserService
 from app.services.message_service import MessageService
 from app.services.push_service import PushService
@@ -300,13 +301,12 @@ async def leave_manage(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/leave", response_class=HTMLResponse)
 async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
-    """請假申請表單頁面（員工用，不需登入）"""
-    user_service = UserService(db)
-    users = user_service.get_all_users()
+    """請假申請表單頁面（員工用，需 LINE 登入）"""
+    settings = get_settings()
 
     return templates.TemplateResponse("leave_form.html", {
         "request": request,
-        "users": users,
+        "liff_id": settings.liff_id,
         "is_public": True
     })
 
@@ -315,17 +315,24 @@ async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
 async def leave_apply_submit(
     request: Request,
     db: Session = Depends(get_db),
-    user_id: int = Form(...),
+    line_user_id: str = Form(...),
+    line_user_name: str = Form(...),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
     reason: str = Form(None),
     proof_file: UploadFile = File(None)
 ):
-    """提交請假申請（員工用，不需登入）"""
+    """提交請假申請（員工用，透過 LINE 登入）"""
+    settings = get_settings()
     user_service = UserService(db)
-    users = user_service.get_all_users()
 
     try:
+        # 根據 LINE ID 查找或建立使用者
+        user = user_service.get_user_by_line_id(line_user_id)
+        if not user:
+            # 如果使用者不存在，建立新使用者
+            user = user_service.create_user(line_user_id, line_user_name)
+
         # 處理檔案上傳
         proof_filename = None
         if proof_file and proof_file.filename:
@@ -340,7 +347,7 @@ async def leave_apply_submit(
                 f.write(content)
 
         leave_request = LeaveRequest(
-            user_id=user_id,
+            user_id=user.id,
             leave_type=leave_type,
             leave_date=leave_date,
             reason=reason if leave_type == "事假" else None,
@@ -352,15 +359,16 @@ async def leave_apply_submit(
 
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
-            "users": users,
+            "liff_id": settings.liff_id,
             "is_public": True,
-            "success": True
+            "success": True,
+            "user_name": line_user_name
         })
 
     except Exception as e:
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
-            "users": users,
+            "liff_id": settings.liff_id,
             "is_public": True,
             "error": f"申請失敗：{str(e)}"
         })
