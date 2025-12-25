@@ -298,35 +298,32 @@ async def leave_manage(request: Request, db: Session = Depends(get_db)):
     })
 
 
-@router.get("/dashboard/leave/apply", response_class=HTMLResponse)
+@router.get("/leave", response_class=HTMLResponse)
 async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
-    """請假申請表單頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
-
-    # 取得當前使用者的請假記錄（這裡先用 session username 假設）
-    # 實際應該根據使用者身份取得
-    leave_requests = []
+    """請假申請表單頁面（員工用，不需登入）"""
+    user_service = UserService(db)
+    users = user_service.get_all_users()
 
     return templates.TemplateResponse("leave_form.html", {
         "request": request,
-        "active_page": "leave",
-        "leave_requests": leave_requests
+        "users": users,
+        "is_public": True
     })
 
 
-@router.post("/dashboard/leave/apply")
+@router.post("/leave")
 async def leave_apply_submit(
     request: Request,
     db: Session = Depends(get_db),
+    user_id: int = Form(...),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
     reason: str = Form(None),
     proof_file: UploadFile = File(None)
 ):
-    """提交請假申請"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    """提交請假申請（員工用，不需登入）"""
+    user_service = UserService(db)
+    users = user_service.get_all_users()
 
     try:
         # 處理檔案上傳
@@ -342,12 +339,6 @@ async def leave_apply_submit(
                 content = await proof_file.read()
                 f.write(content)
 
-        # 建立請假申請（暫時使用 user_id = 1，實際應該根據登入使用者）
-        # 取得第一個使用者作為示範
-        user_service = UserService(db)
-        users = user_service.get_all_users()
-        user_id = users[0].id if users else 1
-
         leave_request = LeaveRequest(
             user_id=user_id,
             leave_type=leave_type,
@@ -361,17 +352,17 @@ async def leave_apply_submit(
 
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
-            "active_page": "leave",
-            "success": True,
-            "leave_requests": []
+            "users": users,
+            "is_public": True,
+            "success": True
         })
 
     except Exception as e:
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
-            "active_page": "leave",
-            "error": f"申請失敗：{str(e)}",
-            "leave_requests": []
+            "users": users,
+            "is_public": True,
+            "error": f"申請失敗：{str(e)}"
         })
 
 
