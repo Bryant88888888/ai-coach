@@ -317,6 +317,7 @@ async def leave_apply_submit(
     db: Session = Depends(get_db),
     line_user_id: str = Form(...),
     line_user_name: str = Form(...),
+    full_name: str = Form(...),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
     reason: str = Form(None),
@@ -330,8 +331,12 @@ async def leave_apply_submit(
         # 根據 LINE ID 查找或建立使用者
         user = user_service.get_user_by_line_id(line_user_id)
         if not user:
-            # 如果使用者不存在，建立新使用者
-            user = user_service.create_user(line_user_id, line_user_name)
+            # 如果使用者不存在，建立新使用者（使用填寫的全名）
+            user = user_service.create_user(line_user_id, full_name)
+        elif user.name != full_name:
+            # 更新使用者名稱
+            user.name = full_name
+            db.commit()
 
         # 處理檔案上傳
         proof_filename = None
@@ -362,7 +367,7 @@ async def leave_apply_submit(
             "liff_id": settings.liff_id,
             "is_public": True,
             "success": True,
-            "user_name": line_user_name
+            "user_name": full_name
         })
 
     except Exception as e:
