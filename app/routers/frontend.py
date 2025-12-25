@@ -17,6 +17,7 @@ from app.services.auth_service import AuthService
 from app.services.line_service import LineService
 from app.data.days_data import get_all_days, get_day_data
 from app.models.leave_request import LeaveRequest, LeaveStatus
+from app.models.manager import Manager
 
 # 設定模板目錄
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -427,3 +428,115 @@ async def leave_review(
         print(f"發送審核結果通知失敗: {notify_error}")
 
     return RedirectResponse(url="/dashboard/leave", status_code=303)
+
+
+# ========== 主管管理 ==========
+
+@router.get("/dashboard/managers", response_class=HTMLResponse)
+async def managers_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """主管管理頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    managers = db.query(Manager).order_by(Manager.created_at.desc()).all()
+
+    return templates.TemplateResponse("managers.html", {
+        "request": request,
+        "active_page": "managers",
+        "managers": managers,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/managers/add")
+async def manager_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    line_user_id: str = Form(...)
+):
+    """新增主管"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    # 檢查 LINE User ID 格式
+    line_user_id = line_user_id.strip()
+    if not line_user_id.startswith("U") or len(line_user_id) != 33:
+        return RedirectResponse(
+            url="/dashboard/managers?error=LINE User ID 格式不正確（應為 U 開頭的 33 字元）",
+            status_code=303
+        )
+
+    # 檢查是否已存在
+    existing = db.query(Manager).filter(Manager.line_user_id == line_user_id).first()
+    if existing:
+        return RedirectResponse(
+            url=f"/dashboard/managers?error=此 LINE User ID 已存在（{existing.name}）",
+            status_code=303
+        )
+
+    # 新增主管
+    manager = Manager(
+        name=name.strip(),
+        line_user_id=line_user_id,
+        is_active=True
+    )
+    db.add(manager)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/dashboard/managers?success=已成功新增主管「{name}」",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/managers/{manager_id}/toggle")
+async def manager_toggle(
+    request: Request,
+    manager_id: int,
+    db: Session = Depends(get_db)
+):
+    """切換主管通知狀態"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    manager = db.query(Manager).filter(Manager.id == manager_id).first()
+    if manager:
+        manager.is_active = not manager.is_active
+        db.commit()
+        status = "啟用" if manager.is_active else "停用"
+        return RedirectResponse(
+            url=f"/dashboard/managers?success=已{status}「{manager.name}」的通知",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/managers", status_code=303)
+
+
+@router.post("/dashboard/managers/{manager_id}/delete")
+async def manager_delete(
+    request: Request,
+    manager_id: int,
+    db: Session = Depends(get_db)
+):
+    """刪除主管"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    manager = db.query(Manager).filter(Manager.id == manager_id).first()
+    if manager:
+        name = manager.name
+        db.delete(manager)
+        db.commit()
+        return RedirectResponse(
+            url=f"/dashboard/managers?success=已刪除主管「{name}」",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/managers", status_code=303)

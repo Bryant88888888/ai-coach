@@ -159,34 +159,48 @@ class LineService:
                 )
             )
 
-    def notify_managers_leave_request(self, leave_request) -> None:
+    def notify_managers_leave_request(self, leave_request, db=None) -> None:
         """
         通知主管有新的請假申請
 
         Args:
             leave_request: LeaveRequest 物件
+            db: 資料庫 Session（可選，如未提供則自行建立）
         """
-        settings = get_settings()
-        manager_ids = [mid.strip() for mid in settings.manager_line_ids.split(",") if mid.strip()]
+        from app.database import SessionLocal
+        from app.models.manager import Manager
 
-        if not manager_ids:
-            print("警告：未設定主管 LINE ID，無法發送通知")
-            return
+        # 如果沒有傳入 db，自行建立
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
 
-        # 建立 Flex Message 內容
-        flex_content = self._build_leave_request_flex(leave_request)
+        try:
+            # 從資料庫取得啟用中的主管
+            managers = db.query(Manager).filter(Manager.is_active == True).all()
 
-        # 發送給所有主管
-        for manager_id in manager_ids:
-            try:
-                self.send_flex_message(
-                    user_id=manager_id,
-                    alt_text=f"請假申請 - {leave_request.applicant_name or '員工'}",
-                    flex_content=flex_content
-                )
-                print(f"✅ 已發送請假通知給主管: {manager_id}")
-            except Exception as e:
-                print(f"❌ 發送請假通知失敗 ({manager_id}): {e}")
+            if not managers:
+                print("警告：未設定主管，無法發送通知")
+                return
+
+            # 建立 Flex Message 內容
+            flex_content = self._build_leave_request_flex(leave_request)
+
+            # 發送給所有啟用中的主管
+            for manager in managers:
+                try:
+                    self.send_flex_message(
+                        user_id=manager.line_user_id,
+                        alt_text=f"請假申請 - {leave_request.applicant_name or '員工'}",
+                        flex_content=flex_content
+                    )
+                    print(f"✅ 已發送請假通知給主管 {manager.name}: {manager.line_user_id}")
+                except Exception as e:
+                    print(f"❌ 發送請假通知失敗 ({manager.name}): {e}")
+        finally:
+            if should_close:
+                db.close()
 
     def notify_requester_result(self, leave_request) -> None:
         """

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}主管設定 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">主管設定</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">管理接收請假通知的主管名單</p>
+</div>
+
+<!-- 新增主管表單 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        <i class="fas fa-plus-circle text-indigo-500 mr-2"></i>新增主管
+    </h2>
+    <form method="POST" action="/dashboard/managers/add" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    主管姓名 <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="name" name="name" required
+                       placeholder="例：王經理"
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label for="line_user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    LINE User ID <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="line_user_id" name="line_user_id" required
+                       placeholder="例：U1234567890abcdef..."
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            <i class="fas fa-info-circle mr-1"></i>
+            LINE User ID 可從 LINE Bot 後台或對話紀錄中取得，格式為 U 開頭的 33 字元字串
+        </div>
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
+            <i class="fas fa-plus mr-2"></i>新增主管
+        </button>
+    </form>
+</div>
+
+{% if success_message %}
+<div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-check-circle mr-3 text-xl"></i>
+    <span>{{ success_message }}</span>
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-exclamation-circle mr-3 text-xl"></i>
+    <span>{{ error_message }}</span>
+</div>
+{% endif %}
+
+<!-- 主管列表 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+    <div class="p-4 border-b dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-user-tie text-indigo-500 mr-2"></i>主管名單
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({{ managers|length }} 位)</span>
+        </h2>
+    </div>
+
+    {% if managers %}
+    <div class="divide-y dark:divide-gray-700">
+        {% for manager in managers %}
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user-tie text-xl text-indigo-600 dark:text-indigo-400"></i>
+                </div>
+                <div>
+                    <p class="font-semibold text-gray-800 dark:text-white">{{ manager.name }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ manager.line_user_id }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- 啟用/停用開關 -->
+                <form method="POST" action="/dashboard/managers/{{ manager.id }}/toggle" class="inline">
+                    <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium transition min-h-[44px]
+                        {% if manager.is_active %}
+                        bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900
+                        {% else %}
+                        bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600
+                        {% endif %}">
+                        {% if manager.is_active %}
+                        <i class="fas fa-bell mr-1"></i>通知中
+                        {% else %}
+                        <i class="fas fa-bell-slash mr-1"></i>已停用
+                        {% endif %}
+                    </button>
+                </form>
+                <!-- 刪除按鈕 -->
+                <form method="POST" action="/dashboard/managers/{{ manager.id }}/delete"
+                      onsubmit="return confirm('確定要刪除 {{ manager.name }} 嗎？')">
+                    <button type="submit" class="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition min-h-[44px]">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-user-tie text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 text-lg">尚未設定任何主管</p>
+        <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">請在上方表單新增主管以接收請假通知</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 說明 -->
+<div class="mt-6 bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4">
+    <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+        <i class="fas fa-lightbulb mr-2"></i>如何取得 LINE User ID？
+    </h3>
+    <ul class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
+        <li>請主管先加入 LINE Bot 好友</li>
+        <li>主管對 Bot 發送任意訊息</li>
+        <li>在「用戶列表」頁面找到該主管，複製其 LINE User ID</li>
+    </ul>
+</div>
+{% endblock %}
