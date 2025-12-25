@@ -108,10 +108,20 @@
 
                     {% if req.proof_file %}
                     <div class="mb-3">
-                        <a href="/static/uploads/{{ req.proof_file }}" target="_blank"
-                           class="inline-flex items-center px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition min-h-[44px]">
-                            <i class="fas fa-file-medical mr-2"></i>查看證明文件
-                        </a>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                            <i class="fas fa-file-medical mr-1"></i>病假證明：
+                        </p>
+                        <div class="relative group">
+                            <img src="/static/uploads/{{ req.proof_file }}"
+                                 alt="病假證明"
+                                 class="max-w-full max-h-48 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-90 transition"
+                                 onclick="showImageModal('/static/uploads/{{ req.proof_file }}')">
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                                <span class="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                                    <i class="fas fa-search-plus mr-1"></i>點擊放大
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
 
@@ -156,10 +166,44 @@
     </div>
     {% endif %}
 </div>
+
+<!-- 圖片放大 Modal -->
+<div id="image-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4" onclick="hideImageModal()">
+    <div class="relative max-w-4xl max-h-full" onclick="event.stopPropagation()">
+        <img id="modal-image" src="" alt="證明文件" class="max-w-full max-h-[90vh] rounded-lg shadow-2xl">
+        <button onclick="hideImageModal()" class="absolute top-2 right-2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition">
+            <i class="fas fa-times text-gray-800 text-xl"></i>
+        </button>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // 圖片 Modal 功能
+    function showImageModal(src) {
+        const modal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        modalImage.src = src;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideImageModal() {
+        const modal = document.getElementById('image-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+
+    // ESC 鍵關閉 modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideImageModal();
+        }
+    });
+
     const filterStatus = document.getElementById('filter-status');
     const filterType = document.getElementById('filter-type');
     const leaveItems = document.querySelectorAll('.leave-item');

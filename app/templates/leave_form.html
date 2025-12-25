@@ -145,19 +145,18 @@
                             type="file"
                             id="proof_file"
                             name="proof_file"
-                            accept="image/*,.pdf"
+                            accept="image/*"
                             class="hidden"
                         >
                         <label for="proof_file" class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                             <div id="upload-placeholder" class="text-center">
-                                <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
-                                <p class="text-gray-600 dark:text-gray-400 font-medium">點擊上傳圖片或 PDF</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG、PDF</p>
+                                <i class="fas fa-camera text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
+                                <p class="text-gray-600 dark:text-gray-400 font-medium">點擊上傳證明圖片</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG 格式</p>
                             </div>
-                            <div id="upload-preview" class="hidden text-center">
-                                <i class="fas fa-file-check text-5xl text-green-500 mb-3"></i>
-                                <p id="file-name" class="text-gray-800 dark:text-white font-medium"></p>
-                                <p class="text-sm text-green-600 dark:text-green-400 mt-1">檔案已選擇</p>
+                            <div id="upload-preview" class="hidden text-center w-full h-full p-2">
+                                <img id="preview-image" class="max-h-32 mx-auto rounded-lg object-contain" src="" alt="預覽">
+                                <p id="file-name" class="text-gray-800 dark:text-white font-medium text-sm mt-1 truncate px-2"></p>
                             </div>
                         </label>
                     </div>
@@ -221,14 +220,23 @@
                 if (!liff.isLoggedIn()) {
                     // 未登入，自動跳轉 LINE 登入
                     console.log('未登入，自動跳轉 LINE 登入...');
-                    liff.login();
+                    liff.login({ redirectUri: window.location.href });
                     return;
                 }
 
                 // 已登入，取得用戶資料
                 console.log('LIFF 已登入，取得用戶資料...');
-                const profile = await liff.getProfile();
-                console.log('用戶資料:', profile);
+
+                let profile;
+                try {
+                    profile = await liff.getProfile();
+                    console.log('用戶資料:', profile);
+                } catch (profileError) {
+                    console.error('取得用戶資料失敗:', profileError);
+                    // 如果取得資料失敗，可能需要重新登入
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
 
                 // 填入隱藏欄位（不顯示，只存資料給後端）
                 document.getElementById('line_user_id').value = profile.userId;
@@ -244,6 +252,20 @@
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
                 let errorMsg = error.message || '未知錯誤';
+
+                // 如果是 INVALID_ID_TOKEN 錯誤，嘗試重新登入
+                if (error.code === 'INVALID_ID_TOKEN' || errorMsg.includes('token')) {
+                    console.log('Token 無效，重新登入...');
+                    try {
+                        await liff.init({ liffId: LIFF_ID });
+                        liff.logout();
+                        liff.login({ redirectUri: window.location.href });
+                        return;
+                    } catch (e) {
+                        console.error('重新登入失敗:', e);
+                    }
+                }
+
                 loadingSection.innerHTML = `
                     <div class="text-center">
                         <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full mb-4">
@@ -288,21 +310,36 @@
                 radio.addEventListener('change', toggleSections);
             });
 
-            // 檔案選擇預覽
+            // 檔案選擇預覽（圖片預覽）
             const proofFileInput = document.getElementById('proof_file');
             const uploadPlaceholder = document.getElementById('upload-placeholder');
             const uploadPreview = document.getElementById('upload-preview');
             const fileNameDisplay = document.getElementById('file-name');
+            const previewImage = document.getElementById('preview-image');
 
             if (proofFileInput) {
                 proofFileInput.addEventListener('change', function() {
                     if (this.files && this.files[0]) {
-                        uploadPlaceholder.classList.add('hidden');
-                        uploadPreview.classList.remove('hidden');
-                        fileNameDisplay.textContent = this.files[0].name;
+                        const file = this.files[0];
+                        // 檢查是否為圖片
+                        if (!file.type.startsWith('image/')) {
+                            alert('請上傳圖片檔案（JPG、PNG）');
+                            this.value = '';
+                            return;
+                        }
+                        // 顯示圖片預覽
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            previewImage.src = e.target.result;
+                            uploadPlaceholder.classList.add('hidden');
+                            uploadPreview.classList.remove('hidden');
+                        };
+                        reader.readAsDataURL(file);
+                        fileNameDisplay.textContent = file.name;
                     } else {
                         uploadPlaceholder.classList.remove('hidden');
                         uploadPreview.classList.add('hidden');
+                        previewImage.src = '';
                     }
                 });
             }
