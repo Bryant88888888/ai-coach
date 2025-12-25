@@ -281,9 +281,65 @@ class LineService:
                 "margin": "lg",
                 "contents": [
                     {"type": "text", "text": "📎", "size": "sm", "flex": 0},
-                    {"type": "text", "text": "已附證明文件（請至後台查看）", "size": "sm", "color": "#666666", "margin": "sm"}
+                    {"type": "text", "text": "已附證明文件", "size": "sm", "color": "#22C55E", "margin": "sm", "weight": "bold"}
                 ]
             })
+        elif leave_request.leave_type == "病假":
+            content_items.append({
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "lg",
+                "contents": [
+                    {"type": "text", "text": "⚠️", "size": "sm", "flex": 0},
+                    {"type": "text", "text": "尚未附證明文件", "size": "sm", "color": "#F59E0B", "margin": "sm"}
+                ]
+            })
+
+        # 建立 footer 按鈕
+        settings = get_settings()
+        footer_contents = []
+
+        # 如果有證明文件，加入查看按鈕
+        if leave_request.leave_type == "病假" and leave_request.proof_file and settings.site_url:
+            proof_url = f"{settings.site_url.rstrip('/')}/static/uploads/{leave_request.proof_file}"
+            footer_contents.append({
+                "type": "button",
+                "style": "secondary",
+                "action": {
+                    "type": "uri",
+                    "label": "查看證明文件",
+                    "uri": proof_url
+                }
+            })
+
+        # 核准/拒絕按鈕
+        footer_contents.append({
+            "type": "box",
+            "layout": "horizontal",
+            "spacing": "md",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#22C55E",
+                    "action": {
+                        "type": "postback",
+                        "label": "✓ 核准",
+                        "data": f"action=approve_leave&leave_id={leave_request.id}"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#EF4444",
+                    "action": {
+                        "type": "postback",
+                        "label": "✗ 拒絕",
+                        "data": f"action=reject_leave&leave_id={leave_request.id}"
+                    }
+                }
+            ]
+        })
 
         return {
             "type": "bubble",
@@ -305,30 +361,9 @@ class LineService:
             },
             "footer": {
                 "type": "box",
-                "layout": "horizontal",
-                "spacing": "md",
-                "contents": [
-                    {
-                        "type": "button",
-                        "style": "primary",
-                        "color": "#22C55E",
-                        "action": {
-                            "type": "postback",
-                            "label": "✓ 核准",
-                            "data": f"action=approve_leave&leave_id={leave_request.id}"
-                        }
-                    },
-                    {
-                        "type": "button",
-                        "style": "primary",
-                        "color": "#EF4444",
-                        "action": {
-                            "type": "postback",
-                            "label": "✗ 拒絕",
-                            "data": f"action=reject_leave&leave_id={leave_request.id}"
-                        }
-                    }
-                ]
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": footer_contents
             }
         }
 

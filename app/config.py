@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # 請假通知設定（主管 LINE User IDs，用逗號分隔）
     manager_line_ids: str = ""
 
+    # 網站 URL（用於 LINE 通知中的連結）
+    site_url: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
