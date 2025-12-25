@@ -26,15 +26,18 @@
             <h1 class="text-2xl font-bold text-white">請假申請</h1>
         </div>
 
-        <!-- 載入中 -->
+        {% if success %}
+        <!-- 成功時不顯示載入中 -->
+        {% else %}
+        <!-- 載入中（僅在非成功狀態顯示） -->
         <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
             <div class="inline-flex items-center justify-center w-16 h-16 mb-4">
                 <i class="fas fa-spinner fa-spin text-4xl text-indigo-600 dark:text-indigo-400"></i>
             </div>
             <p class="text-gray-600 dark:text-gray-400">正在透過 LINE 登入...</p>
         </div>
+        {% endif %}
 
-        
         {% if success %}
         <!-- 成功訊息 -->
         <div id="success-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
