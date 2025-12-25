@@ -47,23 +47,57 @@ def run_migrations():
 
     try:
         inspector = inspect(engine)
+        table_names = inspector.get_table_names()
 
         # 檢查並加入 users.current_round 欄位
-        if 'users' in inspector.get_table_names():
+        if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]
 
             if 'current_round' not in columns:
                 try:
                     with engine.connect() as conn:
-                        # PostgreSQL 語法：IF NOT EXISTS 避免重複加入
                         conn.execute(text(
                             "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 0"
                         ))
                         conn.commit()
                         print("Migration: Added 'current_round' column to users table")
                 except Exception as e:
-                    # 如果欄位已存在或其他錯誤，忽略（可能另一個 worker 已經加入）
                     print(f"Migration note: {e}")
+
+        # 檢查並加入 leave_requests 新欄位
+        if 'leave_requests' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('leave_requests')]
+
+            with engine.connect() as conn:
+                if 'applicant_name' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS applicant_name VARCHAR(100)"
+                        ))
+                        print("Migration: Added 'applicant_name' column to leave_requests table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                if 'line_display_name' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS line_display_name VARCHAR(100)"
+                        ))
+                        print("Migration: Added 'line_display_name' column to leave_requests table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                if 'line_picture_url' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS line_picture_url VARCHAR(500)"
+                        ))
+                        print("Migration: Added 'line_picture_url' column to leave_requests table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                conn.commit()
+
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動
         print(f"Migration warning: {e}")
