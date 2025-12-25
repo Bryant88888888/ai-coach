@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # LIFF 設定（LINE 前端框架）
     liff_id: str = ""
 
+    # 請假通知設定（主管 LINE User IDs，用逗號分隔）
+    manager_line_ids: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

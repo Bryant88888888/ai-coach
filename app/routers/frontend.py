@@ -14,6 +14,7 @@ from app.services.user_service import UserService
 from app.services.message_service import MessageService
 from app.services.push_service import PushService
 from app.services.auth_service import AuthService
+from app.services.line_service import LineService
 from app.data.days_data import get_all_days, get_day_data
 from app.models.leave_request import LeaveRequest, LeaveStatus
 
@@ -365,6 +366,15 @@ async def leave_apply_submit(
         )
         db.add(leave_request)
         db.commit()
+        db.refresh(leave_request)  # 重新載入以取得 ID
+
+        # 發送 LINE 通知給主管
+        try:
+            line_service = LineService()
+            line_service.notify_managers_leave_request(leave_request)
+        except Exception as notify_error:
+            print(f"發送主管通知失敗: {notify_error}")
+            # 通知失敗不影響申請成功
 
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
@@ -408,5 +418,12 @@ async def leave_review(
     leave_request.reviewer_note = reviewer_note
     leave_request.reviewed_at = datetime.now()
     db.commit()
+
+    # 發送審核結果通知給請假者
+    try:
+        line_service = LineService()
+        line_service.notify_requester_result(leave_request)
+    except Exception as notify_error:
+        print(f"發送審核結果通知失敗: {notify_error}")
 
     return RedirectResponse(url="/dashboard/leave", status_code=303)

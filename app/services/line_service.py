@@ -4,10 +4,14 @@ from linebot.v3.messaging import (
     ApiClient,
     MessagingApi,
     ReplyMessageRequest,
+    PushMessageRequest,
     TextMessage,
+    FlexMessage,
+    FlexContainer,
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from sqlalchemy.orm import Session
+import json
 
 from app.config import get_settings
 from app.services.user_service import UserService
@@ -123,8 +127,6 @@ class LineService:
             user_id: LINE User ID
             message: 要發送的訊息
         """
-        from linebot.v3.messaging import PushMessageRequest
-
         with ApiClient(self.configuration) as api_client:
             messaging_api = MessagingApi(api_client)
             messaging_api.push_message(
@@ -133,3 +135,253 @@ class LineService:
                     messages=[TextMessage(text=message)]
                 )
             )
+
+    def send_flex_message(self, user_id: str, alt_text: str, flex_content: dict) -> None:
+        """
+        發送 Flex Message 給用戶
+
+        Args:
+            user_id: LINE User ID
+            alt_text: 替代文字（在不支援 Flex Message 的環境顯示）
+            flex_content: Flex Message JSON 內容
+        """
+        with ApiClient(self.configuration) as api_client:
+            messaging_api = MessagingApi(api_client)
+            messaging_api.push_message(
+                PushMessageRequest(
+                    to=user_id,
+                    messages=[
+                        FlexMessage(
+                            alt_text=alt_text,
+                            contents=FlexContainer.from_dict(flex_content)
+                        )
+                    ]
+                )
+            )
+
+    def notify_managers_leave_request(self, leave_request) -> None:
+        """
+        通知主管有新的請假申請
+
+        Args:
+            leave_request: LeaveRequest 物件
+        """
+        settings = get_settings()
+        manager_ids = [mid.strip() for mid in settings.manager_line_ids.split(",") if mid.strip()]
+
+        if not manager_ids:
+            print("警告：未設定主管 LINE ID，無法發送通知")
+            return
+
+        # 建立 Flex Message 內容
+        flex_content = self._build_leave_request_flex(leave_request)
+
+        # 發送給所有主管
+        for manager_id in manager_ids:
+            try:
+                self.send_flex_message(
+                    user_id=manager_id,
+                    alt_text=f"請假申請 - {leave_request.applicant_name or '員工'}",
+                    flex_content=flex_content
+                )
+                print(f"✅ 已發送請假通知給主管: {manager_id}")
+            except Exception as e:
+                print(f"❌ 發送請假通知失敗 ({manager_id}): {e}")
+
+    def notify_requester_result(self, leave_request) -> None:
+        """
+        通知請假者審核結果
+
+        Args:
+            leave_request: LeaveRequest 物件
+        """
+        if not leave_request.user or not leave_request.user.line_user_id:
+            print("警告：找不到請假者的 LINE ID")
+            return
+
+        user_line_id = leave_request.user.line_user_id
+        flex_content = self._build_leave_result_flex(leave_request)
+
+        try:
+            self.send_flex_message(
+                user_id=user_line_id,
+                alt_text=f"請假審核結果 - {'已核准' if leave_request.status == 'approved' else '已拒絕'}",
+                flex_content=flex_content
+            )
+            print(f"✅ 已發送審核結果給請假者: {user_line_id}")
+        except Exception as e:
+            print(f"❌ 發送審核結果失敗: {e}")
+
+    def _build_leave_request_flex(self, leave_request) -> dict:
+        """建立請假申請的 Flex Message"""
+        leave_type_color = "#1E88E5" if leave_request.leave_type == "事假" else "#8E24AA"
+        leave_type_icon = "📋" if leave_request.leave_type == "事假" else "🏥"
+
+        # 內容區塊
+        content_items = [
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "申請人", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": leave_request.applicant_name or "未填寫", "size": "sm", "color": "#333333", "flex": 5, "weight": "bold"}
+                ]
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "請假類型", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": f"{leave_type_icon} {leave_request.leave_type}", "size": "sm", "color": leave_type_color, "flex": 5, "weight": "bold"}
+                ]
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "請假日期", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": str(leave_request.leave_date), "size": "sm", "color": "#333333", "flex": 5, "weight": "bold"}
+                ]
+            }
+        ]
+
+        # 如果是事假，顯示理由
+        if leave_request.leave_type == "事假" and leave_request.reason:
+            content_items.append({
+                "type": "box",
+                "layout": "vertical",
+                "margin": "lg",
+                "contents": [
+                    {"type": "text", "text": "請假理由", "size": "sm", "color": "#888888"},
+                    {"type": "text", "text": leave_request.reason, "size": "sm", "color": "#333333", "margin": "sm", "wrap": True}
+                ]
+            })
+
+        # 如果是病假，提示有證明文件
+        if leave_request.leave_type == "病假" and leave_request.proof_file:
+            content_items.append({
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "lg",
+                "contents": [
+                    {"type": "text", "text": "📎", "size": "sm", "flex": 0},
+                    {"type": "text", "text": "已附證明文件（請至後台查看）", "size": "sm", "color": "#666666", "margin": "sm"}
+                ]
+            })
+
+        return {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#7C3AED",
+                "paddingAll": "15px",
+                "contents": [
+                    {"type": "text", "text": "請假申請", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": f"#{leave_request.id}", "color": "#E0E0E0", "size": "sm", "margin": "xs"}
+                ]
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "paddingAll": "15px",
+                "contents": content_items
+            },
+            "footer": {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#22C55E",
+                        "action": {
+                            "type": "postback",
+                            "label": "✓ 核准",
+                            "data": f"action=approve_leave&leave_id={leave_request.id}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#EF4444",
+                        "action": {
+                            "type": "postback",
+                            "label": "✗ 拒絕",
+                            "data": f"action=reject_leave&leave_id={leave_request.id}"
+                        }
+                    }
+                ]
+            }
+        }
+
+    def _build_leave_result_flex(self, leave_request) -> dict:
+        """建立審核結果的 Flex Message"""
+        is_approved = leave_request.status == "approved"
+        status_color = "#22C55E" if is_approved else "#EF4444"
+        status_text = "已核准 ✓" if is_approved else "已拒絕 ✗"
+        status_emoji = "🎉" if is_approved else "😔"
+
+        content_items = [
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "請假類型", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": leave_request.leave_type, "size": "sm", "color": "#333333", "flex": 5}
+                ]
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "請假日期", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": str(leave_request.leave_date), "size": "sm", "color": "#333333", "flex": 5}
+                ]
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "審核結果", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": status_text, "size": "sm", "color": status_color, "flex": 5, "weight": "bold"}
+                ]
+            }
+        ]
+
+        # 如果有審核備註
+        if leave_request.reviewer_note:
+            content_items.append({
+                "type": "box",
+                "layout": "vertical",
+                "margin": "lg",
+                "contents": [
+                    {"type": "text", "text": "審核備註", "size": "sm", "color": "#888888"},
+                    {"type": "text", "text": leave_request.reviewer_note, "size": "sm", "color": "#333333", "margin": "sm", "wrap": True}
+                ]
+            })
+
+        return {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": status_color,
+                "paddingAll": "15px",
+                "contents": [
+                    {"type": "text", "text": f"{status_emoji} 請假審核結果", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": f"申請編號 #{leave_request.id}", "color": "#E0E0E0", "size": "sm", "margin": "xs"}
+                ]
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "paddingAll": "15px",
+                "contents": content_items
+            }
+        }
