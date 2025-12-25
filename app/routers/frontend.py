@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pathlib import Path
+from datetime import datetime, date
+import uuid
+import os
 
 from app.database import get_db
 from app.services.user_service import UserService
@@ -10,6 +14,7 @@ from app.services.message_service import MessageService
 from app.services.push_service import PushService
 from app.services.auth_service import AuthService
 from app.data.days_data import get_all_days, get_day_data
+from app.models.leave_request import LeaveRequest, LeaveStatus
 
 # 設定模板目錄
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -260,3 +265,140 @@ async def day_edit_save(
         "day": day_data,
         "success": True
     })
+
+
+# ========== 請假管理 ==========
+
+# 建立上傳目錄
+UPLOAD_DIR = Path(__file__).parent.parent / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@router.get("/dashboard/leave", response_class=HTMLResponse)
+async def leave_manage(request: Request, db: Session = Depends(get_db)):
+    """請假管理頁面（管理員）"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    # 取得所有請假申請
+    leave_requests = db.query(LeaveRequest).order_by(LeaveRequest.created_at.desc()).all()
+
+    # 統計
+    pending_count = db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.PENDING.value).count()
+    approved_count = db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.APPROVED.value).count()
+    rejected_count = db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.REJECTED.value).count()
+
+    return templates.TemplateResponse("leave_manage.html", {
+        "request": request,
+        "active_page": "leave",
+        "leave_requests": leave_requests,
+        "pending_count": pending_count,
+        "approved_count": approved_count,
+        "rejected_count": rejected_count
+    })
+
+
+@router.get("/dashboard/leave/apply", response_class=HTMLResponse)
+async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
+    """請假申請表單頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    # 取得當前使用者的請假記錄（這裡先用 session username 假設）
+    # 實際應該根據使用者身份取得
+    leave_requests = []
+
+    return templates.TemplateResponse("leave_form.html", {
+        "request": request,
+        "active_page": "leave",
+        "leave_requests": leave_requests
+    })
+
+
+@router.post("/dashboard/leave/apply")
+async def leave_apply_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    leave_type: str = Form(...),
+    leave_date: date = Form(...),
+    reason: str = Form(None),
+    proof_file: UploadFile = File(None)
+):
+    """提交請假申請"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    try:
+        # 處理檔案上傳
+        proof_filename = None
+        if proof_file and proof_file.filename:
+            # 產生唯一檔名
+            ext = os.path.splitext(proof_file.filename)[1]
+            proof_filename = f"{uuid.uuid4()}{ext}"
+            file_path = UPLOAD_DIR / proof_filename
+
+            # 儲存檔案
+            with open(file_path, "wb") as f:
+                content = await proof_file.read()
+                f.write(content)
+
+        # 建立請假申請（暫時使用 user_id = 1，實際應該根據登入使用者）
+        # 取得第一個使用者作為示範
+        user_service = UserService(db)
+        users = user_service.get_all_users()
+        user_id = users[0].id if users else 1
+
+        leave_request = LeaveRequest(
+            user_id=user_id,
+            leave_type=leave_type,
+            leave_date=leave_date,
+            reason=reason if leave_type == "事假" else None,
+            proof_file=proof_filename if leave_type == "病假" else None,
+            status=LeaveStatus.PENDING.value
+        )
+        db.add(leave_request)
+        db.commit()
+
+        return templates.TemplateResponse("leave_form.html", {
+            "request": request,
+            "active_page": "leave",
+            "success": True,
+            "leave_requests": []
+        })
+
+    except Exception as e:
+        return templates.TemplateResponse("leave_form.html", {
+            "request": request,
+            "active_page": "leave",
+            "error": f"申請失敗：{str(e)}",
+            "leave_requests": []
+        })
+
+
+@router.post("/dashboard/leave/{leave_id}/review")
+async def leave_review(
+    request: Request,
+    leave_id: int,
+    db: Session = Depends(get_db),
+    action: str = Form(...),
+    reviewer_note: str = Form(None)
+):
+    """審核請假申請"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    leave_request = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+    if not leave_request:
+        return RedirectResponse(url="/dashboard/leave", status_code=303)
+
+    # 更新狀態
+    if action == "approve":
+        leave_request.status = LeaveStatus.APPROVED.value
+    elif action == "reject":
+        leave_request.status = LeaveStatus.REJECTED.value
+
+    leave_request.reviewer_note = reviewer_note
+    leave_request.reviewed_at = datetime.now()
+    db.commit()
+
+    return RedirectResponse(url="/dashboard/leave", status_code=303)

@@ -34,7 +34,7 @@ def get_db():
 
 def init_db():
     """初始化資料庫（建立所有表）"""
-    from app.models import user, day, message, push_log  # noqa: F401
+    from app.models import user, day, message, push_log, leave_request  # noqa: F401
     # checkfirst=True: 如果表已存在就跳過，避免多 worker 競爭問題
     Base.metadata.create_all(bind=engine, checkfirst=True)
     # 執行資料庫遷移（加入缺少的欄位）
