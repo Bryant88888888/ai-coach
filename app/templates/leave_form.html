@@ -83,6 +83,23 @@
                 <!-- 隱藏欄位：LINE 用戶資訊 -->
                 <input type="hidden" id="line_user_id" name="line_user_id" value="">
                 <input type="hidden" id="line_user_name" name="line_user_name" value="">
+                <input type="hidden" id="line_picture_url" name="line_picture_url" value="">
+
+                <!-- LINE 用戶資訊顯示 -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
+                    <div class="flex items-center">
+                        <div id="user-avatar" class="w-14 h-14 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mr-4 flex-shrink-0">
+                            <img id="user-picture" src="" alt="" class="w-full h-full object-cover hidden">
+                            <div id="user-placeholder" class="w-full h-full flex items-center justify-center">
+                                <i class="fas fa-user text-2xl text-gray-400"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">LINE 帳號</p>
+                            <p id="user-display-name" class="text-lg font-bold text-gray-800 dark:text-white">載入中...</p>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 全名輸入 -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
@@ -227,8 +244,13 @@
             const loginSection = document.getElementById('login-section');
             const formSection = document.getElementById('form-section');
 
+            console.log('開始初始化 LIFF，ID:', LIFF_ID);
+
             try {
                 await liff.init({ liffId: LIFF_ID });
+                console.log('LIFF 初始化成功');
+                console.log('是否在 LINE 內:', liff.isInClient());
+                console.log('是否已登入:', liff.isLoggedIn());
 
                 if (!liff.isLoggedIn()) {
                     // 未登入，顯示登入按鈕
@@ -240,11 +262,22 @@
                     });
                 } else {
                     // 已登入，取得用戶資料
+                    console.log('LIFF 已登入，取得用戶資料...');
                     const profile = await liff.getProfile();
+                    console.log('用戶資料:', profile);
 
                     // 填入隱藏欄位
                     document.getElementById('line_user_id').value = profile.userId;
                     document.getElementById('line_user_name').value = profile.displayName;
+                    document.getElementById('line_picture_url').value = profile.pictureUrl || '';
+
+                    // 顯示用戶資訊
+                    document.getElementById('user-display-name').textContent = profile.displayName;
+                    if (profile.pictureUrl) {
+                        document.getElementById('user-picture').src = profile.pictureUrl;
+                        document.getElementById('user-picture').classList.remove('hidden');
+                        document.getElementById('user-placeholder').classList.add('hidden');
+                    }
 
                     // 顯示表單
                     loadingSection.classList.add('hidden');

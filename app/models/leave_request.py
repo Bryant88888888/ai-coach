@@ -24,6 +24,9 @@ class LeaveRequest(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    applicant_name = Column(String(100), nullable=True)  # 申請人填寫的姓名
+    line_display_name = Column(String(100), nullable=True)  # LINE 顯示名稱
+    line_picture_url = Column(String(500), nullable=True)  # LINE 頭像 URL
     leave_type = Column(String(20), nullable=False)  # 事假/病假
     leave_date = Column(Date, nullable=False)  # 請假日期
     reason = Column(Text, nullable=True)  # 事假理由

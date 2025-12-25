@@ -317,6 +317,7 @@ async def leave_apply_submit(
     db: Session = Depends(get_db),
     line_user_id: str = Form(...),
     line_user_name: str = Form(...),
+    line_picture_url: str = Form(""),
     full_name: str = Form(...),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
@@ -353,6 +354,9 @@ async def leave_apply_submit(
 
         leave_request = LeaveRequest(
             user_id=user.id,
+            applicant_name=full_name,
+            line_display_name=line_user_name,
+            line_picture_url=line_picture_url if line_picture_url else None,
             leave_type=leave_type,
             leave_date=leave_date,
             reason=reason if leave_type == "事假" else None,

@@ -75,10 +75,22 @@
         <!-- 內容 -->
         <div class="p-4">
             <div class="flex items-start gap-4">
+                <!-- LINE 頭像 -->
+                <div class="w-14 h-14 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
+                    {% if req.line_picture_url %}
+                    <img src="{{ req.line_picture_url }}" alt="" class="w-full h-full object-cover">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center">
+                        <i class="fas fa-user text-2xl text-gray-400"></i>
+                    </div>
+                    {% endif %}
+                </div>
                 <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-user text-gray-400"></i>
-                        <span class="font-medium text-gray-800 dark:text-white">{{ req.user.name or '未命名' }}</span>
+                    <div class="mb-2">
+                        <span class="font-bold text-lg text-gray-800 dark:text-white">{{ req.applicant_name or req.user.name or '未命名' }}</span>
+                        {% if req.line_display_name %}
+                        <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">({{ req.line_display_name }})</span>
+                        {% endif %}
                     </div>
                     <div class="flex items-center gap-2 mb-3">
                         <i class="fas fa-calendar-day text-gray-400"></i>
