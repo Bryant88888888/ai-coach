@@ -34,24 +34,7 @@
             <p class="text-gray-600 dark:text-gray-400">正在透過 LINE 登入...</p>
         </div>
 
-        <!-- LINE 登入按鈕（如果沒有自動登入） -->
-        <div id="login-section" class="hidden">
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full mb-4">
-                    <i class="fab fa-line text-4xl text-green-500"></i>
-                </div>
-                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">請先登入</h2>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">使用您的 LINE 帳號登入以提交請假申請</p>
-                <button
-                    id="login-btn"
-                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-xl transition duration-200 flex items-center justify-center min-h-[56px] text-lg"
-                >
-                    <i class="fab fa-line mr-3 text-2xl"></i>
-                    使用 LINE 登入
-                </button>
-            </div>
-        </div>
-
+        
         {% if success %}
         <!-- 成功訊息 -->
         <div id="success-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
@@ -80,26 +63,10 @@
         <!-- 請假表單 -->
         <div id="form-section" class="hidden">
             <form method="POST" action="/leave" enctype="multipart/form-data" class="space-y-4">
-                <!-- 隱藏欄位：LINE 用戶資訊 -->
+                <!-- 隱藏欄位：LINE 用戶資訊（不顯示，只存資料） -->
                 <input type="hidden" id="line_user_id" name="line_user_id" value="">
                 <input type="hidden" id="line_user_name" name="line_user_name" value="">
                 <input type="hidden" id="line_picture_url" name="line_picture_url" value="">
-
-                <!-- LINE 用戶資訊顯示 -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
-                    <div class="flex items-center">
-                        <div id="user-avatar" class="w-14 h-14 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mr-4 flex-shrink-0">
-                            <img id="user-picture" src="" alt="" class="w-full h-full object-cover hidden">
-                            <div id="user-placeholder" class="w-full h-full flex items-center justify-center">
-                                <i class="fas fa-user text-2xl text-gray-400"></i>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">LINE 帳號</p>
-                            <p id="user-display-name" class="text-lg font-bold text-gray-800 dark:text-white">載入中...</p>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- 全名輸入 -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
@@ -241,7 +208,6 @@
         // LIFF 初始化
         async function initializeLiff() {
             const loadingSection = document.getElementById('loading-section');
-            const loginSection = document.getElementById('login-section');
             const formSection = document.getElementById('form-section');
 
             console.log('開始初始化 LIFF，ID:', LIFF_ID);
@@ -253,39 +219,28 @@
                 console.log('是否已登入:', liff.isLoggedIn());
 
                 if (!liff.isLoggedIn()) {
-                    // 未登入，顯示登入按鈕
-                    loadingSection.classList.add('hidden');
-                    loginSection.classList.remove('hidden');
-
-                    document.getElementById('login-btn').addEventListener('click', () => {
-                        liff.login();
-                    });
-                } else {
-                    // 已登入，取得用戶資料
-                    console.log('LIFF 已登入，取得用戶資料...');
-                    const profile = await liff.getProfile();
-                    console.log('用戶資料:', profile);
-
-                    // 填入隱藏欄位
-                    document.getElementById('line_user_id').value = profile.userId;
-                    document.getElementById('line_user_name').value = profile.displayName;
-                    document.getElementById('line_picture_url').value = profile.pictureUrl || '';
-
-                    // 顯示用戶資訊
-                    document.getElementById('user-display-name').textContent = profile.displayName;
-                    if (profile.pictureUrl) {
-                        document.getElementById('user-picture').src = profile.pictureUrl;
-                        document.getElementById('user-picture').classList.remove('hidden');
-                        document.getElementById('user-placeholder').classList.add('hidden');
-                    }
-
-                    // 顯示表單
-                    loadingSection.classList.add('hidden');
-                    formSection.classList.remove('hidden');
-
-                    // 初始化表單功能
-                    initFormFeatures();
+                    // 未登入，自動跳轉 LINE 登入
+                    console.log('未登入，自動跳轉 LINE 登入...');
+                    liff.login();
+                    return;
                 }
+
+                // 已登入，取得用戶資料
+                console.log('LIFF 已登入，取得用戶資料...');
+                const profile = await liff.getProfile();
+                console.log('用戶資料:', profile);
+
+                // 填入隱藏欄位（不顯示，只存資料給後端）
+                document.getElementById('line_user_id').value = profile.userId;
+                document.getElementById('line_user_name').value = profile.displayName;
+                document.getElementById('line_picture_url').value = profile.pictureUrl || '';
+
+                // 顯示表單
+                loadingSection.classList.add('hidden');
+                formSection.classList.remove('hidden');
+
+                // 初始化表單功能
+                initFormFeatures();
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
                 let errorMsg = error.message || '未知錯誤';
