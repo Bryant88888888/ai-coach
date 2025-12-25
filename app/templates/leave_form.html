@@ -264,13 +264,15 @@
                 }
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
+                let errorMsg = error.message || '未知錯誤';
                 loadingSection.innerHTML = `
                     <div class="text-center">
                         <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full mb-4">
                             <i class="fas fa-exclamation-triangle text-3xl text-red-600 dark:text-red-400"></i>
                         </div>
                         <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">載入失敗</h2>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">請確認您是從 LINE 開啟此頁面</p>
+                        <p class="text-gray-600 dark:text-gray-400 mb-2">LIFF ID: ${LIFF_ID || '未設定'}</p>
+                        <p class="text-red-500 dark:text-red-400 text-sm mb-4">${errorMsg}</p>
                         <button onclick="location.reload()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition">
                             重新載入
                         </button>
