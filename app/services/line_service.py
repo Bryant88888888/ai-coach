@@ -337,7 +337,6 @@ class LineService:
         is_approved = leave_request.status == "approved"
         status_color = "#22C55E" if is_approved else "#EF4444"
         status_text = "已核准 ✓" if is_approved else "已拒絕 ✗"
-        status_emoji = "🎉" if is_approved else "😔"
 
         content_items = [
             {
@@ -388,7 +387,7 @@ class LineService:
                 "backgroundColor": status_color,
                 "paddingAll": "15px",
                 "contents": [
-                    {"type": "text", "text": f"{status_emoji} 請假審核結果", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": "請假審核結果", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
                     {"type": "text", "text": f"申請編號 #{leave_request.id}", "color": "#E0E0E0", "size": "sm", "margin": "xs"}
                 ]
             },
