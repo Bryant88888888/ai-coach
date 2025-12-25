@@ -13,9 +13,10 @@ class LeaveType(str, enum.Enum):
 
 class LeaveStatus(str, enum.Enum):
     """請假狀態"""
-    PENDING = "pending"      # 待審核
-    APPROVED = "approved"    # 已核准
-    REJECTED = "rejected"    # 已拒絕
+    PENDING = "pending"              # 待審核
+    PENDING_PROOF = "pending_proof"  # 待補件
+    APPROVED = "approved"            # 已核准
+    REJECTED = "rejected"            # 已拒絕
 
 
 class LeaveRequest(Base):
@@ -31,6 +32,7 @@ class LeaveRequest(Base):
     leave_date = Column(Date, nullable=False)  # 請假日期
     reason = Column(Text, nullable=True)  # 事假理由
     proof_file = Column(String(500), nullable=True)  # 病假證明檔案路徑
+    proof_deadline = Column(DateTime(timezone=True), nullable=True)  # 補件期限
     status = Column(String(20), default=LeaveStatus.PENDING.value)
     reviewer_note = Column(Text, nullable=True)  # 審核備註
     reviewed_at = Column(DateTime(timezone=True), nullable=True)  # 審核時間

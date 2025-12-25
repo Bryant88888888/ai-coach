@@ -107,6 +107,15 @@ def run_migrations():
                     except Exception as e:
                         print(f"Migration note: {e}")
 
+                if 'proof_deadline' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS proof_deadline TIMESTAMP WITH TIME ZONE"
+                        ))
+                        print("Migration: Added 'proof_deadline' column to leave_requests table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
                 conn.commit()
 
     except Exception as e:

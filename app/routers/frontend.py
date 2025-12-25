@@ -330,6 +330,17 @@ async def leave_apply_submit(
     settings = get_settings()
     user_service = UserService(db)
 
+    # 檢查當日請假時間限制：下午 5 點後不能請當日假
+    now = datetime.now()
+    today = now.date()
+    if leave_date == today and now.hour >= 17:
+        return templates.TemplateResponse("leave_form.html", {
+            "request": request,
+            "liff_id": settings.liff_id,
+            "is_public": True,
+            "error": "當日請假需在下午 5 點前提出申請，請選擇其他日期"
+        })
+
     try:
         # 根據 LINE ID 查找或建立使用者
         user = user_service.get_user_by_line_id(line_user_id)
@@ -391,6 +402,96 @@ async def leave_apply_submit(
             "liff_id": settings.liff_id,
             "is_public": True,
             "error": f"申請失敗：{str(e)}"
+        })
+
+
+@router.get("/leave/upload/{leave_id}", response_class=HTMLResponse)
+async def proof_upload_page(request: Request, leave_id: int, db: Session = Depends(get_db)):
+    """病假證明上傳頁面"""
+    leave_request = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+
+    # 檢查申請是否存在
+    if not leave_request:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "leave_request": None
+        })
+
+    # 檢查是否已有證明
+    if leave_request.proof_file:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "already_uploaded": True
+        })
+
+    # 檢查是否已過期限
+    if leave_request.proof_deadline and datetime.now() > leave_request.proof_deadline:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "expired": True
+        })
+
+    return templates.TemplateResponse("proof_upload.html", {
+        "request": request,
+        "leave_request": leave_request
+    })
+
+
+@router.post("/leave/upload/{leave_id}")
+async def proof_upload_submit(
+    request: Request,
+    leave_id: int,
+    db: Session = Depends(get_db),
+    proof_file: UploadFile = File(...)
+):
+    """上傳病假證明"""
+    leave_request = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+
+    if not leave_request:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "error": "找不到此請假申請"
+        })
+
+    # 檢查是否已過期限
+    if leave_request.proof_deadline and datetime.now() > leave_request.proof_deadline:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "expired": True
+        })
+
+    try:
+        # 儲存檔案
+        ext = os.path.splitext(proof_file.filename)[1]
+        proof_filename = f"{uuid.uuid4()}{ext}"
+        file_path = UPLOAD_DIR / proof_filename
+
+        with open(file_path, "wb") as f:
+            content = await proof_file.read()
+            f.write(content)
+
+        # 更新資料庫
+        leave_request.proof_file = proof_filename
+        leave_request.status = LeaveStatus.PENDING.value  # 改回待審核，讓主管再次審核
+        db.commit()
+
+        # 通知主管已補件（重新發送通知）
+        try:
+            line_service = LineService()
+            line_service.notify_managers_leave_request(leave_request)
+        except Exception as notify_error:
+            print(f"發送補件通知失敗: {notify_error}")
+
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "success": True
+        })
+
+    except Exception as e:
+        return templates.TemplateResponse("proof_upload.html", {
+            "request": request,
+            "leave_request": leave_request,
+            "error": f"上傳失敗：{str(e)}"
         })
 
 

@@ -226,6 +226,111 @@ class LineService:
         except Exception as e:
             print(f"❌ 發送審核結果失敗: {e}")
 
+    def notify_requester_pending_proof(self, leave_request) -> None:
+        """
+        通知請假者需要補上證明文件
+
+        Args:
+            leave_request: LeaveRequest 物件
+        """
+        if not leave_request.user or not leave_request.user.line_user_id:
+            print("警告：找不到請假者的 LINE ID")
+            return
+
+        user_line_id = leave_request.user.line_user_id
+        settings = get_settings()
+
+        # 計算補件期限
+        deadline_str = ""
+        if leave_request.proof_deadline:
+            deadline_str = leave_request.proof_deadline.strftime("%Y-%m-%d %H:%M")
+
+        flex_content = self._build_pending_proof_flex(leave_request, deadline_str, settings.site_url)
+
+        try:
+            self.send_flex_message(
+                user_id=user_line_id,
+                alt_text="請假申請 - 請補上證明文件",
+                flex_content=flex_content
+            )
+            print(f"✅ 已發送補件通知給請假者: {user_line_id}")
+        except Exception as e:
+            print(f"❌ 發送補件通知失敗: {e}")
+
+    def _build_pending_proof_flex(self, leave_request, deadline_str: str, site_url: str) -> dict:
+        """建立待補件通知的 Flex Message"""
+        content_items = [
+            {
+                "type": "text",
+                "text": "您的病假申請需要補上證明文件",
+                "size": "sm",
+                "color": "#333333",
+                "wrap": True
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "lg",
+                "contents": [
+                    {"type": "text", "text": "請假日期", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": str(leave_request.leave_date), "size": "sm", "color": "#333333", "flex": 5}
+                ]
+            }
+        ]
+
+        if deadline_str:
+            content_items.append({
+                "type": "box",
+                "layout": "horizontal",
+                "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "補件期限", "size": "sm", "color": "#888888", "flex": 2},
+                    {"type": "text", "text": deadline_str, "size": "sm", "color": "#EF4444", "flex": 5, "weight": "bold"}
+                ]
+            })
+
+        # 上傳連結
+        upload_url = f"{site_url.rstrip('/')}/leave/upload/{leave_request.id}" if site_url else ""
+
+        footer_contents = []
+        if upload_url:
+            footer_contents.append({
+                "type": "button",
+                "style": "primary",
+                "color": "#7C3AED",
+                "action": {
+                    "type": "uri",
+                    "label": "上傳證明文件",
+                    "uri": upload_url
+                }
+            })
+
+        return {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#F59E0B",
+                "paddingAll": "15px",
+                "contents": [
+                    {"type": "text", "text": "請補上證明文件", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": f"申請編號 #{leave_request.id}", "color": "#FEF3C7", "size": "sm", "margin": "xs"}
+                ]
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "paddingAll": "15px",
+                "contents": content_items
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": footer_contents
+            } if footer_contents else None
+        }
+
     def _build_leave_request_flex(self, leave_request) -> dict:
         """建立請假申請的 Flex Message"""
         leave_type_color = "#1E88E5" if leave_request.leave_type == "事假" else "#8E24AA"
@@ -312,34 +417,74 @@ class LineService:
                 }
             })
 
-        # 核准/拒絕按鈕
-        footer_contents.append({
-            "type": "box",
-            "layout": "horizontal",
-            "spacing": "md",
-            "contents": [
-                {
-                    "type": "button",
-                    "style": "primary",
-                    "color": "#22C55E",
-                    "action": {
-                        "type": "postback",
-                        "label": "✓ 核准",
-                        "data": f"action=approve_leave&leave_id={leave_request.id}"
+        # 病假無證明時，加入「待補件」按鈕
+        if leave_request.leave_type == "病假" and not leave_request.proof_file:
+            footer_contents.append({
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#22C55E",
+                        "action": {
+                            "type": "postback",
+                            "label": "✓ 核准",
+                            "data": f"action=approve_leave&leave_id={leave_request.id}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#F59E0B",
+                        "action": {
+                            "type": "postback",
+                            "label": "待補件",
+                            "data": f"action=pending_proof&leave_id={leave_request.id}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#EF4444",
+                        "action": {
+                            "type": "postback",
+                            "label": "✗ 拒絕",
+                            "data": f"action=reject_leave&leave_id={leave_request.id}"
+                        }
                     }
-                },
-                {
-                    "type": "button",
-                    "style": "primary",
-                    "color": "#EF4444",
-                    "action": {
-                        "type": "postback",
-                        "label": "✗ 拒絕",
-                        "data": f"action=reject_leave&leave_id={leave_request.id}"
+                ]
+            })
+        else:
+            # 核准/拒絕按鈕（事假或已有證明的病假）
+            footer_contents.append({
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#22C55E",
+                        "action": {
+                            "type": "postback",
+                            "label": "✓ 核准",
+                            "data": f"action=approve_leave&leave_id={leave_request.id}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#EF4444",
+                        "action": {
+                            "type": "postback",
+                            "label": "✗ 拒絕",
+                            "data": f"action=reject_leave&leave_id={leave_request.id}"
+                        }
                     }
-                }
-            ]
-        })
+                ]
+            })
 
         return {
             "type": "bubble",

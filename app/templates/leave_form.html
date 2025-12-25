@@ -347,11 +347,37 @@
                 });
             }
 
-            // 設定日期最小值為今天
-            const today = new Date().toISOString().split('T')[0];
+            // 設定日期最小值（下午 5 點後不能選當日）
+            const now = new Date();
+            const currentHour = now.getHours();
+            let minDate = new Date();
+
+            // 如果是下午 5 點（17:00）或之後，最小日期為明天
+            if (currentHour >= 17) {
+                minDate.setDate(minDate.getDate() + 1);
+            }
+
+            const minDateStr = minDate.toISOString().split('T')[0];
             const leaveDateInput = document.getElementById('leave_date');
             if (leaveDateInput) {
-                leaveDateInput.setAttribute('min', today);
+                leaveDateInput.setAttribute('min', minDateStr);
+
+                // 表單提交前驗證
+                const form = leaveDateInput.closest('form');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        const selectedDate = leaveDateInput.value;
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const checkTime = new Date();
+
+                        // 如果選擇今天且現在是 17:00 或之後
+                        if (selectedDate === todayStr && checkTime.getHours() >= 17) {
+                            e.preventDefault();
+                            alert('當日請假需在下午 5 點前提出申請，請選擇其他日期');
+                            return false;
+                        }
+                    });
+                }
             }
         }
 

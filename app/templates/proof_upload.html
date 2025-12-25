@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上傳病假證明 - 寶格教育訓練</title>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen p-4">
+    <div class="max-w-lg mx-auto py-6">
+        <!-- 標題區塊 -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-white">上傳病假證明</h1>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+            <i class="fas fa-exclamation-circle mr-3 text-xl"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <!-- 成功訊息 -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full mb-4">
+                    <i class="fas fa-check text-3xl text-green-600 dark:text-green-400"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">上傳成功！</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    證明文件已上傳，請等待主管審核。
+                </p>
+            </div>
+        </div>
+        {% elif expired %}
+        <!-- 已過期 -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full mb-4">
+                    <i class="fas fa-clock text-3xl text-red-600 dark:text-red-400"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">補件期限已過</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    很抱歉，此請假申請的補件期限已過。<br>
+                    請聯繫主管處理。
+                </p>
+            </div>
+        </div>
+        {% elif already_uploaded %}
+        <!-- 已上傳 -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full mb-4">
+                    <i class="fas fa-file-check text-3xl text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">已上傳證明</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    此請假申請的證明文件已上傳。
+                </p>
+            </div>
+        </div>
+        {% elif leave_request %}
+        <!-- 上傳表單 -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <!-- 申請資訊 -->
+            <div class="mb-6 pb-6 border-b dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                    <i class="fas fa-file-medical text-amber-500 mr-2"></i>請假申請 #{{ leave_request.id }}
+                </h2>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">申請人</span>
+                        <span class="text-gray-800 dark:text-white font-medium">{{ leave_request.applicant_name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">請假日期</span>
+                        <span class="text-gray-800 dark:text-white font-medium">{{ leave_request.leave_date }}</span>
+                    </div>
+                    {% if leave_request.proof_deadline %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">補件期限</span>
+                        <span class="text-red-600 dark:text-red-400 font-medium">{{ leave_request.proof_deadline.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 上傳表單 -->
+            <form method="POST" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <i class="fas fa-camera mr-2 text-amber-500"></i>選擇證明圖片
+                    </label>
+                    <div class="relative">
+                        <input
+                            type="file"
+                            id="proof_file"
+                            name="proof_file"
+                            accept="image/*"
+                            required
+                            class="hidden"
+                        >
+                        <label for="proof_file" class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                            <div id="upload-placeholder" class="text-center">
+                                <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
+                                <p class="text-gray-600 dark:text-gray-400 font-medium">點擊上傳證明圖片</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG 格式</p>
+                            </div>
+                            <div id="upload-preview" class="hidden text-center w-full h-full p-2">
+                                <img id="preview-image" class="max-h-32 mx-auto rounded-lg object-contain" src="" alt="預覽">
+                                <p id="file-name" class="text-gray-800 dark:text-white font-medium text-sm mt-1 truncate px-2"></p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 flex items-center justify-center min-h-[60px] text-lg"
+                >
+                    <i class="fas fa-upload mr-3"></i>
+                    上傳證明
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <!-- 找不到申請 -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+                    <i class="fas fa-question text-3xl text-gray-400"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">找不到申請</h2>
+                <p class="text-gray-600 dark:text-gray-400">
+                    無法找到此請假申請，請確認連結是否正確。
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 版權 -->
+        <p class="text-center text-amber-100 dark:text-gray-500 text-sm mt-8">
+            &copy; 2024 寶格教育訓練
+        </p>
+    </div>
+
+    <script>
+        // 檔案選擇預覽
+        const proofFileInput = document.getElementById('proof_file');
+        const uploadPlaceholder = document.getElementById('upload-placeholder');
+        const uploadPreview = document.getElementById('upload-preview');
+        const previewImage = document.getElementById('preview-image');
+        const fileNameDisplay = document.getElementById('file-name');
+
+        if (proofFileInput) {
+            proofFileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    if (!file.type.startsWith('image/')) {
+                        alert('請上傳圖片檔案（JPG、PNG）');
+                        this.value = '';
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        uploadPlaceholder.classList.add('hidden');
+                        uploadPreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                    fileNameDisplay.textContent = file.name;
+                } else {
+                    uploadPlaceholder.classList.remove('hidden');
+                    uploadPreview.classList.add('hidden');
+                    previewImage.src = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
