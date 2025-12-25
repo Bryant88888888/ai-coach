@@ -246,15 +246,6 @@
                     document.getElementById('line_user_id').value = profile.userId;
                     document.getElementById('line_user_name').value = profile.displayName;
 
-                    // 顯示用戶資訊
-                    document.getElementById('user-display-name').textContent = profile.displayName;
-
-                    if (profile.pictureUrl) {
-                        document.getElementById('user-picture').src = profile.pictureUrl;
-                        document.getElementById('user-picture').classList.remove('hidden');
-                        document.getElementById('user-placeholder').classList.add('hidden');
-                    }
-
                     // 顯示表單
                     loadingSection.classList.add('hidden');
                     formSection.classList.remove('hidden');
