@@ -35,8 +35,19 @@ def get_db():
 def init_db():
     """初始化資料庫（建立所有表）"""
     from app.models import user, day, message, push_log, leave_request, manager  # noqa: F401
-    # checkfirst=True: 如果表已存在就跳過，避免多 worker 競爭問題
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+
+    # 使用 try-except 處理多 worker 同時啟動時的競爭條件
+    try:
+        # checkfirst=True: 如果表已存在就跳過
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        # 忽略 "table already exists" 或 "duplicate key" 錯誤
+        error_msg = str(e).lower()
+        if "already exists" in error_msg or "duplicate" in error_msg:
+            print(f"資料庫表已存在，跳過建立: {e}")
+        else:
+            raise e
+
     # 執行資料庫遷移（加入缺少的欄位）
     run_migrations()
 
