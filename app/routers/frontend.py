@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import uuid
 import os
 
@@ -425,7 +425,7 @@ async def proof_upload_page(request: Request, leave_id: int, db: Session = Depen
         })
 
     # 檢查是否已過期限
-    if leave_request.proof_deadline and datetime.now() > leave_request.proof_deadline:
+    if leave_request.proof_deadline and datetime.now(timezone.utc) > leave_request.proof_deadline:
         return templates.TemplateResponse("proof_upload.html", {
             "request": request,
             "expired": True
@@ -454,7 +454,7 @@ async def proof_upload_submit(
         })
 
     # 檢查是否已過期限
-    if leave_request.proof_deadline and datetime.now() > leave_request.proof_deadline:
+    if leave_request.proof_deadline and datetime.now(timezone.utc) > leave_request.proof_deadline:
         return templates.TemplateResponse("proof_upload.html", {
             "request": request,
             "expired": True
