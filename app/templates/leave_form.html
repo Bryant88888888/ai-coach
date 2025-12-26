@@ -140,9 +140,12 @@
 
                 <!-- 病假證明上傳 -->
                 <div id="proof-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5 hidden">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        <i class="fas fa-file-medical mr-2 text-indigo-500"></i>上傳證明文件 <span class="text-red-500">*</span>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-file-medical mr-2 text-indigo-500"></i>上傳證明文件
                     </label>
+                    <p class="text-sm text-amber-600 dark:text-amber-400 mb-3">
+                        <i class="fas fa-info-circle mr-1"></i>可先送出申請，7 天內補上傳證明
+                    </p>
                     <div class="relative">
                         <input
                             type="file"
@@ -155,7 +158,7 @@
                             <div id="upload-placeholder" class="text-center">
                                 <i class="fas fa-camera text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
                                 <p class="text-gray-600 dark:text-gray-400 font-medium">點擊上傳證明圖片</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG 格式</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG 格式（選填）</p>
                             </div>
                             <div id="upload-preview" class="hidden text-center w-full h-full p-2">
                                 <img id="preview-image" class="max-h-32 mx-auto rounded-lg object-contain" src="" alt="預覽">
@@ -300,12 +303,11 @@
                     reasonSection.classList.remove('hidden');
                     proofSection.classList.add('hidden');
                     reasonInput.setAttribute('required', 'required');
-                    proofInput.removeAttribute('required');
                 } else {
                     reasonSection.classList.add('hidden');
                     proofSection.classList.remove('hidden');
                     reasonInput.removeAttribute('required');
-                    proofInput.setAttribute('required', 'required');
+                    // 病假證明為選填，可之後補件
                 }
             }
 
