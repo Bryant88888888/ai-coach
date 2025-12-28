@@ -119,6 +119,29 @@ class LineService:
                 )
             )
 
+    def get_user_profile(self, user_id: str) -> dict | None:
+        """
+        取得 LINE 用戶資料
+
+        Args:
+            user_id: LINE User ID
+
+        Returns:
+            dict with displayName, pictureUrl, statusMessage or None if failed
+        """
+        try:
+            with ApiClient(self.configuration) as api_client:
+                messaging_api = MessagingApi(api_client)
+                profile = messaging_api.get_profile(user_id)
+                return {
+                    "displayName": profile.display_name,
+                    "pictureUrl": profile.picture_url,
+                    "statusMessage": profile.status_message
+                }
+        except Exception as e:
+            print(f"取得用戶資料失敗: {e}")
+            return None
+
     def send_push_message(self, user_id: str, message: str) -> None:
         """
         主動推送訊息給用戶

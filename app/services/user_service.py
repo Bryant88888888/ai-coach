@@ -13,10 +13,18 @@ class UserService:
         """透過 LINE User ID 取得用戶"""
         return self.db.query(User).filter(User.line_user_id == line_user_id).first()
 
-    def create_user(self, line_user_id: str, name: Optional[str] = None) -> User:
+    def create_user(
+        self,
+        line_user_id: str,
+        line_display_name: Optional[str] = None,
+        line_picture_url: Optional[str] = None,
+        name: Optional[str] = None
+    ) -> User:
         """建立新用戶"""
         user = User(
             line_user_id=line_user_id,
+            line_display_name=line_display_name,
+            line_picture_url=line_picture_url,
             name=name,
             current_day=0,
             status=UserStatus.ACTIVE.value,
@@ -26,15 +34,31 @@ class UserService:
         self.db.refresh(user)
         return user
 
-    def get_or_create_user(self, line_user_id: str, name: Optional[str] = None) -> tuple[User, bool]:
+    def get_or_create_user(
+        self,
+        line_user_id: str,
+        line_display_name: Optional[str] = None,
+        line_picture_url: Optional[str] = None
+    ) -> tuple[User, bool]:
         """
         取得或建立用戶
         回傳: (user, is_new) - is_new 表示是否為新建立的用戶
         """
         user = self.get_user_by_line_id(line_user_id)
         if user:
+            # 更新 LINE 資料（如果有變更）
+            updated = False
+            if line_display_name and user.line_display_name != line_display_name:
+                user.line_display_name = line_display_name
+                updated = True
+            if line_picture_url and user.line_picture_url != line_picture_url:
+                user.line_picture_url = line_picture_url
+                updated = True
+            if updated:
+                self.db.commit()
+                self.db.refresh(user)
             return user, False
-        return self.create_user(line_user_id, name), True
+        return self.create_user(line_user_id, line_display_name, line_picture_url), True
 
     def update_progress(self, user: User, new_day: int) -> User:
         """更新用戶訓練進度"""

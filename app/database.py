@@ -60,20 +60,48 @@ def run_migrations():
         inspector = inspect(engine)
         table_names = inspector.get_table_names()
 
-        # 檢查並加入 users.current_round 欄位
+        # 檢查並加入 users 新欄位
         if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]
 
-            if 'current_round' not in columns:
-                try:
-                    with engine.connect() as conn:
+            with engine.connect() as conn:
+                if 'current_round' not in columns:
+                    try:
                         conn.execute(text(
                             "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_round INTEGER DEFAULT 0"
                         ))
-                        conn.commit()
                         print("Migration: Added 'current_round' column to users table")
-                except Exception as e:
-                    print(f"Migration note: {e}")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                if 'line_display_name' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS line_display_name VARCHAR(100)"
+                        ))
+                        print("Migration: Added 'line_display_name' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                if 'line_picture_url' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS line_picture_url VARCHAR(500)"
+                        ))
+                        print("Migration: Added 'line_picture_url' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                if 'real_name' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS real_name VARCHAR(100)"
+                        ))
+                        print("Migration: Added 'real_name' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                conn.commit()
 
         # 檢查並加入 leave_requests 新欄位
         if 'leave_requests' in table_names:

@@ -40,26 +40,36 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             處理加好友事件
 
             當用戶加入好友時：
-            1. 建立用戶記錄
-            2. 立即發送 Day 0 開場白
-            3. 記錄推送
+            1. 取得 LINE 用戶資料
+            2. 建立用戶記錄
+            3. 立即發送 Day 0 開場白
+            4. 記錄推送
             """
             line_user_id = event.source.user_id
 
+            # 取得 LINE 用戶資料
+            profile = line_service.get_user_profile(line_user_id)
+            display_name = profile.get("displayName") if profile else None
+            picture_url = profile.get("pictureUrl") if profile else None
+
             # 建立用戶
             user_service = UserService(db)
-            user, is_new = user_service.get_or_create_user(line_user_id)
+            user, is_new = user_service.get_or_create_user(
+                line_user_id,
+                line_display_name=display_name,
+                line_picture_url=picture_url
+            )
 
             if is_new:
                 # 新用戶：立即推送 Day 0 開場白
                 push_service = PushService(db)
                 push_service.push_to_user(user)
-                print(f"✅ 新用戶加入: {line_user_id}, 已發送 Day 0 開場白")
+                print(f"✅ 新用戶加入: {line_user_id} ({display_name}), 已發送 Day 0 開場白")
             else:
                 # 舊用戶回歸，發送當前進度的課程
                 push_service = PushService(db)
                 push_service.push_to_user(user)
-                print(f"👋 舊用戶回歸: {line_user_id}, Day {user.current_day}")
+                print(f"👋 舊用戶回歸: {line_user_id} ({display_name}), Day {user.current_day}")
 
         # 註冊訊息處理器
         @handler.add(MessageEvent, message=TextMessageContent)

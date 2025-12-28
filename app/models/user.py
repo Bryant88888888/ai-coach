@@ -23,7 +23,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     line_user_id = Column(String(255), unique=True, index=True, nullable=False)
-    name = Column(String(100), nullable=True)
+    line_display_name = Column(String(100), nullable=True)  # LINE 顯示名稱
+    line_picture_url = Column(String(500), nullable=True)   # LINE 大頭貼
+    real_name = Column(String(100), nullable=True)          # 本名
+    name = Column(String(100), nullable=True)               # 舊欄位，保留相容性
     current_day = Column(Integer, default=0)
     current_round = Column(Integer, default=0)  # 當天訓練的對話輪數
     status = Column(String(20), default=UserStatus.ACTIVE.value)
