@@ -345,11 +345,24 @@ async def leave_apply_submit(
         # 根據 LINE ID 查找或建立使用者
         user = user_service.get_user_by_line_id(line_user_id)
         if not user:
-            # 如果使用者不存在，建立新使用者（使用填寫的全名）
-            user = user_service.create_user(line_user_id, full_name)
-        elif user.name != full_name:
-            # 更新使用者名稱
-            user.name = full_name
+            # 如果使用者不存在，建立新使用者
+            user = user_service.create_user(
+                line_user_id=line_user_id,
+                line_display_name=line_user_name,
+                line_picture_url=line_picture_url if line_picture_url else None
+            )
+
+        # 更新本名（如果有填寫且不同）
+        if full_name and user.real_name != full_name:
+            user.real_name = full_name
+            db.commit()
+
+        # 更新 LINE 資料（如果有變更）
+        if line_user_name and user.line_display_name != line_user_name:
+            user.line_display_name = line_user_name
+            db.commit()
+        if line_picture_url and user.line_picture_url != line_picture_url:
+            user.line_picture_url = line_picture_url
             db.commit()
 
         # 處理檔案上傳
