@@ -173,12 +173,24 @@ async def user_detail(
     # 取得用戶的所有訓練
     user_trainings = user.trainings if user.trainings else []
 
-    # 取得所有課程版本
+    # 取得所有課程版本（從課程表和訓練批次表合併）
     course_versions = course_service.get_course_versions()
+
+    # 也從訓練批次取得版本
+    batch_versions = db.query(TrainingBatch.course_version).distinct().all()
+    batch_version_list = [v[0] for v in batch_versions if v[0]]
+
+    # 合併並去重
+    all_versions = list(set(course_versions + batch_version_list))
+    all_versions.sort()
+
+    # 如果沒有任何版本，至少提供 v1
+    if not all_versions:
+        all_versions = ["v1"]
 
     # 取得每個版本的課程天數範圍
     version_days = {}
-    for version in course_versions:
+    for version in all_versions:
         courses = course_service.get_courses_by_version(version)
         if courses:
             max_day = max(c.day for c in courses)
@@ -193,7 +205,7 @@ async def user_detail(
         "messages": messages,
         "stats": stats,
         "user_trainings": user_trainings,
-        "course_versions": course_versions,
+        "course_versions": all_versions,
         "version_days": version_days,
         "success_message": success,
         "error_message": error
