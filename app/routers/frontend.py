@@ -145,13 +145,20 @@ async def users_list(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard/users/{line_user_id}", response_class=HTMLResponse)
-async def user_detail(request: Request, line_user_id: str, db: Session = Depends(get_db)):
+async def user_detail(
+    request: Request,
+    line_user_id: str,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
     """用戶詳情頁面"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
     user_service = UserService(db)
     message_service = MessageService(db)
+    course_service = CourseService(db)
 
     user = user_service.get_user_by_line_id(line_user_id)
     if not user:
@@ -163,12 +170,33 @@ async def user_detail(request: Request, line_user_id: str, db: Session = Depends
     messages = message_service.get_user_messages(user.id)
     stats = message_service.get_user_stats(user.id)
 
+    # 取得用戶的所有訓練
+    user_trainings = user.trainings if user.trainings else []
+
+    # 取得所有課程版本
+    course_versions = course_service.get_course_versions()
+
+    # 取得每個版本的課程天數範圍
+    version_days = {}
+    for version in course_versions:
+        courses = course_service.get_courses_by_version(version)
+        if courses:
+            max_day = max(c.day for c in courses)
+            version_days[version] = list(range(0, max_day + 1))
+        else:
+            version_days[version] = list(range(0, 15))  # 預設 Day 0 到 Day 14
+
     return templates.TemplateResponse("user_detail.html", {
         "request": request,
         "active_page": "users",
         "user": user,
         "messages": messages,
-        "stats": stats
+        "stats": stats,
+        "user_trainings": user_trainings,
+        "course_versions": course_versions,
+        "version_days": version_days,
+        "success_message": success,
+        "error_message": error
     })
 
 
@@ -1311,3 +1339,148 @@ async def training_batch_start_all(
         url=f"/dashboard/training/batch/{batch_id}?success=已開始 {started_count} 個訓練",
         status_code=303
     )
+
+
+# ========== 用戶訓練管理 ==========
+
+@router.post("/dashboard/users/{line_user_id}/update-training")
+async def user_update_training(
+    request: Request,
+    line_user_id: str,
+    db: Session = Depends(get_db),
+    training_id: int = Form(...),
+    new_day: int = Form(...)
+):
+    """更新用戶訓練進度"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=找不到此訓練",
+            status_code=303
+        )
+
+    # 更新訓練日
+    old_day = user_training.current_day
+    user_training.current_day = new_day
+    user_training.current_round = 0  # 重置輪數
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/dashboard/users/{line_user_id}?success=已將訓練日從 Day {old_day} 調整為 Day {new_day}",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/users/{line_user_id}/send-training")
+async def user_send_training(
+    request: Request,
+    line_user_id: str,
+    db: Session = Depends(get_db),
+    training_id: int = Form(...),
+    send_day: int = Form(...)
+):
+    """發送指定訓練的指定天數內容"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=找不到此訓練",
+            status_code=303
+        )
+
+    user = user_training.user
+    push_service = PushService(db)
+
+    # 取得課程版本
+    course_version = "v1"
+    if user_training.batch:
+        course_version = user_training.batch.course_version
+
+    # 取得指定天數的開場訊息
+    opening_message = push_service.get_opening_message(
+        day=send_day,
+        persona=user_training.persona,
+        course_version=course_version
+    )
+
+    if not opening_message:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=找不到 Day {send_day} 的課程內容",
+            status_code=303
+        )
+
+    try:
+        # 發送訊息
+        push_service._send_push_message(
+            user_id=user.line_user_id,
+            message=opening_message
+        )
+
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?success=已發送 Day {send_day} 的訓練內容",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/users/{line_user_id}/send-any-training")
+async def user_send_any_training(
+    request: Request,
+    line_user_id: str,
+    db: Session = Depends(get_db),
+    version: str = Form(...),
+    day: int = Form(...),
+    persona: str = Form("A")
+):
+    """發送任意版本/天數的訓練內容"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_service = UserService(db)
+    push_service = PushService(db)
+
+    user = user_service.get_user_by_line_id(line_user_id)
+    if not user:
+        return RedirectResponse(
+            url=f"/dashboard/users?error=用戶不存在",
+            status_code=303
+        )
+
+    # 取得指定版本/天數的開場訊息
+    opening_message = push_service.get_opening_message(
+        day=day,
+        persona=f"{persona}_",  # 確保包含字母以符合判斷邏輯
+        course_version=version
+    )
+
+    if not opening_message:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=找不到 {version} 版本 Day {day} 的課程內容",
+            status_code=303
+        )
+
+    try:
+        # 發送訊息
+        push_service._send_push_message(
+            user_id=user.line_user_id,
+            message=opening_message
+        )
+
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?success=已發送 {version} 版本 Day {day} 的訓練內容（Persona {persona}）",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
+            status_code=303
+        )

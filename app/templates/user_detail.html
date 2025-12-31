@@ -74,6 +74,137 @@
     </div>
 </div>
 
+<!-- 訓練管理 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        <i class="fas fa-cog mr-2 text-indigo-600 dark:text-indigo-400"></i>訓練管理
+    </h3>
+
+    {% if success_message %}
+    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg mb-4 flex items-center">
+        <i class="fas fa-check-circle mr-2"></i>{{ success_message }}
+    </div>
+    {% endif %}
+
+    {% if error_message %}
+    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-4 flex items-center">
+        <i class="fas fa-exclamation-circle mr-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <!-- 用戶目前的訓練 -->
+    {% if user_trainings %}
+    <div class="mb-6">
+        <h4 class="font-medium text-gray-700 dark:text-gray-300 mb-3">目前訓練</h4>
+        <div class="space-y-3">
+            {% for training in user_trainings %}
+            <div class="border dark:border-gray-700 rounded-lg p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-800 dark:text-white">
+                            {% if training.batch %}{{ training.batch.name }}{% else %}訓練 #{{ training.id }}{% endif %}
+                        </span>
+                        <span class="text-xs px-2 py-1 rounded-full
+                            {% if training.status == 'active' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300
+                            {% elif training.status == 'paused' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300
+                            {% elif training.status == 'completed' %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300{% endif %}">
+                            {{ training.status }}
+                        </span>
+                        {% if training.batch %}
+                        <span class="text-xs px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300">
+                            {{ training.batch.course_version }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Day {{ training.current_day }}</span>
+                </div>
+
+                <!-- 調整訓練日表單 -->
+                <form action="/dashboard/users/{{ user.line_user_id }}/update-training" method="POST" class="flex flex-wrap items-end gap-3">
+                    <input type="hidden" name="training_id" value="{{ training.id }}">
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">調整訓練日</label>
+                        <select name="new_day" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                            {% set version = training.batch.course_version if training.batch else 'v1' %}
+                            {% for d in version_days.get(version, range(15)) %}
+                            <option value="{{ d }}" {% if d == training.current_day %}selected{% endif %}>Day {{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition min-h-[40px]">
+                        <i class="fas fa-save mr-1"></i>更新
+                    </button>
+                </form>
+
+                <!-- 手動發送訓練內容 -->
+                <form action="/dashboard/users/{{ user.line_user_id }}/send-training" method="POST" class="flex flex-wrap items-end gap-3 mt-3 pt-3 border-t dark:border-gray-700">
+                    <input type="hidden" name="training_id" value="{{ training.id }}">
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">發送指定天數內容</label>
+                        <select name="send_day" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                            {% set version = training.batch.course_version if training.batch else 'v1' %}
+                            {% for d in version_days.get(version, range(15)) %}
+                            <option value="{{ d }}" {% if d == training.current_day %}selected{% endif %}>Day {{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition min-h-[40px]">
+                        <i class="fas fa-paper-plane mr-1"></i>發送
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <!-- 無訓練時的快速發送 -->
+    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4">
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            <i class="fas fa-info-circle mr-1"></i>此用戶尚未加入任何訓練批次
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- 快速發送任意版本/天數的訓練內容 -->
+    <div class="border-t dark:border-gray-700 pt-4">
+        <h4 class="font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <i class="fas fa-bolt mr-1 text-yellow-500"></i>快速發送（任意版本）
+        </h4>
+        <form action="/dashboard/users/{{ user.line_user_id }}/send-any-training" method="POST" class="flex flex-wrap items-end gap-3">
+            <div class="min-w-[120px]">
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">課程版本</label>
+                <select name="version" id="quick-send-version" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]" onchange="updateQuickSendDays()">
+                    {% for v in course_versions %}
+                    <option value="{{ v }}">{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="min-w-[120px]">
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">訓練天數</label>
+                <select name="day" id="quick-send-day" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                    {% if course_versions %}
+                    {% set first_version = course_versions[0] %}
+                    {% for d in version_days.get(first_version, range(15)) %}
+                    <option value="{{ d }}">Day {{ d }}</option>
+                    {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+            <div class="min-w-[120px]">
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Persona</label>
+                <select name="persona" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                    <option value="A" {% if user.persona and 'A' in user.persona %}selected{% endif %}>A（無經驗）</option>
+                    <option value="B" {% if user.persona and 'B' in user.persona %}selected{% endif %}>B（有經驗）</option>
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition min-h-[40px]">
+                <i class="fas fa-paper-plane mr-1"></i>發送
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- 對話記錄 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -173,5 +304,28 @@
             }
         });
     });
+
+    // 版本與天數對應
+    const versionDays = {{ version_days | tojson | safe }};
+
+    // 更新快速發送的天數下拉選單
+    function updateQuickSendDays() {
+        const versionSelect = document.getElementById('quick-send-version');
+        const daySelect = document.getElementById('quick-send-day');
+
+        if (!versionSelect || !daySelect) return;
+
+        const selectedVersion = versionSelect.value;
+        const days = versionDays[selectedVersion] || Array.from({length: 15}, (_, i) => i);
+
+        // 清空並重新填入選項
+        daySelect.innerHTML = '';
+        days.forEach(d => {
+            const option = document.createElement('option');
+            option.value = d;
+            option.textContent = `Day ${d}`;
+            daySelect.appendChild(option);
+        });
+    }
 </script>
 {% endblock %}
