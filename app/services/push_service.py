@@ -11,6 +11,7 @@ from linebot.v3.messaging import (
 
 from app.config import get_settings
 from app.models.user import User, UserStatus
+from app.models.user_training import UserTraining, TrainingStatus
 from app.models.push_log import PushLog
 from app.data.days_data import get_day_data
 
@@ -38,13 +39,26 @@ class PushService:
             )
 
     def get_users_to_push(self) -> list[User]:
-        """取得需要推送的用戶列表"""
+        """取得需要推送的用戶列表（舊版，保留相容性）"""
         return (
             self.db.query(User)
             .filter(
                 and_(
                     User.status == UserStatus.ACTIVE.value,
                     User.current_day <= MAX_TRAINING_DAY
+                )
+            )
+            .all()
+        )
+
+    def get_active_trainings_to_push(self) -> list[UserTraining]:
+        """取得需要推送的進行中訓練列表"""
+        return (
+            self.db.query(UserTraining)
+            .filter(
+                and_(
+                    UserTraining.status == TrainingStatus.ACTIVE.value,
+                    UserTraining.current_day <= MAX_TRAINING_DAY
                 )
             )
             .all()
@@ -155,26 +169,94 @@ class PushService:
                 "reason": str(e)
             }
 
+    def push_to_training(self, user_training: UserTraining) -> dict:
+        """
+        推送訊息給訓練中的用戶
+
+        Args:
+            user_training: UserTraining 物件
+
+        Returns:
+            dict: 包含推送結果的資訊
+        """
+        user = user_training.user
+
+        # 檢查今天是否已經推送過
+        if self.has_pushed_today(user.id):
+            return {
+                "user_id": user.id,
+                "training_id": user_training.id,
+                "line_user_id": user.line_user_id,
+                "status": "skipped",
+                "reason": "already_pushed_today"
+            }
+
+        try:
+            # 取得固定開場訊息（使用 training 的 day 和 persona）
+            opening_message = self.get_opening_message(
+                user_training.current_day,
+                user_training.persona
+            )
+
+            # 發送 LINE 訊息
+            self._send_push_message(
+                user_id=user.line_user_id,
+                message=opening_message
+            )
+
+            # 記錄推送
+            push_log = PushLog(
+                user_id=user.id,
+                push_date=date.today(),
+                training_day=user_training.current_day,
+                push_message=opening_message,
+                responded=False
+            )
+            self.db.add(push_log)
+
+            # 更新最後推送時間
+            user_training.last_push_at = datetime.now(timezone.utc)
+
+            self.db.commit()
+
+            return {
+                "user_id": user.id,
+                "training_id": user_training.id,
+                "line_user_id": user.line_user_id,
+                "status": "success",
+                "training_day": user_training.current_day,
+                "message_preview": opening_message[:50] + "..."
+            }
+
+        except Exception as e:
+            return {
+                "user_id": user.id,
+                "training_id": user_training.id,
+                "line_user_id": user.line_user_id,
+                "status": "error",
+                "reason": str(e)
+            }
+
     def push_daily_training(self) -> dict:
         """
-        執行每日訓練推送
+        執行每日訓練推送（新版：使用 UserTraining）
 
         Returns:
             dict: 推送結果摘要
         """
-        users = self.get_users_to_push()
+        trainings = self.get_active_trainings_to_push()
 
         results = {
             "push_time": datetime.now(timezone.utc).isoformat(),
-            "total_users": len(users),
+            "total_trainings": len(trainings),
             "success": 0,
             "skipped": 0,
             "errors": 0,
             "details": []
         }
 
-        for user in users:
-            result = self.push_to_user(user)
+        for training in trainings:
+            result = self.push_to_training(training)
             results["details"].append(result)
 
             if result["status"] == "success":

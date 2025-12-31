@@ -39,7 +39,7 @@
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Persona</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">進度</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">狀態</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">訓練狀態</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden lg:table-cell">建立時間</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">操作</th>
                 </tr>
@@ -81,23 +81,42 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-4">
+                        {% set training = user.active_training or (user.trainings[0] if user.trainings|length > 0 else None) %}
+                        {% set current_day = training.current_day if training else user.current_day %}
                         <div class="flex items-center">
                             <div class="w-24 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
-                                {% set progress = (user.current_day / 14 * 100) %}
+                                {% set progress = (current_day / 14 * 100) %}
                                 <div class="h-2 rounded-full {% if progress >= 100 %}bg-green-500{% else %}bg-indigo-500{% endif %}"
-                                     style="width: {{ progress }}%"></div>
+                                     style="width: {{ [progress, 100]|min }}%"></div>
                             </div>
-                            <span class="text-sm font-medium text-gray-800 dark:text-white">Day {{ user.current_day }}</span>
+                            <span class="text-sm font-medium text-gray-800 dark:text-white">Day {{ current_day }}</span>
                         </div>
                     </td>
                     <td class="px-4 py-4 hidden md:table-cell">
-                        {% if user.status == 'Active' %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">
-                            <i class="fas fa-circle text-xs mr-1"></i>活躍
-                        </span>
+                        {% set active_training = user.active_training %}
+                        {% if active_training %}
+                        <a href="/dashboard/training/batch/{{ active_training.batch_id }}"
+                           class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900">
+                            <i class="fas fa-play text-xs mr-1"></i>進行中 Day {{ active_training.current_day }}
+                        </a>
+                        {% elif user.trainings|length > 0 %}
+                            {% set last_training = user.trainings[0] %}
+                            {% if last_training.status == 'completed' %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">
+                                <i class="fas fa-check text-xs mr-1"></i>已完成
+                            </span>
+                            {% elif last_training.status == 'paused' %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300">
+                                <i class="fas fa-pause text-xs mr-1"></i>已暫停
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">
+                                <i class="fas fa-clock text-xs mr-1"></i>待開始
+                            </span>
+                            {% endif %}
                         {% else %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
-                            <i class="fas fa-circle text-xs mr-1"></i>停用
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                            <i class="fas fa-minus text-xs mr-1"></i>未安排
                         </span>
                         {% endif %}
                     </td>

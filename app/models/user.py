@@ -36,6 +36,8 @@ class User(Base):
 
     # 關聯
     messages = relationship("Message", back_populates="user", order_by="Message.created_at.desc()")
+    trainings = relationship("UserTraining", back_populates="user", order_by="UserTraining.created_at.desc()")
+    leave_requests = relationship("LeaveRequest", back_populates="user", order_by="LeaveRequest.created_at.desc()")
 
     def __repr__(self):
         return f"<User(id={self.id}, line_user_id={self.line_user_id}, current_day={self.current_day})>"
@@ -49,3 +51,16 @@ class User(Base):
     def persona_enum(self) -> Persona | None:
         """取得 Persona 的 Enum 值"""
         return Persona(self.persona) if self.persona else None
+
+    @property
+    def active_training(self):
+        """取得目前進行中的訓練"""
+        for training in self.trainings:
+            if training.status == "active":
+                return training
+        return None
+
+    @property
+    def display_name(self) -> str:
+        """取得顯示名稱（優先 LINE 名稱）"""
+        return self.line_display_name or self.real_name or self.name or "未命名"

@@ -42,8 +42,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             當用戶加入好友時：
             1. 取得 LINE 用戶資料
             2. 建立用戶記錄
-            3. 立即發送 Day 0 開場白
-            4. 記錄推送
+            3. 發送歡迎訊息（不自動開始訓練）
             """
             line_user_id = event.source.user_id
 
@@ -60,16 +59,23 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                 line_picture_url=picture_url
             )
 
+            # 發送歡迎訊息
+            welcome_message = "歡迎加入！您的帳號已建立，請等待管理員為您安排訓練課程。"
+
             if is_new:
-                # 新用戶：立即推送 Day 0 開場白
-                push_service = PushService(db)
-                push_service.push_to_user(user)
-                print(f"✅ 新用戶加入: {line_user_id} ({display_name}), 已發送 Day 0 開場白")
+                line_service.send_reply(event.reply_token, welcome_message)
+                print(f"✅ 新用戶加入: {line_user_id} ({display_name})")
             else:
-                # 舊用戶回歸，發送當前進度的課程
-                push_service = PushService(db)
-                push_service.push_to_user(user)
-                print(f"👋 舊用戶回歸: {line_user_id} ({display_name}), Day {user.current_day}")
+                # 舊用戶回歸：檢查是否有進行中的訓練
+                active_training = user.active_training
+                if active_training:
+                    # 有進行中的訓練，推送當前進度
+                    push_service = PushService(db)
+                    push_service.push_to_training(active_training)
+                    print(f"👋 舊用戶回歸: {line_user_id} ({display_name}), Day {active_training.current_day}")
+                else:
+                    line_service.send_reply(event.reply_token, "歡迎回來！請等待管理員為您安排訓練課程。")
+                    print(f"👋 舊用戶回歸（無訓練）: {line_user_id} ({display_name})")
 
         # 註冊訊息處理器
         @handler.add(MessageEvent, message=TextMessageContent)

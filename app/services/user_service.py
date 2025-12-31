@@ -13,6 +13,10 @@ class UserService:
         """透過 LINE User ID 取得用戶"""
         return self.db.query(User).filter(User.line_user_id == line_user_id).first()
 
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        """透過用戶 ID 取得用戶"""
+        return self.db.query(User).filter(User.id == user_id).first()
+
     def create_user(
         self,
         line_user_id: str,

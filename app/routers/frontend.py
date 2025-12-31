@@ -18,6 +18,9 @@ from app.services.line_service import LineService
 from app.data.days_data import get_all_days, get_day_data
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.manager import Manager
+from app.models.training_batch import TrainingBatch
+from app.models.user_training import UserTraining, TrainingStatus
+from app.services.training_batch_service import TrainingBatchService
 
 # 設定模板目錄
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -654,3 +657,334 @@ async def manager_delete(
         )
 
     return RedirectResponse(url="/dashboard/managers", status_code=303)
+
+
+# ========== 訓練批次管理 ==========
+
+@router.get("/dashboard/training", response_class=HTMLResponse)
+async def training_manage(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """訓練批次管理頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batches = batch_service.get_all_batches()
+
+    # 計算每個批次的統計資料
+    batch_stats = {}
+    for batch in batches:
+        batch_stats[batch.id] = batch_service.get_batch_stats(batch.id)
+
+    return templates.TemplateResponse("training.html", {
+        "request": request,
+        "active_page": "training",
+        "batches": batches,
+        "batch_stats": batch_stats,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/training/batch/create")
+async def training_batch_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    description: str = Form(None),
+    course_version: str = Form("v1")
+):
+    """建立新的訓練批次"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+
+    try:
+        batch = batch_service.create_batch(
+            name=name.strip(),
+            description=description.strip() if description else None,
+            course_version=course_version
+        )
+        return RedirectResponse(
+            url=f"/dashboard/training?success=已成功建立批次「{batch.name}」",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/training?error=建立失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.get("/dashboard/training/batch/{batch_id}", response_class=HTMLResponse)
+async def training_batch_detail(
+    request: Request,
+    batch_id: int,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """訓練批次詳情頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch = batch_service.get_batch(batch_id)
+
+    if not batch:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": "找不到此訓練批次"
+        }, status_code=404)
+
+    # 取得批次中的用戶訓練
+    user_trainings = batch_service.get_batch_users(batch_id)
+    stats = batch_service.get_batch_stats(batch_id)
+
+    # 取得所有未加入此批次的用戶（用於新增用戶）
+    user_service = UserService(db)
+    all_users = user_service.get_all_users()
+    batch_user_ids = {ut.user_id for ut in user_trainings}
+    available_users = [u for u in all_users if u.id not in batch_user_ids]
+
+    return templates.TemplateResponse("training_batch.html", {
+        "request": request,
+        "active_page": "training",
+        "batch": batch,
+        "user_trainings": user_trainings,
+        "stats": stats,
+        "available_users": available_users,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/training/batch/{batch_id}/toggle")
+async def training_batch_toggle(
+    request: Request,
+    batch_id: int,
+    db: Session = Depends(get_db)
+):
+    """切換批次啟用狀態"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch = batch_service.get_batch(batch_id)
+
+    if batch:
+        batch_service.update_batch(batch_id, is_active=not batch.is_active)
+        status = "啟用" if not batch.is_active else "停用"
+        return RedirectResponse(
+            url=f"/dashboard/training?success=已{status}批次「{batch.name}」",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/training", status_code=303)
+
+
+@router.post("/dashboard/training/batch/{batch_id}/add-user")
+async def training_batch_add_user(
+    request: Request,
+    batch_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Form(...),
+    auto_start: bool = Form(False)
+):
+    """將用戶加入訓練批次"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    user_service = UserService(db)
+
+    batch = batch_service.get_batch(batch_id)
+    user = user_service.get_user_by_id(user_id)
+
+    if not batch or not user:
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?error=批次或用戶不存在",
+            status_code=303
+        )
+
+    try:
+        user_training = batch_service.add_user_to_batch(user_id, batch_id, auto_start=auto_start)
+        user_name = user.display_name or user.line_user_id[:8]
+
+        if auto_start:
+            # 發送開場訊息
+            push_service = PushService(db)
+            push_service.push_to_training(user_training)
+
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?success=已將「{user_name}」加入批次",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?error=加入失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/training/batch/{batch_id}/remove-user/{user_id}")
+async def training_batch_remove_user(
+    request: Request,
+    batch_id: int,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """將用戶從批次中移除"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    result = batch_service.remove_user_from_batch(user_id, batch_id)
+
+    if result:
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?success=已移除用戶",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{batch_id}?error=移除失敗",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/training/user/{training_id}/start")
+async def training_user_start(
+    request: Request,
+    training_id: int,
+    db: Session = Depends(get_db)
+):
+    """開始用戶訓練"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(url="/dashboard/training", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch_service.start_training(user_training)
+
+    # 發送開場訊息
+    push_service = PushService(db)
+    push_service.push_to_training(user_training)
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{user_training.batch_id}?success=已開始訓練",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/training/user/{training_id}/pause")
+async def training_user_pause(
+    request: Request,
+    training_id: int,
+    db: Session = Depends(get_db)
+):
+    """暫停用戶訓練"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(url="/dashboard/training", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch_service.pause_training(user_training)
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{user_training.batch_id}?success=已暫停訓練",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/training/user/{training_id}/resume")
+async def training_user_resume(
+    request: Request,
+    training_id: int,
+    db: Session = Depends(get_db)
+):
+    """恢復用戶訓練"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(url="/dashboard/training", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch_service.resume_training(user_training)
+
+    # 發送繼續訓練訊息
+    push_service = PushService(db)
+    push_service.push_to_training(user_training)
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{user_training.batch_id}?success=已恢復訓練",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/training/user/{training_id}/restart")
+async def training_user_restart(
+    request: Request,
+    training_id: int,
+    db: Session = Depends(get_db)
+):
+    """重新開始用戶訓練"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
+    if not user_training:
+        return RedirectResponse(url="/dashboard/training", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    batch_service.restart_training(user_training)
+
+    # 發送開場訊息
+    push_service = PushService(db)
+    push_service.push_to_training(user_training)
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{user_training.batch_id}?success=已重新開始訓練",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/training/batch/{batch_id}/start-all")
+async def training_batch_start_all(
+    request: Request,
+    batch_id: int,
+    db: Session = Depends(get_db)
+):
+    """開始批次中所有待開始的訓練"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    push_service = PushService(db)
+
+    user_trainings = batch_service.get_batch_users(batch_id)
+    started_count = 0
+
+    for ut in user_trainings:
+        if ut.status == TrainingStatus.PENDING.value:
+            batch_service.start_training(ut)
+            push_service.push_to_training(ut)
+            started_count += 1
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{batch_id}?success=已開始 {started_count} 個訓練",
+        status_code=303
+    )

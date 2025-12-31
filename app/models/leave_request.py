@@ -40,7 +40,7 @@ class LeaveRequest(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # 關聯
-    user = relationship("User", backref="leave_requests")
+    user = relationship("User", back_populates="leave_requests")
 
     def __repr__(self):
         return f"<LeaveRequest(id={self.id}, user_id={self.user_id}, type={self.leave_type}, date={self.leave_date})>"

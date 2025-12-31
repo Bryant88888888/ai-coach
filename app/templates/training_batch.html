@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}{{ batch.name }} - 訓練管理{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 頁面標題 -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-2">
+                <a href="/dashboard/training" class="text-indigo-600 dark:text-indigo-400 hover:underline">
+                    <i class="fas fa-arrow-left mr-1"></i>返回列表
+                </a>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
+                {{ batch.name }}
+                {% if batch.is_active %}
+                <span class="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                    啟用中
+                </span>
+                {% else %}
+                <span class="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
+                    已停用
+                </span>
+                {% endif %}
+            </h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">{{ batch.description or '無描述' }}</p>
+        </div>
+    </div>
+
+    <!-- 成功/錯誤訊息 -->
+    {% if success_message %}
+    <div class="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg">
+        <i class="fas fa-check-circle mr-2"></i>{{ success_message }}
+    </div>
+    {% endif %}
+    {% if error_message %}
+    <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+        <i class="fas fa-exclamation-circle mr-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <!-- 統計卡片 -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4 text-center">
+            <div class="text-3xl font-bold text-gray-800 dark:text-white">{{ stats.get('total', 0) }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">總人數</div>
+        </div>
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl shadow-sm border border-yellow-200 dark:border-yellow-800 p-4 text-center">
+            <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.get('pending', 0) }}</div>
+            <div class="text-sm text-yellow-600 dark:text-yellow-400">待開始</div>
+        </div>
+        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl shadow-sm border border-blue-200 dark:border-blue-800 p-4 text-center">
+            <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.get('active', 0) }}</div>
+            <div class="text-sm text-blue-600 dark:text-blue-400">進行中</div>
+        </div>
+        <div class="bg-orange-50 dark:bg-orange-900/20 rounded-xl shadow-sm border border-orange-200 dark:border-orange-800 p-4 text-center">
+            <div class="text-3xl font-bold text-orange-600 dark:text-orange-400">{{ stats.get('paused', 0) }}</div>
+            <div class="text-sm text-orange-600 dark:text-orange-400">已暫停</div>
+        </div>
+        <div class="bg-green-50 dark:bg-green-900/20 rounded-xl shadow-sm border border-green-200 dark:border-green-800 p-4 text-center">
+            <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.get('completed', 0) }}</div>
+            <div class="text-sm text-green-600 dark:text-green-400">已完成</div>
+        </div>
+    </div>
+
+    <!-- 新增用戶 + 批次操作 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 新增用戶表單 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-user-plus text-indigo-500 mr-2"></i>加入用戶
+            </h2>
+            {% if available_users %}
+            <form action="/dashboard/training/batch/{{ batch.id }}/add-user" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">選擇用戶</label>
+                    <select name="user_id" required
+                        class="w-full px-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
+                        <option value="">-- 請選擇 --</option>
+                        {% for user in available_users %}
+                        <option value="{{ user.id }}">
+                            {{ user.display_name or user.line_user_id[:12] }}
+                            {% if user.real_name %} ({{ user.real_name }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" name="auto_start" id="auto_start" value="true"
+                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label for="auto_start" class="text-sm text-gray-700 dark:text-gray-300">
+                        立即開始訓練（加入後自動發送開場訊息）
+                    </label>
+                </div>
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">
+                    <i class="fas fa-plus mr-2"></i>加入批次
+                </button>
+            </form>
+            {% else %}
+            <div class="text-center py-6 text-gray-500 dark:text-gray-400">
+                <i class="fas fa-users-slash text-3xl mb-2"></i>
+                <p>所有用戶都已加入此批次</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 批次操作 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-cogs text-indigo-500 mr-2"></i>批次操作
+            </h2>
+            <div class="space-y-3">
+                {% if stats.get('pending', 0) > 0 %}
+                <form action="/dashboard/training/batch/{{ batch.id }}/start-all" method="POST">
+                    <button type="submit"
+                        class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center justify-center">
+                        <i class="fas fa-play-circle mr-2"></i>開始所有待開始的訓練 ({{ stats.get('pending', 0) }} 人)
+                    </button>
+                </form>
+                {% endif %}
+                <form action="/dashboard/training/batch/{{ batch.id }}/toggle" method="POST">
+                    <button type="submit"
+                        class="w-full px-4 py-3 {% if batch.is_active %}bg-gray-500 hover:bg-gray-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-lg transition flex items-center justify-center">
+                        {% if batch.is_active %}
+                        <i class="fas fa-pause-circle mr-2"></i>停用此批次
+                        {% else %}
+                        <i class="fas fa-play-circle mr-2"></i>啟用此批次
+                        {% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用戶訓練列表 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700">
+        <div class="p-6 border-b dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-users text-indigo-500 mr-2"></i>訓練中的用戶 ({{ user_trainings|length }})
+            </h2>
+        </div>
+
+        {% if user_trainings %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">用戶</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">狀態</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">進度</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Persona</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">開始時間</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y dark:divide-gray-700">
+                    {% for ut in user_trainings %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                {% if ut.user.line_picture_url %}
+                                <img src="{{ ut.user.line_picture_url }}" alt="" class="w-10 h-10 rounded-full mr-3">
+                                {% else %}
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mr-3">
+                                    <i class="fas fa-user text-indigo-600 dark:text-indigo-400"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <a href="/dashboard/users/{{ ut.user.line_user_id }}" class="font-medium text-gray-800 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400">
+                                        {{ ut.user.display_name or ut.user.line_user_id[:12] }}
+                                    </a>
+                                    {% if ut.user.real_name %}
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ ut.user.real_name }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if ut.status == 'pending' %}
+                            <span class="px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full">
+                                待開始
+                            </span>
+                            {% elif ut.status == 'active' %}
+                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+                                進行中
+                            </span>
+                            {% elif ut.status == 'paused' %}
+                            <span class="px-2 py-1 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+                                已暫停
+                            </span>
+                            {% elif ut.status == 'completed' %}
+                            <span class="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                                已完成
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div class="w-20 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                                    <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ (ut.current_day / 14 * 100)|int }}%"></div>
+                                </div>
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Day {{ ut.current_day }}/14</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {{ ut.persona or '-' }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {{ ut.started_at.strftime('%Y-%m-%d %H:%M') if ut.started_at else '-' }}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                {% if ut.status == 'pending' %}
+                                <form action="/dashboard/training/user/{{ ut.id }}/start" method="POST" class="inline">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition">
+                                        <i class="fas fa-play mr-1"></i>開始
+                                    </button>
+                                </form>
+                                {% elif ut.status == 'active' %}
+                                <form action="/dashboard/training/user/{{ ut.id }}/pause" method="POST" class="inline">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded hover:bg-orange-200 dark:hover:bg-orange-900/50 transition">
+                                        <i class="fas fa-pause mr-1"></i>暫停
+                                    </button>
+                                </form>
+                                {% elif ut.status == 'paused' %}
+                                <form action="/dashboard/training/user/{{ ut.id }}/resume" method="POST" class="inline">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition">
+                                        <i class="fas fa-play mr-1"></i>繼續
+                                    </button>
+                                </form>
+                                {% endif %}
+
+                                {% if ut.status != 'pending' %}
+                                <form action="/dashboard/training/user/{{ ut.id }}/restart" method="POST" class="inline"
+                                    onsubmit="return confirm('確定要重新開始訓練嗎？這將重置所有進度。')">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition">
+                                        <i class="fas fa-redo mr-1"></i>重來
+                                    </button>
+                                </form>
+                                {% endif %}
+
+                                <form action="/dashboard/training/batch/{{ batch.id }}/remove-user/{{ ut.user_id }}" method="POST" class="inline"
+                                    onsubmit="return confirm('確定要從批次中移除此用戶嗎？')">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                                        <i class="fas fa-trash mr-1"></i>移除
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-gray-500 dark:text-gray-400">
+            <i class="fas fa-user-slash text-5xl mb-4"></i>
+            <p class="text-lg">此批次尚未加入任何用戶</p>
+            <p class="text-sm mt-2">使用上方表單將用戶加入此批次</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
