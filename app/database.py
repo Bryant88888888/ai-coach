@@ -35,7 +35,7 @@ def get_db():
 def init_db():
     """初始化資料庫（建立所有表）"""
     from app.models import user, day, message, push_log, leave_request, manager  # noqa: F401
-    from app.models import training_batch, user_training  # noqa: F401
+    from app.models import training_batch, user_training, course  # noqa: F401
 
     # 使用 try-except 處理多 worker 同時啟動時的競爭條件
     try:

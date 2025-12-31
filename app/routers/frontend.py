@@ -15,7 +15,7 @@ from app.services.message_service import MessageService
 from app.services.push_service import PushService
 from app.services.auth_service import AuthService
 from app.services.line_service import LineService
-from app.data.days_data import get_all_days, get_day_data
+from app.services.course_service import CourseService
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.manager import Manager
 from app.models.training_batch import TrainingBatch
@@ -189,41 +189,174 @@ async def messages_list(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard/days", response_class=HTMLResponse)
-async def days_list(request: Request):
+async def days_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    version: str = None,
+    success: str = None,
+    error: str = None
+):
     """課程管理頁面"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    days = []
-    for d in get_all_days():
-        day_data = get_day_data(d["day"])
-        if day_data:
-            days.append(day_data)
+    course_service = CourseService(db)
+
+    # 取得所有版本
+    versions = course_service.get_course_versions()
+    if not versions:
+        versions = ["v1"]
+
+    # 預設使用第一個版本
+    current_version = version if version and version in versions else versions[0]
+
+    # 取得該版本的課程
+    courses = course_service.get_courses_by_version(current_version)
+    days = [course.to_dict() for course in courses]
+
+    # 取得版本統計
+    version_stats = course_service.get_version_stats()
 
     return templates.TemplateResponse("days.html", {
         "request": request,
         "active_page": "days",
-        "days": days
+        "days": days,
+        "versions": versions,
+        "current_version": current_version,
+        "version_stats": version_stats,
+        "success_message": success,
+        "error_message": error
     })
 
 
-@router.get("/dashboard/days/{day}/edit", response_class=HTMLResponse)
-async def day_edit_page(request: Request, day: int):
-    """課程編輯頁面"""
+@router.get("/dashboard/days/create", response_class=HTMLResponse)
+async def day_create_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    version: str = "v1"
+):
+    """新增課程頁面"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    day_data = get_day_data(day)
-    if not day_data:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": f"Day {day} 不存在"
-        }, status_code=404)
+    course_service = CourseService(db)
+    versions = course_service.get_course_versions()
+    if not versions:
+        versions = ["v1"]
+
+    # 取得該版本已有的最大 day 數
+    courses = course_service.get_courses_by_version(version)
+    next_day = max([c.day for c in courses], default=-1) + 1
 
     return templates.TemplateResponse("day_edit.html", {
         "request": request,
         "active_page": "days",
-        "day": day_data
+        "day": {
+            "day": next_day,
+            "title": "",
+            "goal": "",
+            "type": "assessment",
+            "opening_a": "",
+            "opening_b": "",
+            "criteria": [],
+            "min_rounds": 3,
+            "max_rounds": 5,
+            "teaching_content": ""
+        },
+        "is_new": True,
+        "current_version": version,
+        "versions": versions
+    })
+
+
+@router.post("/dashboard/days/create")
+async def day_create_save(
+    request: Request,
+    db: Session = Depends(get_db),
+    day: int = Form(...),
+    title: str = Form(...),
+    goal: str = Form(None),
+    course_type: str = Form("assessment"),
+    opening_a: str = Form(None),
+    opening_b: str = Form(None),
+    criteria: str = Form(None),
+    min_rounds: int = Form(3),
+    max_rounds: int = Form(5),
+    teaching_content: str = Form(None),
+    course_version: str = Form("v1")
+):
+    """儲存新課程"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    course_service = CourseService(db)
+
+    try:
+        # 檢查是否已存在相同版本和 day
+        existing = course_service.get_course_by_day(day, course_version)
+        if existing:
+            return RedirectResponse(
+                url=f"/dashboard/days?version={course_version}&error=Day {day} 在版本 {course_version} 中已存在",
+                status_code=303
+            )
+
+        # 建立課程
+        criteria_text = criteria.strip() if criteria else None
+        course_service.create_course(
+            day=day,
+            title=title.strip(),
+            course_version=course_version,
+            goal=goal.strip() if goal else None,
+            type=course_type,
+            opening_a=opening_a.strip() if opening_a else None,
+            opening_b=opening_b.strip() if opening_b else None,
+            criteria=criteria_text,
+            min_rounds=min_rounds,
+            max_rounds=max_rounds,
+            teaching_content=teaching_content.strip() if teaching_content else None
+        )
+
+        return RedirectResponse(
+            url=f"/dashboard/days?version={course_version}&success=成功新增 Day {day} 課程",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?version={course_version}&error=新增失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.get("/dashboard/days/{day}/edit", response_class=HTMLResponse)
+async def day_edit_page(
+    request: Request,
+    day: int,
+    db: Session = Depends(get_db),
+    version: str = "v1"
+):
+    """課程編輯頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    course_service = CourseService(db)
+    course = course_service.get_course_by_day(day, version)
+
+    if not course:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error": f"Day {day} 在版本 {version} 中不存在"
+        }, status_code=404)
+
+    versions = course_service.get_course_versions()
+
+    return templates.TemplateResponse("day_edit.html", {
+        "request": request,
+        "active_page": "days",
+        "day": course.to_dict(),
+        "course_id": course.id,
+        "is_new": False,
+        "current_version": version,
+        "versions": versions
     })
 
 
@@ -231,46 +364,195 @@ async def day_edit_page(request: Request, day: int):
 async def day_edit_save(
     request: Request,
     day: int,
+    db: Session = Depends(get_db),
+    course_id: int = Form(...),
     title: str = Form(...),
-    goal: str = Form(...),
+    goal: str = Form(None),
+    course_type: str = Form("assessment"),
     opening_a: str = Form(None),
     opening_b: str = Form(None),
     criteria: str = Form(None),
     min_rounds: int = Form(3),
     max_rounds: int = Form(5),
-    teaching_content: str = Form(None)
+    teaching_content: str = Form(None),
+    course_version: str = Form("v1")
 ):
     """儲存課程編輯"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    day_data = get_day_data(day)
-    if not day_data:
+    course_service = CourseService(db)
+    course = course_service.get_course(course_id)
+
+    if not course:
         return templates.TemplateResponse("error.html", {
             "request": request,
-            "error": f"Day {day} 不存在"
+            "error": f"課程不存在"
         }, status_code=404)
 
-    # 更新 day_data（顯示用）
-    day_data["title"] = title
-    day_data["goal"] = goal
-    day_data["opening_a"] = opening_a
-    day_data["opening_b"] = opening_b
-    day_data["criteria"] = [c.strip() for c in criteria.split("\n") if c.strip()] if criteria else []
-    day_data["min_rounds"] = min_rounds
-    day_data["max_rounds"] = max_rounds
-    day_data["teaching_content"] = teaching_content
+    try:
+        # 更新課程
+        criteria_text = criteria.strip() if criteria else None
+        course_service.update_course(
+            course_id=course_id,
+            title=title.strip(),
+            goal=goal.strip() if goal else None,
+            type=course_type,
+            opening_a=opening_a.strip() if opening_a else None,
+            opening_b=opening_b.strip() if opening_b else None,
+            criteria=criteria_text,
+            min_rounds=min_rounds,
+            max_rounds=max_rounds,
+            teaching_content=teaching_content.strip() if teaching_content else None
+        )
 
-    # 注意：目前資料儲存在 days_data.py 中（靜態檔案）
-    # 實際修改需要透過資料庫儲存，這裡僅顯示成功訊息
-    # TODO: 實作資料庫儲存功能
+        # 重新取得更新後的課程資料
+        course = course_service.get_course(course_id)
+        versions = course_service.get_course_versions()
 
-    return templates.TemplateResponse("day_edit.html", {
-        "request": request,
-        "active_page": "days",
-        "day": day_data,
-        "success": True
-    })
+        return templates.TemplateResponse("day_edit.html", {
+            "request": request,
+            "active_page": "days",
+            "day": course.to_dict(),
+            "course_id": course.id,
+            "is_new": False,
+            "current_version": course_version,
+            "versions": versions,
+            "success": True
+        })
+    except Exception as e:
+        versions = course_service.get_course_versions()
+        return templates.TemplateResponse("day_edit.html", {
+            "request": request,
+            "active_page": "days",
+            "day": course.to_dict(),
+            "course_id": course.id,
+            "is_new": False,
+            "current_version": course_version,
+            "versions": versions,
+            "error": f"儲存失敗：{str(e)}"
+        })
+
+
+@router.post("/dashboard/days/{course_id}/delete")
+async def day_delete(
+    request: Request,
+    course_id: int,
+    db: Session = Depends(get_db)
+):
+    """刪除課程"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    course_service = CourseService(db)
+    course = course_service.get_course(course_id)
+
+    if not course:
+        return RedirectResponse(
+            url="/dashboard/days?error=課程不存在",
+            status_code=303
+        )
+
+    version = course.course_version
+    day = course.day
+
+    try:
+        course_service.hard_delete_course(course_id)
+        return RedirectResponse(
+            url=f"/dashboard/days?version={version}&success=已刪除 Day {day} 課程",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?version={version}&error=刪除失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/days/version/duplicate")
+async def version_duplicate(
+    request: Request,
+    db: Session = Depends(get_db),
+    from_version: str = Form(...),
+    to_version: str = Form(...)
+):
+    """複製課程版本"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    course_service = CourseService(db)
+
+    try:
+        course_service.duplicate_version(from_version, to_version)
+        return RedirectResponse(
+            url=f"/dashboard/days?version={to_version}&success=已成功複製版本 {from_version} 到 {to_version}",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?version={from_version}&error={str(e)}",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?version={from_version}&error=複製失敗：{str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/days/seed")
+async def seed_courses_route(
+    request: Request,
+    db: Session = Depends(get_db),
+    version: str = Form("v1"),
+    force: bool = Form(False)
+):
+    """從靜態資料匯入課程到資料庫"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    try:
+        from app.data.days_data import DAYS_DATA
+        course_service = CourseService(db)
+
+        # 檢查版本是否已存在
+        existing = course_service.get_courses_by_version(version)
+        if existing and not force:
+            return RedirectResponse(
+                url=f"/dashboard/days?version={version}&error=版本 {version} 已存在，請勾選「覆蓋」選項",
+                status_code=303
+            )
+
+        # 如果 force 模式，先刪除舊資料
+        if force and existing:
+            for course in existing:
+                course_service.hard_delete_course(course.id)
+
+        # 匯入課程
+        for day_data in DAYS_DATA:
+            course_service.create_course(
+                course_version=version,
+                day=day_data["day"],
+                title=day_data["title"],
+                goal=day_data.get("goal"),
+                type="teaching" if day_data.get("type") == "teaching" else "assessment",
+                opening_a=day_data.get("opening_a"),
+                opening_b=day_data.get("opening_b"),
+                criteria="\n".join(day_data.get("criteria", [])) if day_data.get("criteria") else None,
+                min_rounds=day_data.get("min_rounds", 3),
+                max_rounds=day_data.get("max_rounds", 5),
+                teaching_content=day_data.get("teaching_content")
+            )
+
+        return RedirectResponse(
+            url=f"/dashboard/days?version={version}&success=已成功匯入 {len(DAYS_DATA)} 個課程到版本 {version}",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?error=匯入失敗：{str(e)}",
+            status_code=303
+        )
 
 
 # ========== 請假管理 ==========

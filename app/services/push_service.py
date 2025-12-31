@@ -13,7 +13,7 @@ from app.config import get_settings
 from app.models.user import User, UserStatus
 from app.models.user_training import UserTraining, TrainingStatus
 from app.models.push_log import PushLog
-from app.data.days_data import get_day_data
+from app.services.course_service import get_course_data
 
 # 訓練的最後一天
 MAX_TRAINING_DAY = 14
@@ -79,18 +79,19 @@ class PushService:
         )
         return existing is not None
 
-    def get_opening_message(self, day: int, persona: str | None) -> str:
+    def get_opening_message(self, day: int, persona: str | None, course_version: str = "v1") -> str:
         """
         取得當日訓練的固定開場白
 
         Args:
             day: 訓練天數
             persona: 用戶 Persona（包含 "A" 或 "B"）
+            course_version: 課程版本
 
         Returns:
             固定的開場白訊息
         """
-        day_data = get_day_data(day)
+        day_data = get_course_data(self.db, day, course_version)
         if not day_data:
             return "你好，準備開始今天的訓練了嗎？"
 
@@ -113,7 +114,7 @@ class PushService:
             # 如果沒有對應的開場白，使用 A 版本
             return day_data.get("opening_a", "準備開始今天的訓練！")
 
-    def push_to_user(self, user: User) -> dict:
+    def push_to_user(self, user: User, course_version: str = "v1") -> dict:
         """
         推送訊息給單一用戶
 
@@ -133,7 +134,8 @@ class PushService:
             # 取得固定開場訊息
             opening_message = self.get_opening_message(
                 user.current_day,
-                user.persona
+                user.persona,
+                course_version
             )
 
             # 發送 LINE 訊息
@@ -192,10 +194,16 @@ class PushService:
             }
 
         try:
+            # 取得課程版本（從 training 的 batch 取得）
+            course_version = "v1"
+            if user_training.batch:
+                course_version = user_training.batch.course_version
+
             # 取得固定開場訊息（使用 training 的 day 和 persona）
             opening_message = self.get_opening_message(
                 user_training.current_day,
-                user_training.persona
+                user_training.persona,
+                course_version
             )
 
             # 發送 LINE 訊息

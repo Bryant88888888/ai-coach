@@ -4,7 +4,7 @@ from app.models.user_training import UserTraining, TrainingStatus
 from app.services.user_service import UserService
 from app.services.ai_service import AIService
 from app.services.message_service import MessageService
-from app.data.days_data import get_day_data
+from app.services.course_service import get_course_data
 from app.schemas.ai_response import AIResponse, TrainingResult
 
 # 訓練的最後一天
@@ -48,9 +48,16 @@ class TrainingService:
             return training.persona
         return user.persona
 
-    def get_today_training(self, current_day: int) -> dict | None:
+    def _get_course_version(self, user: User) -> str:
+        """取得用戶當前訓練的課程版本"""
+        training = self._get_active_training(user)
+        if training and training.batch:
+            return training.batch.course_version
+        return "v1"  # 預設版本
+
+    def get_today_training(self, current_day: int, course_version: str = "v1") -> dict | None:
         """取得當日課程資料"""
-        return get_day_data(current_day)
+        return get_course_data(self.db, current_day, course_version)
 
     def get_conversation_history(self, user: User, limit: int = 10) -> list[dict]:
         """
@@ -94,6 +101,7 @@ class TrainingService:
         # 使用 UserTraining 或 User 的進度
         current_day = self._get_training_day(user)
         current_round = self._get_training_round(user)
+        course_version = self._get_course_version(user)
 
         # 如果沒有進行中的訓練，回傳提示
         if not active_training and user.current_day == 0:
@@ -113,7 +121,7 @@ class TrainingService:
             )
 
         # 取得今日課程
-        day_data = self.get_today_training(current_day)
+        day_data = self.get_today_training(current_day, course_version)
         if not day_data:
             # 標記訓練完成
             if active_training:
@@ -297,9 +305,10 @@ class TrainingService:
         current_day = self._get_training_day(user)
         current_round = self._get_training_round(user)
         persona = self._get_training_persona(user)
+        course_version = self._get_course_version(user)
         total_days = MAX_TRAINING_DAY + 1  # Day 0 到 Day 14
 
-        day_data = self.get_today_training(current_day)
+        day_data = self.get_today_training(current_day, course_version)
         current_title = day_data["title"] if day_data else "已完成所有訓練"
 
         # 訓練狀態

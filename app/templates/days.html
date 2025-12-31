@@ -7,7 +7,60 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">課程管理</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">Day 0 ~ Day 14 訓練課程內容</p>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">管理訓練課程內容與版本</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="/dashboard/days/create?version={{ current_version }}"
+               class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition min-h-[44px]">
+                <i class="fas fa-plus mr-2"></i>新增課程
+            </a>
+            <button onclick="showVersionModal()"
+                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium rounded-lg transition min-h-[44px]">
+                <i class="fas fa-copy mr-2"></i>複製版本
+            </button>
+            <button onclick="showSeedModal()"
+                    class="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-medium rounded-lg transition min-h-[44px]">
+                <i class="fas fa-database mr-2"></i>匯入預設
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if success_message %}
+<div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg mb-6 flex items-center">
+    <i class="fas fa-check-circle mr-2"></i>
+    {{ success_message }}
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center">
+    <i class="fas fa-exclamation-circle mr-2"></i>
+    {{ error_message }}
+</div>
+{% endif %}
+
+<!-- 版本選擇器 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-6">
+    <div class="flex flex-wrap items-center gap-4">
+        <span class="text-gray-700 dark:text-gray-300 font-medium">課程版本：</span>
+        <div class="flex flex-wrap gap-2">
+            {% for v in versions %}
+            <a href="/dashboard/days?version={{ v }}"
+               class="px-4 py-2 rounded-lg font-medium transition min-h-[44px] flex items-center
+                      {% if v == current_version %}
+                      bg-indigo-600 text-white
+                      {% else %}
+                      bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600
+                      {% endif %}">
+                {{ v }}
+                {% for stat in version_stats %}
+                    {% if stat.version == v %}
+                    <span class="ml-2 text-xs opacity-75">({{ stat.active }})</span>
+                    {% endif %}
+                {% endfor %}
+            </a>
+            {% endfor %}
         </div>
     </div>
 </div>
@@ -37,12 +90,17 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 ml-4">
-                    <a href="/dashboard/days/{{ day.day }}/edit"
+                    <a href="/dashboard/days/{{ day.day }}/edit?version={{ current_version }}"
                        class="inline-flex items-center px-3 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition text-sm min-h-[44px] min-w-[44px]"
                        onclick="event.stopPropagation()">
                         <i class="fas fa-edit"></i>
                         <span class="hidden sm:inline ml-2">編輯</span>
                     </a>
+                    <button onclick="event.stopPropagation(); confirmDelete({{ day.id }}, {{ day.day }}, '{{ day.title }}')"
+                            class="inline-flex items-center px-3 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition text-sm min-h-[44px] min-w-[44px]">
+                        <i class="fas fa-trash"></i>
+                        <span class="hidden sm:inline ml-2">刪除</span>
+                    </button>
                     <button class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition expand-btn p-2 min-h-[44px] min-w-[44px]">
                         <i class="fas fa-chevron-down text-xl"></i>
                     </button>
@@ -122,18 +180,129 @@
 {% if not days %}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center text-gray-500 dark:text-gray-400">
     <i class="fas fa-calendar-alt text-5xl mb-4"></i>
-    <p class="text-lg">尚無課程資料</p>
+    <p class="text-lg mb-4">尚無課程資料</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/dashboard/days/create?version={{ current_version }}"
+           class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+            <i class="fas fa-plus mr-2"></i>新增課程
+        </a>
+        <button onclick="showSeedModal()"
+                class="inline-flex items-center justify-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition">
+            <i class="fas fa-database mr-2"></i>匯入預設課程
+        </button>
+    </div>
 </div>
 {% endif %}
+
+<!-- 複製版本 Modal -->
+<div id="versionModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-6 border-b dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">複製課程版本</h3>
+        </div>
+        <form method="POST" action="/dashboard/days/version/duplicate" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">來源版本</label>
+                <select name="from_version" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    {% for v in versions %}
+                    <option value="{{ v }}" {% if v == current_version %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">新版本名稱</label>
+                <input type="text" name="to_version" required placeholder="例如：v2"
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition">
+                    <i class="fas fa-copy mr-2"></i>複製
+                </button>
+                <button type="button" onclick="hideVersionModal()"
+                        class="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition">
+                    取消
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 匯入預設資料 Modal -->
+<div id="seedModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-6 border-b dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">匯入預設課程</h3>
+        </div>
+        <form method="POST" action="/dashboard/days/seed" class="p-6 space-y-4">
+            <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-lg">
+                <i class="fas fa-info-circle mr-2"></i>
+                此操作將從系統預設資料匯入 Day 0 ~ Day 14 的課程
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">目標版本</label>
+                <input type="text" name="version" value="v1" required
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="force" name="force" value="true"
+                       class="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                <label for="force" class="ml-2 text-gray-700 dark:text-gray-300">覆蓋已存在的資料</label>
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition">
+                    <i class="fas fa-database mr-2"></i>匯入
+                </button>
+                <button type="button" onclick="hideSeedModal()"
+                        class="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition">
+                    取消
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 刪除確認 Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-6 border-b dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">確認刪除</h3>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+                確定要刪除 <span id="deleteTarget" class="font-semibold text-gray-800 dark:text-white"></span> 嗎？此操作無法復原。
+            </p>
+            <div class="flex gap-4">
+                <form id="deleteForm" method="POST" class="flex-1">
+                    <button type="submit"
+                            class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition">
+                        <i class="fas fa-trash mr-2"></i>確認刪除
+                    </button>
+                </form>
+                <button type="button" onclick="hideDeleteModal()"
+                        class="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // 課程 ID 對照表（從模板傳入）
+    const courseDayMap = {
+        {% for day in days %}
+        {{ day.day }}: {{ day.day }},
+        {% endfor %}
+    };
+
     // 展開/收合功能
     document.querySelectorAll('.day-header').forEach(header => {
         header.addEventListener('click', (e) => {
-            // 如果點擊的是編輯按鈕，不要展開
-            if (e.target.closest('a')) return;
+            if (e.target.closest('a') || e.target.closest('button')) return;
 
             const day = header.dataset.day;
             const content = document.querySelector(`.day-content[data-day="${day}"]`);
@@ -142,6 +311,51 @@
             content.classList.toggle('hidden');
             btn.classList.toggle('fa-chevron-down');
             btn.classList.toggle('fa-chevron-up');
+        });
+    });
+
+    // 版本 Modal
+    function showVersionModal() {
+        document.getElementById('versionModal').classList.remove('hidden');
+        document.getElementById('versionModal').classList.add('flex');
+    }
+
+    function hideVersionModal() {
+        document.getElementById('versionModal').classList.add('hidden');
+        document.getElementById('versionModal').classList.remove('flex');
+    }
+
+    // 匯入 Modal
+    function showSeedModal() {
+        document.getElementById('seedModal').classList.remove('hidden');
+        document.getElementById('seedModal').classList.add('flex');
+    }
+
+    function hideSeedModal() {
+        document.getElementById('seedModal').classList.add('hidden');
+        document.getElementById('seedModal').classList.remove('flex');
+    }
+
+    // 刪除 Modal
+    function confirmDelete(courseId, day, title) {
+        document.getElementById('deleteTarget').textContent = `Day ${day}: ${title}`;
+        document.getElementById('deleteForm').action = `/dashboard/days/${courseId}/delete`;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.getElementById('deleteModal').classList.add('flex');
+    }
+
+    function hideDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.getElementById('deleteModal').classList.remove('flex');
+    }
+
+    // 點擊 Modal 外部關閉
+    ['versionModal', 'seedModal', 'deleteModal'].forEach(modalId => {
+        document.getElementById(modalId).addEventListener('click', (e) => {
+            if (e.target.id === modalId) {
+                e.target.classList.add('hidden');
+                e.target.classList.remove('flex');
+            }
         });
     });
 </script>
