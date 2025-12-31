@@ -7,21 +7,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">課程管理</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">管理訓練課程內容與版本</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <a href="/dashboard/days/create?version={{ current_version }}"
-               class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition min-h-[44px]">
-                <i class="fas fa-plus mr-2"></i>新增課程
-            </a>
-            <button onclick="showVersionModal()"
-                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium rounded-lg transition min-h-[44px]">
-                <i class="fas fa-copy mr-2"></i>複製版本
-            </button>
-            <button onclick="showSeedModal()"
-                    class="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-medium rounded-lg transition min-h-[44px]">
-                <i class="fas fa-database mr-2"></i>匯入預設
-            </button>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">管理訓練課程版本與每日訓練內容</p>
         </div>
     </div>
 </div>
@@ -40,157 +26,208 @@
 </div>
 {% endif %}
 
-<!-- 版本選擇器 -->
+{% if not days and (not versions or versions|length == 0 or (versions|length == 1 and versions[0] == 'v1')) %}
+<!-- 首次使用：尚無課程資料 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-8 text-center">
+    <div class="max-w-lg mx-auto">
+        <i class="fas fa-graduation-cap text-6xl text-indigo-500 mb-4"></i>
+        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">歡迎使用課程管理</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">
+            資料庫中尚無課程資料。請先匯入預設的 v1 課程（Day 0 ~ Day 14），之後即可編輯修改或建立新版本。
+        </p>
+        <form method="POST" action="/dashboard/days/seed" class="space-y-4">
+            <input type="hidden" name="version" value="v1">
+            <button type="submit"
+                    class="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition">
+                <i class="fas fa-database mr-2"></i>匯入預設課程 (v1)
+            </button>
+        </form>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
+            匯入後將建立 15 個訓練日（Day 0 教學 + Day 1~14 考核）
+        </p>
+    </div>
+</div>
+
+{% else %}
+<!-- 課程版本管理區 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-6">
-    <div class="flex flex-wrap items-center gap-4">
-        <span class="text-gray-700 dark:text-gray-300 font-medium">課程版本：</span>
-        <div class="flex flex-wrap gap-2">
-            {% for v in versions %}
-            <a href="/dashboard/days?version={{ v }}"
-               class="px-4 py-2 rounded-lg font-medium transition min-h-[44px] flex items-center
-                      {% if v == current_version %}
-                      bg-indigo-600 text-white
-                      {% else %}
-                      bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600
-                      {% endif %}">
-                {{ v }}
-                {% for stat in version_stats %}
-                    {% if stat.version == v %}
-                    <span class="ml-2 text-xs opacity-75">({{ stat.active }})</span>
-                    {% endif %}
-                {% endfor %}
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- 課程列表 -->
-<div class="space-y-4">
-    {% for day in days %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
-        <div class="p-4 lg:p-6 cursor-pointer day-header" data-day="{{ day.day }}">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center flex-1 min-w-0">
-                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-                        <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ day.day }}</span>
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white truncate">{{ day.title }}</h3>
-                        <p class="text-gray-600 dark:text-gray-400 text-sm truncate">{{ day.goal }}</p>
-                        {% if day.type == 'teaching' %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 mt-1">
-                            <i class="fas fa-book mr-1"></i>教學
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 mt-1">
-                            <i class="fas fa-clipboard-check mr-1"></i>考核
-                        </span>
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <!-- 版本選擇 -->
+        <div class="flex flex-wrap items-center gap-4">
+            <span class="text-gray-700 dark:text-gray-300 font-medium">
+                <i class="fas fa-folder-open mr-2"></i>課程版本：
+            </span>
+            <div class="flex flex-wrap gap-2">
+                {% for v in versions %}
+                <a href="/dashboard/days?version={{ v }}"
+                   class="px-4 py-2 rounded-lg font-medium transition min-h-[44px] flex items-center
+                          {% if v == current_version %}
+                          bg-indigo-600 text-white
+                          {% else %}
+                          bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600
+                          {% endif %}">
+                    {{ v }}
+                    {% for stat in version_stats %}
+                        {% if stat.version == v %}
+                        <span class="ml-2 text-xs opacity-75">({{ stat.active }} 天)</span>
                         {% endif %}
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 ml-4">
-                    <a href="/dashboard/days/{{ day.day }}/edit?version={{ current_version }}"
-                       class="inline-flex items-center px-3 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition text-sm min-h-[44px] min-w-[44px]"
-                       onclick="event.stopPropagation()">
-                        <i class="fas fa-edit"></i>
-                        <span class="hidden sm:inline ml-2">編輯</span>
-                    </a>
-                    <button onclick="event.stopPropagation(); confirmDelete({{ day.id }}, {{ day.day }}, '{{ day.title }}')"
-                            class="inline-flex items-center px-3 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition text-sm min-h-[44px] min-w-[44px]">
-                        <i class="fas fa-trash"></i>
-                        <span class="hidden sm:inline ml-2">刪除</span>
-                    </button>
-                    <button class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition expand-btn p-2 min-h-[44px] min-w-[44px]">
-                        <i class="fas fa-chevron-down text-xl"></i>
-                    </button>
-                </div>
+                    {% endfor %}
+                </a>
+                {% endfor %}
             </div>
         </div>
-
-        <!-- 展開的詳細內容 -->
-        <div class="day-content hidden border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50" data-day="{{ day.day }}">
-            <div class="p-4 lg:p-6 space-y-6">
-                {% if day.type != 'teaching' %}
-                <!-- A/B 版本開場白 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-user-circle mr-2 text-pink-500"></i>Persona A（無經驗）開場
-                        </h4>
-                        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
-                            <p class="text-gray-800 dark:text-gray-200">{{ day.opening_a or '未設定' }}</p>
-                        </div>
-                    </div>
-                    <div>
-                        <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-user-circle mr-2 text-blue-500"></i>Persona B（有經驗）開場
-                        </h4>
-                        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
-                            <p class="text-gray-800 dark:text-gray-200">{{ day.opening_b or '未設定' }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 評分標準 -->
-                {% if day.criteria %}
-                <div>
-                    <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-list-check mr-2 text-green-500"></i>評分標準
-                    </h4>
-                    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
-                        <ul class="space-y-1">
-                            {% for criterion in day.criteria %}
-                            <li class="flex items-start text-gray-800 dark:text-gray-200">
-                                <i class="fas fa-check text-green-500 mr-2 mt-1"></i>
-                                {{ criterion }}
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- 輪數設定 -->
-                <div class="flex gap-4 text-sm">
-                    <span class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full">
-                        最少 {{ day.min_rounds or 3 }} 輪
-                    </span>
-                    <span class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full">
-                        最多 {{ day.max_rounds or 5 }} 輪
-                    </span>
-                </div>
-                {% else %}
-                <!-- 教學內容 -->
-                <div>
-                    <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-book-open mr-2 text-yellow-500"></i>教學內容
-                    </h4>
-                    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
-                        <pre class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans overflow-x-auto">{{ day.teaching_content or '未設定' }}</pre>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
+        <!-- 版本操作按鈕 -->
+        <div class="flex flex-wrap gap-2">
+            <button onclick="showVersionModal()"
+                    class="inline-flex items-center px-3 py-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900 transition text-sm min-h-[44px]">
+                <i class="fas fa-copy mr-2"></i>複製為新版本
+            </button>
+            <button onclick="showSeedModal()"
+                    class="inline-flex items-center px-3 py-2 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900 transition text-sm min-h-[44px]">
+                <i class="fas fa-database mr-2"></i>匯入預設課程
+            </button>
         </div>
     </div>
-    {% endfor %}
 </div>
 
-{% if not days %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center text-gray-500 dark:text-gray-400">
-    <i class="fas fa-calendar-alt text-5xl mb-4"></i>
-    <p class="text-lg mb-4">尚無課程資料</p>
-    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+<!-- 當前版本的訓練日列表 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden mb-6">
+    <div class="p-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-calendar-alt mr-2 text-indigo-500"></i>{{ current_version }} 訓練內容
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400">共 {{ days|length }} 個訓練日</p>
+        </div>
         <a href="/dashboard/days/create?version={{ current_version }}"
-           class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
-            <i class="fas fa-plus mr-2"></i>新增課程
+           class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition min-h-[44px]">
+            <i class="fas fa-plus mr-2"></i>新增訓練日
         </a>
-        <button onclick="showSeedModal()"
-                class="inline-flex items-center justify-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition">
-            <i class="fas fa-database mr-2"></i>匯入預設課程
-        </button>
     </div>
+
+    {% if days %}
+    <div class="divide-y dark:divide-gray-700">
+        {% for day in days %}
+        <div class="day-item">
+            <div class="p-4 lg:p-5 cursor-pointer day-header hover:bg-gray-50 dark:hover:bg-gray-700/50 transition" data-day="{{ day.day }}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center flex-1 min-w-0">
+                        <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ day.day }}</span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="text-base font-semibold text-gray-800 dark:text-white">Day {{ day.day }}: {{ day.title }}</h3>
+                                {% if day.type == 'teaching' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">
+                                    <i class="fas fa-book mr-1"></i>教學
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
+                                    <i class="fas fa-clipboard-check mr-1"></i>考核
+                                </span>
+                                {% endif %}
+                            </div>
+                            <p class="text-gray-600 dark:text-gray-400 text-sm truncate mt-1">{{ day.goal or '未設定目標' }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 ml-4">
+                        <a href="/dashboard/days/{{ day.day }}/edit?version={{ current_version }}"
+                           class="inline-flex items-center px-3 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900 transition text-sm min-h-[44px] min-w-[44px]"
+                           onclick="event.stopPropagation()">
+                            <i class="fas fa-edit"></i>
+                            <span class="hidden sm:inline ml-2">編輯</span>
+                        </a>
+                        <button onclick="event.stopPropagation(); confirmDelete({{ day.id }}, {{ day.day }}, '{{ day.title }}')"
+                                class="inline-flex items-center px-3 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition text-sm min-h-[44px] min-w-[44px]">
+                            <i class="fas fa-trash"></i>
+                            <span class="hidden sm:inline ml-2">刪除</span>
+                        </button>
+                        <button class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition expand-btn p-2 min-h-[44px] min-w-[44px]">
+                            <i class="fas fa-chevron-down text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 展開的詳細內容 -->
+            <div class="day-content hidden bg-gray-50 dark:bg-gray-900/50 border-t dark:border-gray-700" data-day="{{ day.day }}">
+                <div class="p-4 lg:p-6 space-y-6">
+                    {% if day.type != 'teaching' %}
+                    <!-- A/B 版本開場白 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-user-circle mr-2 text-pink-500"></i>Persona A（無經驗）開場
+                            </h4>
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
+                                <p class="text-gray-800 dark:text-gray-200 text-sm">{{ day.opening_a or '未設定' }}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <i class="fas fa-user-circle mr-2 text-blue-500"></i>Persona B（有經驗）開場
+                            </h4>
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
+                                <p class="text-gray-800 dark:text-gray-200 text-sm">{{ day.opening_b or '未設定' }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 評分標準 -->
+                    {% if day.criteria %}
+                    <div>
+                        <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-list-check mr-2 text-green-500"></i>評分標準
+                        </h4>
+                        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
+                            <ul class="space-y-1">
+                                {% for criterion in day.criteria %}
+                                <li class="flex items-start text-gray-800 dark:text-gray-200 text-sm">
+                                    <i class="fas fa-check text-green-500 mr-2 mt-0.5"></i>
+                                    {{ criterion }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 輪數設定 -->
+                    <div class="flex gap-4 text-sm">
+                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full">
+                            <i class="fas fa-arrow-down mr-1"></i>最少 {{ day.min_rounds or 3 }} 輪
+                        </span>
+                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full">
+                            <i class="fas fa-arrow-up mr-1"></i>最多 {{ day.max_rounds or 5 }} 輪
+                        </span>
+                    </div>
+                    {% else %}
+                    <!-- 教學內容 -->
+                    <div>
+                        <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-book-open mr-2 text-yellow-500"></i>教學內容
+                        </h4>
+                        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700 max-h-96 overflow-y-auto">
+                            <pre class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans">{{ day.teaching_content or '未設定' }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center text-gray-500 dark:text-gray-400">
+        <i class="fas fa-inbox text-4xl mb-4"></i>
+        <p class="text-lg mb-4">此版本尚無訓練日</p>
+        <a href="/dashboard/days/create?version={{ current_version }}"
+           class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+            <i class="fas fa-plus mr-2"></i>新增第一個訓練日
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -198,7 +235,10 @@
 <div id="versionModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div class="p-6 border-b dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">複製課程版本</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-copy mr-2 text-green-500"></i>複製課程版本
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">將現有版本的所有訓練日複製為新版本</p>
         </div>
         <form method="POST" action="/dashboard/days/version/duplicate" class="p-6 space-y-4">
             <div>
@@ -211,8 +251,9 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">新版本名稱</label>
-                <input type="text" name="to_version" required placeholder="例如：v2"
+                <input type="text" name="to_version" required placeholder="例如：v2、retail、finance"
                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">可使用版本號或行業名稱</p>
             </div>
             <div class="flex gap-4 pt-4">
                 <button type="submit"
@@ -232,22 +273,24 @@
 <div id="seedModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div class="p-6 border-b dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">匯入預設課程</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-database mr-2 text-amber-500"></i>匯入預設課程
+            </h3>
         </div>
         <form method="POST" action="/dashboard/days/seed" class="p-6 space-y-4">
-            <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-lg">
+            <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-lg text-sm">
                 <i class="fas fa-info-circle mr-2"></i>
-                此操作將從系統預設資料匯入 Day 0 ~ Day 14 的課程
+                此操作將匯入系統內建的 Day 0 ~ Day 14 課程資料
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">目標版本</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">目標版本名稱</label>
                 <input type="text" name="version" value="v1" required
                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
             </div>
             <div class="flex items-center">
                 <input type="checkbox" id="force" name="force" value="true"
                        class="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
-                <label for="force" class="ml-2 text-gray-700 dark:text-gray-300">覆蓋已存在的資料</label>
+                <label for="force" class="ml-2 text-gray-700 dark:text-gray-300">覆蓋已存在的版本資料</label>
             </div>
             <div class="flex gap-4 pt-4">
                 <button type="submit"
@@ -267,7 +310,9 @@
 <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div class="p-6 border-b dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">確認刪除</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>確認刪除
+            </h3>
         </div>
         <div class="p-6">
             <p class="text-gray-600 dark:text-gray-400 mb-6">
@@ -292,13 +337,6 @@
 
 {% block scripts %}
 <script>
-    // 課程 ID 對照表（從模板傳入）
-    const courseDayMap = {
-        {% for day in days %}
-        {{ day.day }}: {{ day.day }},
-        {% endfor %}
-    };
-
     // 展開/收合功能
     document.querySelectorAll('.day-header').forEach(header => {
         header.addEventListener('click', (e) => {
@@ -351,12 +389,15 @@
 
     // 點擊 Modal 外部關閉
     ['versionModal', 'seedModal', 'deleteModal'].forEach(modalId => {
-        document.getElementById(modalId).addEventListener('click', (e) => {
-            if (e.target.id === modalId) {
-                e.target.classList.add('hidden');
-                e.target.classList.remove('flex');
-            }
-        });
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target.id === modalId) {
+                    e.target.classList.add('hidden');
+                    e.target.classList.remove('flex');
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

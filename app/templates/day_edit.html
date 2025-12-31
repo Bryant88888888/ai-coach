@@ -11,13 +11,13 @@
         <div>
             <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">
                 {% if is_new %}
-                新增課程
+                新增訓練日
                 {% else %}
                 編輯 Day {{ day.day }} - {{ day.title }}
                 {% endif %}
             </h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">
-                {% if is_new %}建立新的訓練課程{% else %}修改訓練課程內容{% endif %}
+                {% if is_new %}在 {{ current_version }} 版本中新增訓練日{% else %}修改訓練內容{% endif %}
                 <span class="text-indigo-600 dark:text-indigo-400">（版本：{{ current_version }}）</span>
             </p>
         </div>
@@ -168,7 +168,7 @@
     <div class="flex flex-col sm:flex-row gap-4">
         <button type="submit"
                 class="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-semibold rounded-xl transition min-h-[48px] flex items-center justify-center">
-            <i class="fas fa-save mr-2"></i>{% if is_new %}建立課程{% else %}儲存變更{% endif %}
+            <i class="fas fa-save mr-2"></i>{% if is_new %}建立訓練日{% else %}儲存變更{% endif %}
         </button>
         <a href="/dashboard/days?version={{ current_version }}"
            class="flex-1 sm:flex-none px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition min-h-[48px] flex items-center justify-center">
