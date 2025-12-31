@@ -469,6 +469,47 @@ async def day_delete(
         )
 
 
+@router.post("/dashboard/days/version/create")
+async def version_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    version_name: str = Form(...)
+):
+    """建立新的空白課程版本"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    course_service = CourseService(db)
+
+    # 檢查版本是否已存在
+    existing = course_service.get_courses_by_version(version_name)
+    if existing:
+        return RedirectResponse(
+            url=f"/dashboard/days?error=版本 {version_name} 已存在",
+            status_code=303
+        )
+
+    # 建立一個空的版本（創建一個 Day 0 作為起始點）
+    try:
+        course_service.create_course(
+            day=0,
+            title="訓練開始",
+            course_version=version_name,
+            goal="歡迎開始訓練",
+            type="teaching",
+            teaching_content="歡迎來到訓練課程！請依照指示完成每日訓練。"
+        )
+        return RedirectResponse(
+            url=f"/dashboard/days?version={version_name}&success=已成功建立版本 {version_name}",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/days?error=建立失敗：{str(e)}",
+            status_code=303
+        )
+
+
 @router.post("/dashboard/days/version/duplicate")
 async def version_duplicate(
     request: Request,
