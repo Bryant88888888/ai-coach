@@ -19,3 +19,18 @@ services:
         value: gpt-4o-mini
       - key: DEBUG
         value: "false"
+      - key: CRON_SECRET
+        sync: false
+
+  # 每日訓練推送 Cron Job（台灣時間 17:30）
+  - type: cron
+    name: daily-training-push
+    runtime: python
+    schedule: "30 9 * * *"  # UTC 09:30 = 台灣時間 17:30
+    buildCommand: pip install httpx
+    startCommand: python -c "import httpx; import os; httpx.post(os.environ['APP_URL'] + '/cron/daily-push', headers={'X-Cron-Secret': os.environ.get('CRON_SECRET', '')})"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
