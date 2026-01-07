@@ -7,6 +7,8 @@ from linebot.v3.messaging import (
     MessagingApi,
     PushMessageRequest,
     TextMessage,
+    FlexMessage,
+    FlexContainer,
 )
 
 from app.config import get_settings
@@ -37,6 +39,104 @@ class PushService:
                     messages=[TextMessage(text=message)]
                 )
             )
+
+    def _send_flex_message(self, user_id: str, alt_text: str, flex_content: dict) -> None:
+        """發送 Flex Message"""
+        with ApiClient(self.line_config) as api_client:
+            messaging_api = MessagingApi(api_client)
+            messaging_api.push_message(
+                PushMessageRequest(
+                    to=user_id,
+                    messages=[
+                        FlexMessage(
+                            alt_text=alt_text,
+                            contents=FlexContainer.from_dict(flex_content)
+                        )
+                    ]
+                )
+            )
+
+    def _build_start_training_card(self, day: int, title: str, training_id: int) -> dict:
+        """
+        建立「準備開始」的 Flex Message 卡片
+
+        Args:
+            day: 訓練天數
+            title: 課程標題
+            training_id: UserTraining ID（用於 postback）
+
+        Returns:
+            Flex Message 的 dict 格式
+        """
+        return {
+            "type": "bubble",
+            "size": "kilo",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"📚 Day {day}",
+                        "weight": "bold",
+                        "size": "xl",
+                        "color": "#1DB446"
+                    }
+                ],
+                "backgroundColor": "#F0FFF0",
+                "paddingAll": "15px"
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": title,
+                        "weight": "bold",
+                        "size": "lg",
+                        "wrap": True,
+                        "margin": "md"
+                    },
+                    {
+                        "type": "text",
+                        "text": "今天的訓練準備好了！",
+                        "size": "sm",
+                        "color": "#666666",
+                        "margin": "lg",
+                        "wrap": True
+                    },
+                    {
+                        "type": "text",
+                        "text": "準備好之後，按下「開始」按鈕就會開始今天的課程囉！",
+                        "size": "sm",
+                        "color": "#888888",
+                        "margin": "md",
+                        "wrap": True
+                    }
+                ],
+                "paddingAll": "15px"
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "button",
+                        "action": {
+                            "type": "postback",
+                            "label": "🚀 開始訓練",
+                            "data": f"action=start_training&training_id={training_id}&day={day}",
+                            "displayText": "開始訓練！"
+                        },
+                        "style": "primary",
+                        "color": "#1DB446",
+                        "height": "md"
+                    }
+                ],
+                "paddingAll": "15px"
+            }
+        }
 
     def get_users_to_push(self) -> list[User]:
         """取得需要推送的用戶列表（舊版，保留相容性）"""
@@ -218,17 +318,21 @@ class PushService:
             if user_training.batch:
                 course_version = user_training.batch.course_version
 
-            # 取得固定開場訊息（使用 training 的 day 和 persona）
-            opening_message = self.get_opening_message(
-                user_training.current_day,
-                user_training.persona,
-                course_version
+            # 取得課程資料
+            day_data = get_course_data(self.db, user_training.current_day, course_version)
+            course_title = day_data.get("title", "今日訓練") if day_data else "今日訓練"
+
+            # 建立並發送「準備開始」卡片
+            card = self._build_start_training_card(
+                day=user_training.current_day,
+                title=course_title,
+                training_id=user_training.id
             )
 
-            # 發送 LINE 訊息
-            self._send_push_message(
+            self._send_flex_message(
                 user_id=user.line_user_id,
-                message=opening_message
+                alt_text=f"📚 Day {user_training.current_day} - {course_title}",
+                flex_content=card
             )
 
             # 記錄推送
@@ -236,7 +340,7 @@ class PushService:
                 user_id=user.id,
                 push_date=date.today(),
                 training_day=user_training.current_day,
-                push_message=opening_message,
+                push_message=f"[卡片] Day {user_training.current_day} - {course_title}",
                 responded=False
             )
             self.db.add(push_log)
@@ -252,7 +356,7 @@ class PushService:
                 "line_user_id": user.line_user_id,
                 "status": "success",
                 "training_day": user_training.current_day,
-                "message_preview": opening_message[:50] + "..."
+                "message_preview": f"[卡片] Day {user_training.current_day} - {course_title}"
             }
 
         except Exception as e:
@@ -260,6 +364,69 @@ class PushService:
                 "user_id": user.id,
                 "training_id": user_training.id,
                 "line_user_id": user.line_user_id,
+                "status": "error",
+                "reason": str(e)
+            }
+
+    def send_training_opening(self, training_id: int) -> dict:
+        """
+        發送訓練開場訊息（用戶按下開始按鈕後呼叫）
+
+        Args:
+            training_id: UserTraining ID
+
+        Returns:
+            dict: 包含發送結果的資訊
+        """
+        user_training = self.db.query(UserTraining).filter(
+            UserTraining.id == training_id
+        ).first()
+
+        if not user_training:
+            return {
+                "status": "error",
+                "reason": "training_not_found"
+            }
+
+        user = user_training.user
+        if not user:
+            return {
+                "status": "error",
+                "reason": "user_not_found"
+            }
+
+        try:
+            # 取得課程版本
+            course_version = "v1"
+            if user_training.batch:
+                course_version = user_training.batch.course_version
+
+            # 取得開場訊息
+            opening_message = self.get_opening_message(
+                user_training.current_day,
+                user_training.persona,
+                course_version
+            )
+
+            # 發送開場訊息
+            self._send_push_message(
+                user_id=user.line_user_id,
+                message=opening_message
+            )
+
+            # 標記推送為已回覆（因為用戶已經按下開始）
+            self.mark_as_responded(user.id)
+
+            return {
+                "status": "success",
+                "training_id": training_id,
+                "user_id": user.id,
+                "day": user_training.current_day,
+                "message_preview": opening_message[:50] + "..."
+            }
+
+        except Exception as e:
+            return {
                 "status": "error",
                 "reason": str(e)
             }

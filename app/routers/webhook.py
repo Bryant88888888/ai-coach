@@ -87,14 +87,41 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             # 發送回覆
             line_service.send_reply(event.reply_token, reply_message)
 
-        # 註冊 Postback 處理器（用於請假審核按鈕）
+        # 註冊 Postback 處理器（用於請假審核按鈕和訓練開始按鈕）
         @handler.add(PostbackEvent)
         def handle_postback(event: PostbackEvent):
             """處理 Postback 事件（按鈕點擊）"""
             data = parse_qs(event.postback.data)
             action = data.get("action", [None])[0]
-            leave_id = data.get("leave_id", [None])[0]
 
+            # 處理訓練開始按鈕
+            if action == "start_training":
+                training_id = data.get("training_id", [None])[0]
+                if training_id:
+                    try:
+                        training_id = int(training_id)
+                        push_service = PushService(db)
+                        result = push_service.send_training_opening(training_id)
+
+                        if result["status"] == "success":
+                            # 開場訊息會由 push_service 發送（用 Push）
+                            # 這裡用 Reply 回覆一個簡短提示
+                            line_service.send_reply(
+                                event.reply_token,
+                                "✨ 課程開始！請閱讀上方的情境，然後回覆你的回應。"
+                            )
+                        else:
+                            line_service.send_reply(
+                                event.reply_token,
+                                f"❌ 啟動失敗：{result.get('reason', '未知錯誤')}"
+                            )
+                    except Exception as e:
+                        print(f"處理訓練開始失敗: {e}")
+                        line_service.send_reply(event.reply_token, f"❌ 發生錯誤：{str(e)}")
+                return
+
+            # 處理請假審核按鈕
+            leave_id = data.get("leave_id", [None])[0]
             if action in ["approve_leave", "reject_leave", "pending_proof"] and leave_id:
                 try:
                     from datetime import timedelta
