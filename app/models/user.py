@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -31,6 +31,7 @@ class User(Base):
     current_round = Column(Integer, default=0)  # 當天訓練的對話輪數
     status = Column(String(20), default=UserStatus.ACTIVE.value)
     persona = Column(String(20), nullable=True)
+    notification_enabled = Column(Boolean, default=True)  # 是否接收課程通知
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

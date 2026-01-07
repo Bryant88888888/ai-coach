@@ -121,6 +121,15 @@ class PushService:
         Returns:
             dict: 包含推送結果的資訊
         """
+        # 檢查用戶是否開啟通知
+        if hasattr(user, 'notification_enabled') and not user.notification_enabled:
+            return {
+                "user_id": user.id,
+                "line_user_id": user.line_user_id,
+                "status": "skipped",
+                "reason": "notification_disabled"
+            }
+
         # 檢查今天是否已經推送過
         if self.has_pushed_today(user.id):
             return {
@@ -182,6 +191,16 @@ class PushService:
             dict: 包含推送結果的資訊
         """
         user = user_training.user
+
+        # 檢查用戶是否開啟通知
+        if hasattr(user, 'notification_enabled') and not user.notification_enabled:
+            return {
+                "user_id": user.id,
+                "training_id": user_training.id,
+                "line_user_id": user.line_user_id,
+                "status": "skipped",
+                "reason": "notification_disabled"
+            }
 
         # 檢查今天是否已經推送過
         if self.has_pushed_today(user.id):

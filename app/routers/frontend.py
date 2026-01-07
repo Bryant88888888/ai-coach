@@ -1355,6 +1355,36 @@ async def training_batch_start_all(
 
 # ========== 用戶訓練管理 ==========
 
+@router.post("/dashboard/users/{line_user_id}/toggle-notification")
+async def user_toggle_notification(
+    request: Request,
+    line_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """切換用戶課程通知狀態"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+
+    if not user:
+        return RedirectResponse(
+            url="/dashboard/users?error=用戶不存在",
+            status_code=303
+        )
+
+    # 切換通知狀態
+    user.notification_enabled = not user.notification_enabled
+    db.commit()
+
+    status = "開啟" if user.notification_enabled else "關閉"
+    return RedirectResponse(
+        url=f"/dashboard/users/{line_user_id}?success=已{status}課程通知",
+        status_code=303
+    )
+
+
 @router.post("/dashboard/users/{line_user_id}/update-training")
 async def user_update_training(
     request: Request,
