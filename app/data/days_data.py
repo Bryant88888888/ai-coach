@@ -65,9 +65,10 @@ SCORING_RULES = """
 ```
 
 ## 對話輪數
-- 請進行 3-5 輪對話後再做最終評分
+- 請進行 8-12 輪對話後再做最終評分
 - 前幾輪 is_final = false，繼續扮演角色對話
 - 最後一輪 is_final = true，給出評分結果
+- 不要太快結束對話，多聊幾輪讓新人有充分練習的機會
 """
 
 # Day 0 教學內容
@@ -150,8 +151,8 @@ DAYS_DATA = [
             "不保證任何事情",
             "不急著解釋"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 2,
@@ -164,8 +165,8 @@ DAYS_DATA = [
             "有沒有暗示「一定比較好」",
             "有沒有幫對方做決定"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 3,
@@ -179,8 +180,8 @@ DAYS_DATA = [
             "有沒有承諾收入",
             "有沒有把話拉回制度說明"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 4,
@@ -193,8 +194,8 @@ DAYS_DATA = [
             "有沒有否定別人經驗",
             "有沒有踩其他公司"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 5,
@@ -207,8 +208,8 @@ DAYS_DATA = [
             "有沒有給空間",
             "有沒有製造壓力"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 6,
@@ -221,8 +222,8 @@ DAYS_DATA = [
             "有沒有給對方選擇權",
             "有沒有讓對方感覺被逼"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 7,
@@ -234,8 +235,8 @@ DAYS_DATA = [
         "criteria": [
             "任一關出現亂承諾、踩線、推銷感太重，一律不通過"
         ],
-        "min_rounds": 4,
-        "max_rounds": 6,
+        "min_rounds": 10,
+        "max_rounds": 15,
     },
     {
         "day": 8,
@@ -249,8 +250,8 @@ DAYS_DATA = [
             "有沒有自證清白",
             "是否保持冷靜與開放態度"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 9,
@@ -263,8 +264,8 @@ DAYS_DATA = [
             "有沒有尊重對方現實",
             "有沒有鼓勵自行評估"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 10,
@@ -277,8 +278,8 @@ DAYS_DATA = [
             "是否講制度而非結果",
             "是否保留彈性與界線"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 11,
@@ -291,8 +292,8 @@ DAYS_DATA = [
             "是否過度關心或依賴",
             "是否保持健康距離"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 12,
@@ -305,8 +306,8 @@ DAYS_DATA = [
             "有沒有說死條件",
             "是否引導正式流程"
         ],
-        "min_rounds": 3,
-        "max_rounds": 5,
+        "min_rounds": 8,
+        "max_rounds": 12,
     },
     {
         "day": 13,
@@ -320,8 +321,8 @@ DAYS_DATA = [
             "整體對話流暢度",
             "安全意識是否貫穿全程"
         ],
-        "min_rounds": 5,
-        "max_rounds": 8,
+        "min_rounds": 10,
+        "max_rounds": 15,
     },
     {
         "day": 14,
@@ -335,8 +336,8 @@ DAYS_DATA = [
             "新人風險評級（低/中/高）",
             "一句總評"
         ],
-        "min_rounds": 5,
-        "max_rounds": 8,
+        "min_rounds": 10,
+        "max_rounds": 15,
     },
 ]
 
@@ -402,6 +403,11 @@ def get_exam_prompt(day_data: dict, persona: str, round_count: int = 0) -> str:
 3. 目前已進行 {round_count} 輪對話
 4. 如果新人回答得很差（明顯踩線），可以提前結束並判定不通過
 5. 對話過程中可以適度追問、試探
+
+## 重要提醒
+- **每次回覆只問 1-2 個問題**，不要一次問太多
+- 像真人聊天一樣，一句一句慢慢聊，不要急
+- 讓對話自然延續，給新人足夠的回應空間
 
 {SCORING_RULES}
 """
