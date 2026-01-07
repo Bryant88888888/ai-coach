@@ -16,12 +16,13 @@ class AIResponse(BaseModel):
     @classmethod
     def from_dict(cls, data: dict) -> "AIResponse":
         """從字典建立 AIResponse"""
+        # 使用 or 運算子確保 None 值會使用預設值
         return cls(
-            reply=data.get("reply", ""),
-            is_final=data.get("is_final", False),
-            pass_=data.get("pass", False),
-            score=data.get("score", 0),
-            reason=data.get("reason", "")
+            reply=data.get("reply") or "",
+            is_final=data.get("is_final") or False,
+            pass_=data.get("pass") if data.get("pass") is not None else False,
+            score=data.get("score") if data.get("score") is not None else 0,
+            reason=data.get("reason") or ""
         )
 
 
