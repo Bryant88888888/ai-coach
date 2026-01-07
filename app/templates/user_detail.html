@@ -23,12 +23,6 @@
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            {% if user.persona %}
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                {% if 'A' in user.persona %}bg-pink-100 dark:bg-pink-900/50 text-pink-800 dark:text-pink-300{% else %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300{% endif %}">
-                <i class="fas fa-tag mr-1"></i>{{ user.persona }}
-            </span>
-            {% endif %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
                 {% if user.status == 'Active' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300{% endif %}">
                 <i class="fas fa-circle text-xs mr-1"></i>{{ user.status }}

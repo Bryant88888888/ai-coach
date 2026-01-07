@@ -16,11 +16,6 @@
                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]">
         </div>
         <div class="flex gap-2">
-            <select id="filter-persona" class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-                <option value="">所有 Persona</option>
-                <option value="A_無經驗">A - 無經驗</option>
-                <option value="B_有經驗">B - 有經驗</option>
-            </select>
             <select id="filter-status" class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 <option value="">所有狀態</option>
                 <option value="Active">活躍</option>
@@ -37,7 +32,6 @@
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Persona</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">進度</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">訓練狀態</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden lg:table-cell">建立時間</th>
@@ -47,7 +41,6 @@
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700" id="users-table-body">
                 {% for user in users %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 user-row"
-                    data-persona="{{ user.persona if user.persona else '' }}"
                     data-status="{{ user.status }}"
                     data-name="{{ user.line_display_name or user.real_name or '' }}"
                     data-line-id="{{ user.line_user_id }}">
@@ -69,16 +62,6 @@
                                 {% endif %}
                             </div>
                         </div>
-                    </td>
-                    <td class="px-4 py-4">
-                        {% if user.persona %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                            {% if 'A' in user.persona %}bg-pink-100 dark:bg-pink-900/50 text-pink-800 dark:text-pink-300{% else %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300{% endif %}">
-                            {{ user.persona }}
-                        </span>
-                        {% else %}
-                        <span class="text-gray-400 dark:text-gray-500 text-sm">未分類</span>
-                        {% endif %}
                     </td>
                     <td class="px-4 py-4">
                         {% set training = user.active_training or (user.trainings[0] if user.trainings|length > 0 else None) %}
@@ -148,31 +131,26 @@
 <script>
     // 搜尋功能
     const searchInput = document.getElementById('search-input');
-    const filterPersona = document.getElementById('filter-persona');
     const filterStatus = document.getElementById('filter-status');
     const rows = document.querySelectorAll('.user-row');
 
     function filterTable() {
         const search = searchInput.value.toLowerCase();
-        const persona = filterPersona.value;
         const status = filterStatus.value;
 
         rows.forEach(row => {
             const lineId = row.dataset.lineId.toLowerCase();
             const userName = row.dataset.name.toLowerCase();
-            const rowPersona = row.dataset.persona;
             const rowStatus = row.dataset.status;
 
             const matchSearch = userName.includes(search) || lineId.includes(search);
-            const matchPersona = !persona || rowPersona === persona;
             const matchStatus = !status || rowStatus === status;
 
-            row.style.display = (matchSearch && matchPersona && matchStatus) ? '' : 'none';
+            row.style.display = (matchSearch && matchStatus) ? '' : 'none';
         });
     }
 
     searchInput.addEventListener('input', filterTable);
-    filterPersona.addEventListener('change', filterTable);
     filterStatus.addEventListener('change', filterTable);
 </script>
 {% endblock %}
