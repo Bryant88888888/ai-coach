@@ -1,3 +1,4 @@
+import random
 from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -401,10 +402,16 @@ class PushService:
             if user_training.batch:
                 course_version = user_training.batch.course_version
 
-            # 取得開場訊息
+            # 每天隨機選擇 Persona（A 或 B）
+            # Persona 決定 AI 扮演哪種角色出題
+            random_persona = random.choice(["A_無經驗", "B_有經驗"])
+            user_training.persona = random_persona
+            self.db.commit()
+
+            # 取得開場訊息（根據隨機選擇的 Persona）
             opening_message = self.get_opening_message(
                 user_training.current_day,
-                user_training.persona,
+                random_persona,
                 course_version
             )
 
@@ -422,6 +429,7 @@ class PushService:
                 "training_id": training_id,
                 "user_id": user.id,
                 "day": user_training.current_day,
+                "persona": random_persona,
                 "message_preview": opening_message[:50] + "..."
             }
 

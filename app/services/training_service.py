@@ -176,15 +176,12 @@ class TrainingService:
                 round_count=0
             )
 
-        # 取得 Persona（如果尚未分類，在第一次 AI 對話時分類）
-        training_persona = self._get_training_persona(user)
-        if not training_persona and current_day >= 1 and current_round == 0:
-            # 第一次進入 AI 對話，分類 Persona
-            classified_persona = self.ai_service.classify_persona(user_message)
-            self._set_persona(user, active_training, classified_persona)
-            persona = "A" if "A" in classified_persona else "B"
-        else:
-            persona = self._get_persona_letter(user)
+        # 取得今日 Persona（已在用戶按下「開始訓練」時隨機決定）
+        # Persona 決定 AI 要扮演哪種角色出題（A=無經驗諮詢者, B=有經驗諮詢者）
+        persona = self._get_persona_letter(user)
+        if not persona:
+            # 如果沒有設定（例如舊資料），預設使用 A
+            persona = "A"
 
         # 取得對話歷史
         conversation_history = self.get_conversation_history(user)
@@ -248,16 +245,10 @@ class TrainingService:
         """
         處理新用戶的第一則訊息
 
-        1. 分類 Persona
-        2. 開始訓練
+        新用戶需要先被加入訓練批次，並按下「開始訓練」按鈕才會開始
+        Persona 會在按下「開始訓練」時隨機決定
         """
-        active_training = self._get_active_training(user)
-
-        # 使用 AI 分類 Persona
-        persona = self.ai_service.classify_persona(first_message)
-        self._set_persona(user, active_training, persona)
-
-        # 開始訓練
+        # 直接進入訓練流程（會檢查是否已開始訓練）
         return self.process_training(user, first_message)
 
     def _get_persona_letter(self, user: User) -> str:
