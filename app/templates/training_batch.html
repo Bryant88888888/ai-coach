@@ -70,16 +70,25 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-6">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                 <i class="fas fa-user-plus text-indigo-500 mr-2"></i>加入用戶
+                {% if available_users %}
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">({{ available_users|length }} 人未加入)</span>
+                {% endif %}
             </h2>
             {% if available_users %}
+            <!-- 搜尋框 -->
+            <div class="mb-4">
+                <input type="text" id="user-search" placeholder="搜尋用戶名稱..."
+                    class="w-full px-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
+            </div>
+
             <form action="/dashboard/training/batch/{{ batch.id }}/add-user" method="POST" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">選擇用戶</label>
-                    <select name="user_id" required
+                    <select name="user_id" id="user-select" required
                         class="w-full px-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
                         <option value="">-- 請選擇 --</option>
                         {% for user in available_users %}
-                        <option value="{{ user.id }}">
+                        <option value="{{ user.id }}" data-name="{{ (user.display_name or '')|lower }} {{ (user.real_name or '')|lower }} {{ user.line_user_id|lower }}">
                             {{ user.display_name or user.line_user_id[:12] }}
                             {% if user.real_name %} ({{ user.real_name }}){% endif %}
                         </option>
@@ -98,9 +107,27 @@
                     <i class="fas fa-plus mr-2"></i>加入批次
                 </button>
             </form>
+
+            <!-- 全部加入按鈕 -->
+            <div class="mt-4 pt-4 border-t dark:border-gray-700">
+                <form action="/dashboard/training/batch/{{ batch.id }}/add-all-users" method="POST"
+                    onsubmit="return confirm('確定要將所有 {{ available_users|length }} 位用戶加入此批次嗎？')">
+                    <div class="flex items-center gap-2 mb-3">
+                        <input type="checkbox" name="auto_start_all" id="auto_start_all" value="true"
+                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <label for="auto_start_all" class="text-sm text-gray-700 dark:text-gray-300">
+                            全部立即開始訓練
+                        </label>
+                    </div>
+                    <button type="submit"
+                        class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+                        <i class="fas fa-users mr-2"></i>全部加入 ({{ available_users|length }} 人)
+                    </button>
+                </form>
+            </div>
             {% else %}
             <div class="text-center py-6 text-gray-500 dark:text-gray-400">
-                <i class="fas fa-users-slash text-3xl mb-2"></i>
+                <i class="fas fa-check-circle text-3xl mb-2 text-green-500"></i>
                 <p>所有用戶都已加入此批次</p>
             </div>
             {% endif %}
@@ -263,4 +290,41 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 用戶搜尋功能
+const userSearch = document.getElementById('user-search');
+const userSelect = document.getElementById('user-select');
+
+if (userSearch && userSelect) {
+    // 儲存原始選項
+    const originalOptions = Array.from(userSelect.options).slice(1); // 排除第一個 "請選擇" 選項
+
+    userSearch.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+
+        // 清空下拉選單（保留第一個選項）
+        while (userSelect.options.length > 1) {
+            userSelect.remove(1);
+        }
+
+        // 過濾並加入符合的選項
+        originalOptions.forEach(option => {
+            const name = option.getAttribute('data-name') || '';
+            if (searchTerm === '' || name.includes(searchTerm)) {
+                userSelect.add(option.cloneNode(true));
+            }
+        });
+
+        // 如果只有一個結果，自動選取
+        if (userSelect.options.length === 2) {
+            userSelect.selectedIndex = 1;
+        } else {
+            userSelect.selectedIndex = 0;
+        }
+    });
+}
+</script>
 {% endblock %}

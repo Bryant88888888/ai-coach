@@ -1195,6 +1195,60 @@ async def training_batch_add_user(
         )
 
 
+@router.post("/dashboard/training/batch/{batch_id}/add-all-users")
+async def training_batch_add_all_users(
+    request: Request,
+    batch_id: int,
+    db: Session = Depends(get_db),
+    auto_start_all: bool = Form(False)
+):
+    """將所有未加入的用戶加入訓練批次"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    batch_service = TrainingBatchService(db)
+    user_service = UserService(db)
+    push_service = PushService(db)
+
+    batch = batch_service.get_batch(batch_id)
+    if not batch:
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?error=批次不存在",
+            status_code=303
+        )
+
+    # 取得所有用戶
+    all_users = user_service.get_all_users()
+
+    # 取得已在此批次的用戶 ID
+    existing_trainings = batch_service.get_batch_users(batch_id)
+    existing_user_ids = {ut.user_id for ut in existing_trainings}
+
+    # 篩選出未加入的用戶
+    available_users = [u for u in all_users if u.id not in existing_user_ids]
+
+    if not available_users:
+        return RedirectResponse(
+            url=f"/dashboard/training/batch/{batch_id}?error=沒有可加入的用戶",
+            status_code=303
+        )
+
+    added_count = 0
+    for user in available_users:
+        try:
+            user_training = batch_service.add_user_to_batch(user.id, batch_id, auto_start=auto_start_all)
+            if auto_start_all:
+                push_service.push_to_training(user_training)
+            added_count += 1
+        except Exception:
+            continue
+
+    return RedirectResponse(
+        url=f"/dashboard/training/batch/{batch_id}?success=已將 {added_count} 位用戶加入批次",
+        status_code=303
+    )
+
+
 @router.post("/dashboard/training/batch/{batch_id}/remove-user/{user_id}")
 async def training_batch_remove_user(
     request: Request,
