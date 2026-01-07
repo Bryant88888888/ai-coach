@@ -80,12 +80,22 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
         # 註冊訊息處理器
         @handler.add(MessageEvent, message=TextMessageContent)
         def handle_text_message(event: MessageEvent):
-            """處理文字訊息"""
-            # 處理訊息並取得回覆
-            reply_message = line_service.handle_message(event, db)
+            """處理文字訊息 - 確保每則訊息都會回覆"""
+            try:
+                # 處理訊息並取得回覆
+                reply_message = line_service.handle_message(event, db)
 
-            # 發送回覆
-            line_service.send_reply(event.reply_token, reply_message)
+                # 發送回覆
+                line_service.send_reply(event.reply_token, reply_message)
+
+            except Exception as e:
+                # 發生錯誤時也要回覆，避免用戶等不到回應
+                print(f"❌ 處理訊息失敗: {e}")
+                error_reply = "抱歉，系統處理時發生錯誤，請稍後再試。如持續發生問題，請聯繫管理員。"
+                try:
+                    line_service.send_reply(event.reply_token, error_reply)
+                except Exception as reply_error:
+                    print(f"❌ 發送錯誤回覆也失敗: {reply_error}")
 
         # 註冊 Postback 處理器（用於請假審核按鈕和訓練開始按鈕）
         @handler.add(PostbackEvent)
