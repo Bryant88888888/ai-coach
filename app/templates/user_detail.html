@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ user.name or user.line_user_id[:8] }} - 用戶詳情{% endblock %}
+{% block title %}{{ user.display_name }} - 用戶詳情{% endblock %}
 
 {% block content %}
 <!-- 返回按鈕 -->
@@ -18,7 +18,7 @@
                 <i class="fas fa-user text-2xl text-indigo-600 dark:text-indigo-400"></i>
             </div>
             <div>
-                <h1 class="text-xl lg:text-2xl font-bold text-gray-800 dark:text-white">{{ user.name or '未命名用戶' }}</h1>
+                <h1 class="text-xl lg:text-2xl font-bold text-gray-800 dark:text-white">{{ user.display_name }}</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ user.line_user_id }}</p>
             </div>
         </div>
