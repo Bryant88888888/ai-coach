@@ -147,6 +147,22 @@ def run_migrations():
 
                 conn.commit()
 
+        # 檢查並加入 user_trainings 新欄位
+        if 'user_trainings' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('user_trainings')]
+
+            with engine.connect() as conn:
+                if 'attempt_started_at' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE user_trainings ADD COLUMN IF NOT EXISTS attempt_started_at TIMESTAMP WITH TIME ZONE"
+                        ))
+                        print("Migration: Added 'attempt_started_at' column to user_trainings table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                conn.commit()
+
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動
         print(f"Migration warning: {e}")

@@ -92,7 +92,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # 訓練批次統計
     batch_stats = {
-        "active": db.query(TrainingBatch).filter(TrainingBatch.status == "active").count(),
+        "active": db.query(TrainingBatch).filter(TrainingBatch.is_active == True).count(),
         "in_training": db.query(UserTraining).filter(UserTraining.status == TrainingStatus.ACTIVE.value).count(),
         "pending": db.query(UserTraining).filter(UserTraining.status == TrainingStatus.PENDING.value).count(),
         "completed": db.query(UserTraining).filter(UserTraining.status == TrainingStatus.COMPLETED.value).count()
