@@ -59,9 +59,18 @@ class TrainingService:
         """取得當日課程資料"""
         return get_course_data(self.db, current_day, course_version)
 
+    def _get_attempt_started_at(self, user: User):
+        """取得當前測驗開始時間"""
+        training = self._get_active_training(user)
+        if training and training.attempt_started_at:
+            return training.attempt_started_at
+        return None
+
     def get_conversation_history(self, user: User, limit: int = 10) -> list[dict]:
         """
-        取得用戶當天的對話歷史（用於多輪對話）
+        取得用戶當前測驗的對話歷史（用於多輪對話）
+
+        只取當前測驗開始後的訊息，不會使用之前測驗的紀錄
 
         Args:
             user: 用戶物件
@@ -71,9 +80,13 @@ class TrainingService:
             對話歷史列表，格式為 [{"role": "user/assistant", "content": "..."}]
         """
         current_day = self._get_training_day(user)
-        messages = self.message_service.get_user_messages_by_day(
+        attempt_started_at = self._get_attempt_started_at(user)
+
+        # 只取當前測驗的訊息
+        messages = self.message_service.get_current_attempt_messages(
             user_id=user.id,
-            day=current_day
+            day=current_day,
+            attempt_started_at=attempt_started_at
         )
 
         # 轉換為 Claude 對話格式（最新的在後面）

@@ -83,10 +83,17 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             """處理文字訊息 - 確保每則訊息都會回覆"""
             try:
                 # 處理訊息並取得回覆
-                reply_message = line_service.handle_message(event, db)
+                reply_data = line_service.handle_message(event, db)
 
-                # 發送回覆
-                line_service.send_reply(event.reply_token, reply_message)
+                # 根據類型發送回覆
+                if reply_data["type"] == "flex":
+                    line_service.send_reply_flex(
+                        event.reply_token,
+                        "訓練結果",
+                        reply_data["content"]
+                    )
+                else:
+                    line_service.send_reply(event.reply_token, reply_data["content"])
 
             except Exception as e:
                 # 發生錯誤時也要回覆，避免用戶等不到回應
@@ -127,6 +134,30 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                             )
                     except Exception as e:
                         print(f"處理訓練開始失敗: {e}")
+                        line_service.send_reply(event.reply_token, f"❌ 發生錯誤：{str(e)}")
+                return
+
+            # 處理重新測驗按鈕
+            if action == "retry_training":
+                training_id = data.get("training_id", [None])[0]
+                if training_id:
+                    try:
+                        training_id = int(training_id)
+                        push_service = PushService(db)
+                        result = push_service.retry_training(training_id)
+
+                        if result["status"] == "success":
+                            line_service.send_reply(
+                                event.reply_token,
+                                "🔄 重新開始！請閱讀上方的情境，然後回覆你的回應。"
+                            )
+                        else:
+                            line_service.send_reply(
+                                event.reply_token,
+                                f"❌ 重新測驗失敗：{result.get('reason', '未知錯誤')}"
+                            )
+                    except Exception as e:
+                        print(f"處理重新測驗失敗: {e}")
                         line_service.send_reply(event.reply_token, f"❌ 發生錯誤：{str(e)}")
                 return
 

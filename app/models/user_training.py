@@ -34,6 +34,7 @@ class UserTraining(Base):
     paused_at = Column(DateTime(timezone=True), nullable=True)     # 暫停時間
     completed_at = Column(DateTime(timezone=True), nullable=True)  # 完成時間
     last_push_at = Column(DateTime(timezone=True), nullable=True)  # 最後推送時間
+    attempt_started_at = Column(DateTime(timezone=True), nullable=True)  # 當前測驗開始時間（用於過濾對話紀錄）
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -32,7 +32,7 @@ class LineService:
         """取得 Webhook Handler"""
         return self.handler
 
-    def handle_message(self, event: MessageEvent, db: Session) -> str:
+    def handle_message(self, event: MessageEvent, db: Session) -> dict:
         """
         處理收到的 LINE 訊息
 
@@ -41,7 +41,7 @@ class LineService:
             db: 資料庫 Session
 
         Returns:
-            str: 要回覆的訊息
+            dict: {"type": "text" | "flex", "content": ...}
         """
         # 取得用戶資訊
         line_user_id = event.source.user_id
@@ -59,6 +59,12 @@ class LineService:
         push_service = PushService(db)
         push_service.mark_as_responded(user.id)
 
+        # 取得 training_id（用於重新測驗按鈕）
+        training_id = None
+        active_training = user.active_training
+        if active_training:
+            training_id = active_training.id
+
         # 處理訓練流程
         if is_new:
             # 新用戶：分類 Persona 並開始訓練
@@ -68,17 +74,21 @@ class LineService:
             result = training_service.process_training(user, user_message)
 
         # 組合回覆訊息
-        reply_message = self._format_reply(result)
+        reply_data = self._format_reply(result, training_id)
 
-        return reply_message
+        return reply_data
 
-    def _format_reply(self, result) -> str:
+    def _format_reply(self, result, training_id: int = None) -> dict:
         """
         格式化回覆訊息
 
         多輪對話：
-        - is_final=False: 只回覆 AI 的對話內容
-        - is_final=True: 顯示評分結果
+        - is_final=False: 只回覆 AI 的對話內容（純文字）
+        - is_final=True 且通過: 顯示評分結果（純文字）
+        - is_final=True 且未通過: 顯示評分結果 + 重新測驗按鈕（Flex Message）
+
+        Returns:
+            dict: {"type": "text" | "flex", "content": ...}
         """
         ai_response = result.ai_response
 
@@ -92,15 +102,101 @@ class LineService:
                 reply += f"📚 進度：Day {result.current_day} → Day {result.next_day}"
                 if ai_response.reason:
                     reply += f"\n💬 評語：{ai_response.reason}"
+                return {"type": "text", "content": reply}
+
             elif ai_response.pass_ and result.is_completed:
                 reply += "\n\n🎉 恭喜完成所有訓練！"
-            elif not ai_response.pass_:
-                reply += f"\n\n❌ 本輪未通過\n"
-                reply += f"💡 原因：{ai_response.reason}\n"
-                reply += f"📝 分數：{ai_response.score}\n"
-                reply += "明天會再發送同一天的訓練，加油！"
+                return {"type": "text", "content": reply}
 
-        return reply
+            elif not ai_response.pass_:
+                # 未通過：返回 Flex Message 以顯示重新測驗按鈕
+                return {
+                    "type": "flex",
+                    "content": self._build_retry_flex(
+                        reply=reply,
+                        reason=ai_response.reason,
+                        score=ai_response.score,
+                        current_day=result.current_day,
+                        training_id=training_id
+                    )
+                }
+
+        # 非最終評分，純文字回覆
+        return {"type": "text", "content": reply}
+
+    def _build_retry_flex(self, reply: str, reason: str, score: int, current_day: int, training_id: int = None) -> dict:
+        """建立未通過時的 Flex Message（含重新測驗按鈕）"""
+        contents = [
+            {
+                "type": "text",
+                "text": reply,
+                "wrap": True,
+                "size": "sm",
+                "color": "#333333"
+            },
+            {
+                "type": "separator",
+                "margin": "lg"
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "margin": "lg",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "❌ 本輪未通過",
+                        "weight": "bold",
+                        "size": "md",
+                        "color": "#EF4444"
+                    },
+                    {
+                        "type": "text",
+                        "text": f"💡 原因：{reason}",
+                        "wrap": True,
+                        "size": "sm",
+                        "color": "#666666",
+                        "margin": "md"
+                    },
+                    {
+                        "type": "text",
+                        "text": f"📝 分數：{score}",
+                        "size": "sm",
+                        "color": "#666666",
+                        "margin": "sm"
+                    }
+                ]
+            }
+        ]
+
+        # 建立重新測驗按鈕
+        footer_contents = []
+        if training_id:
+            footer_contents.append({
+                "type": "button",
+                "style": "primary",
+                "color": "#7C3AED",
+                "action": {
+                    "type": "postback",
+                    "label": "🔄 重新測驗",
+                    "data": f"action=retry_training&training_id={training_id}&day={current_day}"
+                }
+            })
+
+        return {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": contents
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": footer_contents
+            } if footer_contents else None
+        }
 
     def send_reply(self, reply_token: str, message: str) -> None:
         """
@@ -116,6 +212,29 @@ class LineService:
                 ReplyMessageRequest(
                     reply_token=reply_token,
                     messages=[TextMessage(text=message)]
+                )
+            )
+
+    def send_reply_flex(self, reply_token: str, alt_text: str, flex_content: dict) -> None:
+        """
+        發送 Flex Message 作為回覆
+
+        Args:
+            reply_token: LINE 的回覆 token
+            alt_text: 替代文字
+            flex_content: Flex Message JSON 內容
+        """
+        with ApiClient(self.configuration) as api_client:
+            messaging_api = MessagingApi(api_client)
+            messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[
+                        FlexMessage(
+                            alt_text=alt_text,
+                            contents=FlexContainer.from_dict(flex_content)
+                        )
+                    ]
                 )
             )
 

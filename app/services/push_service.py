@@ -406,6 +406,9 @@ class PushService:
             # Persona 決定 AI 扮演哪種角色出題
             random_persona = random.choice(["A_無經驗", "B_有經驗"])
             user_training.persona = random_persona
+
+            # 記錄測驗開始時間（用於過濾對話紀錄）
+            user_training.attempt_started_at = datetime.now()
             self.db.commit()
 
             # 取得開場訊息（根據隨機選擇的 Persona）
@@ -423,6 +426,88 @@ class PushService:
 
             # 標記推送為已回覆（因為用戶已經按下開始）
             self.mark_as_responded(user.id)
+
+            return {
+                "status": "success",
+                "training_id": training_id,
+                "user_id": user.id,
+                "day": user_training.current_day,
+                "persona": random_persona,
+                "message_preview": opening_message[:50] + "..."
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "reason": str(e)
+            }
+
+    def retry_training(self, training_id: int) -> dict:
+        """
+        重新開始當前測驗（用戶按下重新測驗按鈕後呼叫）
+
+        會重置對話輪數、設定新的測驗開始時間（過濾舊對話）、
+        重新隨機選擇 Persona，並發送新的開場訊息。
+
+        Args:
+            training_id: UserTraining ID
+
+        Returns:
+            dict: 包含發送結果的資訊
+        """
+        user_training = self.db.query(UserTraining).filter(
+            UserTraining.id == training_id
+        ).first()
+
+        if not user_training:
+            return {
+                "status": "error",
+                "reason": "training_not_found"
+            }
+
+        # 確認訓練狀態是 ACTIVE
+        if user_training.status != TrainingStatus.ACTIVE.value:
+            return {
+                "status": "error",
+                "reason": "training_not_active"
+            }
+
+        user = user_training.user
+        if not user:
+            return {
+                "status": "error",
+                "reason": "user_not_found"
+            }
+
+        try:
+            # 取得課程版本
+            course_version = "v1"
+            if user_training.batch:
+                course_version = user_training.batch.course_version
+
+            # 重置對話輪數
+            user_training.current_round = 0
+
+            # 重新隨機選擇 Persona（A 或 B）
+            random_persona = random.choice(["A_無經驗", "B_有經驗"])
+            user_training.persona = random_persona
+
+            # 設定新的測驗開始時間（這樣新測驗就不會使用之前的對話紀錄）
+            user_training.attempt_started_at = datetime.now()
+            self.db.commit()
+
+            # 取得開場訊息（根據新隨機選擇的 Persona）
+            opening_message = self.get_opening_message(
+                user_training.current_day,
+                random_persona,
+                course_version
+            )
+
+            # 發送開場訊息
+            self._send_push_message(
+                user_id=user.line_user_id,
+                message=opening_message
+            )
 
             return {
                 "status": "success",

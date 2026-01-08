@@ -71,6 +71,34 @@ class MessageService:
             .all()
         )
 
+    def get_current_attempt_messages(
+        self,
+        user_id: int,
+        day: int,
+        attempt_started_at
+    ) -> list[Message]:
+        """
+        取得當前測驗的對話記錄（只取 attempt_started_at 之後的訊息）
+
+        Args:
+            user_id: 用戶 ID
+            day: 訓練天數
+            attempt_started_at: 當前測驗開始時間
+
+        Returns:
+            當前測驗的對話記錄
+        """
+        query = self.db.query(Message).filter(
+            Message.user_id == user_id,
+            Message.training_day == day
+        )
+
+        # 如果有設定測驗開始時間，只取之後的訊息
+        if attempt_started_at:
+            query = query.filter(Message.created_at >= attempt_started_at)
+
+        return query.order_by(Message.created_at.asc()).all()
+
     def get_message_count(self, user_id: int) -> int:
         """取得用戶的對話總數"""
         return self.db.query(Message).filter(Message.user_id == user_id).count()
