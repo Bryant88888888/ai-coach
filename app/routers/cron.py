@@ -1,12 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.config import get_settings
 from app.services.push_service import PushService
 
 router = APIRouter(prefix="/cron", tags=["排程任務"])
+
+
+def run_daily_push_background():
+    """背景執行每日推送（獨立的 DB session）"""
+    db = SessionLocal()
+    try:
+        push_service = PushService(db)
+        result = push_service.push_daily_training()
+        print(f"✅ 每日推送完成: {result}")
+    except Exception as e:
+        print(f"❌ 每日推送失敗: {e}")
+    finally:
+        db.close()
 
 
 def verify_cron_secret(x_cron_secret: Optional[str] = Header(None)):
@@ -24,27 +38,25 @@ def verify_cron_secret(x_cron_secret: Optional[str] = Header(None)):
 
 @router.post("/daily-push")
 async def daily_push(
-    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks,
     _: None = Depends(verify_cron_secret)
 ):
     """
-    每日訓練推送
+    每日訓練推送（背景執行）
 
-    此端點由 Render Cron Job 每天 19:00 (UTC+8) 呼叫
+    此端點由 Render Cron Job 每天 17:30 (UTC+8) 呼叫
+    - 立即回傳，推送在背景執行
     - 取得所有活躍且未完成訓練的用戶
     - 根據每個用戶的 current_day 推送對應的訓練內容
     - 記錄推送歷史
-
-    Render Cron 設定：
-    - Schedule: 0 11 * * * (UTC 時間 11:00 = 台灣時間 19:00)
-    - Command: curl -X POST https://your-app.onrender.com/cron/daily-push
     """
-    push_service = PushService(db)
-    result = push_service.push_daily_training()
+    # 加入背景任務，立即回傳
+    background_tasks.add_task(run_daily_push_background)
 
     return {
-        "status": "completed",
-        "result": result
+        "status": "started",
+        "message": "每日推送已在背景執行",
+        "started_at": datetime.now().isoformat()
     }
 
 
