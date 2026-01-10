@@ -28,7 +28,7 @@ services:
     runtime: python
     schedule: "30 9 * * *"  # UTC 09:30 = 台灣時間 17:30
     buildCommand: pip install httpx
-    startCommand: python -c "import httpx; import os; httpx.post(os.environ['APP_URL'] + '/cron/daily-push', headers={'X-Cron-Secret': os.environ.get('CRON_SECRET', '')})"
+    startCommand: python -c "import httpx; import os; r = httpx.post(os.environ['APP_URL'] + '/cron/daily-push', headers={'X-Cron-Secret': os.environ.get('CRON_SECRET', '')}, timeout=60.0); print(r.status_code)"
     envVars:
       - key: APP_URL
         sync: false
