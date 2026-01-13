@@ -58,3 +58,5 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+messages_analysis.txt
+.env
