@@ -73,6 +73,11 @@ class LineService:
             # 既有用戶：繼續訓練
             result = training_service.process_training(user, user_message)
 
+        # Day 0 完成後，自動發送 Day 1 圖卡
+        if result.current_day == 0 and result.next_day == 1 and training_id:
+            # 發送 Day 1 的開始訓練圖卡
+            push_service.send_training_card(training_id=training_id, day=1)
+
         # 組合回覆訊息
         reply_data = self._format_reply(result, training_id)
 

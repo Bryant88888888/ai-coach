@@ -524,6 +524,74 @@ class PushService:
                 "reason": str(e)
             }
 
+    def send_training_card(self, training_id: int, day: int = None) -> dict:
+        """
+        發送指定天數的訓練圖卡（後台手動發送或 Day 0 完成後自動發送）
+
+        Args:
+            training_id: UserTraining ID
+            day: 指定要發送的天數，若為 None 則使用 current_day
+
+        Returns:
+            dict: 包含發送結果的資訊
+        """
+        user_training = self.db.query(UserTraining).filter(
+            UserTraining.id == training_id
+        ).first()
+
+        if not user_training:
+            return {
+                "status": "error",
+                "reason": "training_not_found"
+            }
+
+        user = user_training.user
+        if not user:
+            return {
+                "status": "error",
+                "reason": "user_not_found"
+            }
+
+        # 如果沒指定天數，使用 current_day
+        target_day = day if day is not None else user_training.current_day
+
+        try:
+            # 取得課程版本
+            course_version = "v1"
+            if user_training.batch:
+                course_version = user_training.batch.course_version
+
+            # 取得課程資料
+            day_data = get_course_data(self.db, target_day, course_version)
+            course_title = day_data.get("title", "今日訓練") if day_data else "今日訓練"
+
+            # 建立並發送圖卡
+            card = self._build_start_training_card(
+                day=target_day,
+                title=course_title,
+                training_id=user_training.id
+            )
+
+            self._send_flex_message(
+                user_id=user.line_user_id,
+                alt_text=f"📚 Day {target_day} - {course_title}",
+                flex_content=card
+            )
+
+            return {
+                "status": "success",
+                "training_id": training_id,
+                "user_id": user.id,
+                "day": target_day,
+                "message_preview": f"[卡片] Day {target_day} - {course_title}"
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "reason": str(e)
+            }
+
     def push_daily_training(self) -> dict:
         """
         執行每日訓練推送（新版：使用 UserTraining）

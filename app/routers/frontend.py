@@ -1476,7 +1476,7 @@ async def user_send_training(
     training_id: int = Form(...),
     send_day: int = Form(...)
 ):
-    """發送指定訓練的指定天數內容"""
+    """發送指定訓練的指定天數內容（使用圖卡格式）"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
@@ -1487,41 +1487,24 @@ async def user_send_training(
             status_code=303
         )
 
-    user = user_training.user
     push_service = PushService(db)
 
-    # 取得課程版本
-    course_version = "v1"
-    if user_training.batch:
-        course_version = user_training.batch.course_version
+    # 更新訓練進度到指定天數
+    user_training.current_day = send_day
+    user_training.current_round = 0
+    db.commit()
 
-    # 取得指定天數的開場訊息
-    opening_message = push_service.get_opening_message(
-        day=send_day,
-        persona=user_training.persona,
-        course_version=course_version
-    )
+    # 發送圖卡
+    result = push_service.send_training_card(training_id=training_id, day=send_day)
 
-    if not opening_message:
+    if result["status"] == "success":
         return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?error=找不到 Day {send_day} 的課程內容",
+            url=f"/dashboard/users/{line_user_id}?success=已發送 Day {send_day} 的訓練圖卡",
             status_code=303
         )
-
-    try:
-        # 發送訊息
-        push_service._send_push_message(
-            user_id=user.line_user_id,
-            message=opening_message
-        )
-
+    else:
         return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?success=已發送 Day {send_day} 的訓練內容",
-            status_code=303
-        )
-    except Exception as e:
-        return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
+            url=f"/dashboard/users/{line_user_id}?error=發送失敗：{result.get('reason', '未知錯誤')}",
             status_code=303
         )
 
@@ -1535,7 +1518,7 @@ async def user_send_any_training(
     day: int = Form(...),
     persona: str = Form("A")
 ):
-    """發送任意版本/天數的訓練內容"""
+    """發送任意版本/天數的訓練內容（使用圖卡格式）"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
@@ -1549,32 +1532,54 @@ async def user_send_any_training(
             status_code=303
         )
 
-    # 取得指定版本/天數的開場訊息
-    opening_message = push_service.get_opening_message(
-        day=day,
-        persona=f"{persona}_",  # 確保包含字母以符合判斷邏輯
-        course_version=version
-    )
+    # 檢查是否有進行中的訓練
+    active_training = user.active_training
+    if active_training:
+        # 更新訓練進度到指定天數
+        active_training.current_day = day
+        active_training.current_round = 0
+        active_training.persona = f"{persona}_經驗"
+        db.commit()
 
-    if not opening_message:
-        return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?error=找不到 {version} 版本 Day {day} 的課程內容",
-            status_code=303
+        # 發送圖卡
+        result = push_service.send_training_card(training_id=active_training.id, day=day)
+
+        if result["status"] == "success":
+            return RedirectResponse(
+                url=f"/dashboard/users/{line_user_id}?success=已發送 Day {day} 的訓練圖卡",
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url=f"/dashboard/users/{line_user_id}?error=發送失敗：{result.get('reason', '未知錯誤')}",
+                status_code=303
+            )
+    else:
+        # 沒有訓練，使用文字訊息（保留舊邏輯）
+        opening_message = push_service.get_opening_message(
+            day=day,
+            persona=f"{persona}_",
+            course_version=version
         )
 
-    try:
-        # 發送訊息
-        push_service._send_push_message(
-            user_id=user.line_user_id,
-            message=opening_message
-        )
+        if not opening_message:
+            return RedirectResponse(
+                url=f"/dashboard/users/{line_user_id}?error=找不到 {version} 版本 Day {day} 的課程內容",
+                status_code=303
+            )
 
-        return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?success=已發送 {version} 版本 Day {day} 的訓練內容（Persona {persona}）",
-            status_code=303
-        )
-    except Exception as e:
-        return RedirectResponse(
-            url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
-            status_code=303
-        )
+        try:
+            push_service._send_push_message(
+                user_id=user.line_user_id,
+                message=opening_message
+            )
+
+            return RedirectResponse(
+                url=f"/dashboard/users/{line_user_id}?success=已發送 {version} 版本 Day {day} 的訓練內容（注意：用戶無進行中訓練，已使用文字格式）",
+                status_code=303
+            )
+        except Exception as e:
+            return RedirectResponse(
+                url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
+                status_code=303
+            )
