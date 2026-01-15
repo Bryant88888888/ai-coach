@@ -128,13 +128,30 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                                 "✨ 課程開始！請閱讀上方的情境，然後回覆你的回應。"
                             )
                         else:
-                            line_service.send_reply(
-                                event.reply_token,
-                                f"❌ 啟動失敗：{result.get('reason', '未知錯誤')}"
-                            )
+                            reason = str(result.get('reason', '未知錯誤'))
+                            if 'monthly limit' in reason.lower() or '429' in reason:
+                                line_service.send_reply(
+                                    event.reply_token,
+                                    "⚠️ 系統訊息額度已達上限，請稍後再試或聯繫管理員。"
+                                )
+                            else:
+                                line_service.send_reply(
+                                    event.reply_token,
+                                    "❌ 啟動失敗，請稍後再試。"
+                                )
                     except Exception as e:
                         print(f"處理訓練開始失敗: {e}")
-                        line_service.send_reply(event.reply_token, f"❌ 發生錯誤：{str(e)}")
+                        error_msg = str(e).lower()
+                        if 'monthly limit' in error_msg or '429' in error_msg:
+                            line_service.send_reply(
+                                event.reply_token,
+                                "⚠️ 系統訊息額度已達上限，請稍後再試或聯繫管理員。"
+                            )
+                        else:
+                            line_service.send_reply(
+                                event.reply_token,
+                                "❌ 發生錯誤，請稍後再試。"
+                            )
                 return
 
             # 處理重新測驗按鈕
@@ -152,13 +169,31 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                                 "🔄 重新開始！請閱讀上方的情境，然後回覆你的回應。"
                             )
                         else:
-                            line_service.send_reply(
-                                event.reply_token,
-                                f"❌ 重新測驗失敗：{result.get('reason', '未知錯誤')}"
-                            )
+                            # 檢查是否是 LINE API 限制
+                            reason = str(result.get('reason', '未知錯誤'))
+                            if 'monthly limit' in reason.lower() or '429' in reason:
+                                line_service.send_reply(
+                                    event.reply_token,
+                                    "⚠️ 系統訊息額度已達上限，請稍後再試或聯繫管理員。"
+                                )
+                            else:
+                                line_service.send_reply(
+                                    event.reply_token,
+                                    "❌ 重新測驗失敗，請稍後再試。"
+                                )
                     except Exception as e:
                         print(f"處理重新測驗失敗: {e}")
-                        line_service.send_reply(event.reply_token, f"❌ 發生錯誤：{str(e)}")
+                        error_msg = str(e).lower()
+                        if 'monthly limit' in error_msg or '429' in error_msg:
+                            line_service.send_reply(
+                                event.reply_token,
+                                "⚠️ 系統訊息額度已達上限，請稍後再試或聯繫管理員。"
+                            )
+                        else:
+                            line_service.send_reply(
+                                event.reply_token,
+                                "❌ 發生錯誤，請稍後再試。"
+                            )
                 return
 
             # 處理請假審核按鈕
