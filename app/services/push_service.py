@@ -180,6 +180,27 @@ class PushService:
         )
         return existing is not None
 
+    def has_pending_push_for_day(self, user_id: int, training_day: int) -> bool:
+        """
+        檢查該天數是否已有未回覆的推送
+
+        用於判斷是否要重複推送同一天的訓練：
+        - 如果已經推送過且未回覆，就不再推送
+        - 只有回覆完成後，才會推送下一天
+        """
+        existing = (
+            self.db.query(PushLog)
+            .filter(
+                and_(
+                    PushLog.user_id == user_id,
+                    PushLog.training_day == training_day,
+                    PushLog.responded == False
+                )
+            )
+            .first()
+        )
+        return existing is not None
+
     def get_opening_message(self, day: int, persona: str | None, course_version: str = "v1") -> str:
         """
         取得當日訓練的固定開場白
@@ -311,6 +332,16 @@ class PushService:
                 "line_user_id": user.line_user_id,
                 "status": "skipped",
                 "reason": "already_pushed_today"
+            }
+
+        # 檢查該天數是否已有未回覆的推送（避免重複推送同一天）
+        if self.has_pending_push_for_day(user.id, user_training.current_day):
+            return {
+                "user_id": user.id,
+                "training_id": user_training.id,
+                "line_user_id": user.line_user_id,
+                "status": "skipped",
+                "reason": "pending_push_not_responded"
             }
 
         try:
