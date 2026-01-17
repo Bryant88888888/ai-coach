@@ -161,6 +161,15 @@ def run_migrations():
                     except Exception as e:
                         print(f"Migration note: {e}")
 
+                if 'testing_day' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE user_trainings ADD COLUMN IF NOT EXISTS testing_day INTEGER"
+                        ))
+                        print("Migration: Added 'testing_day' column to user_trainings table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
                 conn.commit()
 
     except Exception as e:

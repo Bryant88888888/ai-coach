@@ -400,12 +400,14 @@ class PushService:
                 "reason": str(e)
             }
 
-    def send_training_opening(self, training_id: int) -> dict:
+    def send_training_opening(self, training_id: int, day: int = None) -> dict:
         """
         發送訓練開場訊息（用戶按下開始按鈕後呼叫）
 
         Args:
             training_id: UserTraining ID
+            day: 指定測驗的天數（若為 None 則使用 current_day）
+                 手動發送時會指定特定天數
 
         Returns:
             dict: 包含發送結果的資訊
@@ -433,18 +435,25 @@ class PushService:
             if user_training.batch:
                 course_version = user_training.batch.course_version
 
+            # 決定測驗的天數
+            # 如果有指定 day 就用指定的，否則用 current_day
+            testing_day = day if day is not None else user_training.current_day
+
             # 每天隨機選擇 Persona（A 或 B）
             # Persona 決定 AI 扮演哪種角色出題
             random_persona = random.choice(["A_無經驗", "B_有經驗"])
             user_training.persona = random_persona
 
+            # 設定正在測驗的天數（用於 process_training 判斷是否推進進度）
+            user_training.testing_day = testing_day
+
             # 記錄測驗開始時間（用於過濾對話紀錄）
             user_training.attempt_started_at = datetime.now()
             self.db.commit()
 
-            # 取得開場訊息（根據隨機選擇的 Persona）
+            # 取得開場訊息（根據 testing_day 和隨機選擇的 Persona）
             opening_message = self.get_opening_message(
-                user_training.current_day,
+                testing_day,
                 random_persona,
                 course_version
             )
@@ -462,7 +471,8 @@ class PushService:
                 "status": "success",
                 "training_id": training_id,
                 "user_id": user.id,
-                "day": user_training.current_day,
+                "day": testing_day,
+                "is_manual": day is not None and day != user_training.current_day,
                 "persona": random_persona,
                 "message_preview": opening_message[:50] + "..."
             }
@@ -519,6 +529,10 @@ class PushService:
             # 重置對話輪數
             user_training.current_round = 0
 
+            # 使用原本的 testing_day（重新測驗同一天）
+            # 如果 testing_day 沒設定，就用 current_day
+            testing_day = user_training.testing_day if user_training.testing_day is not None else user_training.current_day
+
             # 重新隨機選擇 Persona（A 或 B）
             random_persona = random.choice(["A_無經驗", "B_有經驗"])
             user_training.persona = random_persona
@@ -527,9 +541,9 @@ class PushService:
             user_training.attempt_started_at = datetime.now()
             self.db.commit()
 
-            # 取得開場訊息（根據新隨機選擇的 Persona）
+            # 取得開場訊息（根據 testing_day 和新隨機選擇的 Persona）
             opening_message = self.get_opening_message(
-                user_training.current_day,
+                testing_day,
                 random_persona,
                 course_version
             )
@@ -544,7 +558,7 @@ class PushService:
                 "status": "success",
                 "training_id": training_id,
                 "user_id": user.id,
-                "day": user_training.current_day,
+                "day": testing_day,
                 "persona": random_persona,
                 "message_preview": opening_message[:50] + "..."
             }

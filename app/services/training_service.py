@@ -34,6 +34,32 @@ class TrainingService:
             return training.current_day
         return user.current_day
 
+    def _get_testing_day(self, user: User) -> int:
+        """
+        取得正在測驗的天數
+
+        手動發送時 testing_day 會與 current_day 不同
+        一般情況下 testing_day 等於 current_day
+        """
+        training = self._get_active_training(user)
+        if training:
+            # 如果有設定 testing_day 就用它，否則用 current_day
+            if training.testing_day is not None:
+                return training.testing_day
+            return training.current_day
+        return user.current_day
+
+    def _is_manual_test(self, user: User) -> bool:
+        """
+        判斷是否為手動發送的測驗
+
+        手動發送時 testing_day != current_day
+        """
+        training = self._get_active_training(user)
+        if training and training.testing_day is not None:
+            return training.testing_day != training.current_day
+        return False
+
     def _get_training_round(self, user: User) -> int:
         """取得用戶當前對話輪數（優先使用 UserTraining）"""
         training = self._get_active_training(user)
@@ -79,13 +105,13 @@ class TrainingService:
         Returns:
             對話歷史列表，格式為 [{"role": "user/assistant", "content": "..."}]
         """
-        current_day = self._get_training_day(user)
+        testing_day = self._get_testing_day(user)  # 使用 testing_day
         attempt_started_at = self._get_attempt_started_at(user)
 
         # 只取當前測驗的訊息
         messages = self.message_service.get_current_attempt_messages(
             user_id=user.id,
-            day=current_day,
+            day=testing_day,
             attempt_started_at=attempt_started_at
         )
 
@@ -112,7 +138,9 @@ class TrainingService:
         active_training = self._get_active_training(user)
 
         # 使用 UserTraining 或 User 的進度
-        current_day = self._get_training_day(user)
+        current_day = self._get_training_day(user)      # 正式進度
+        testing_day = self._get_testing_day(user)       # 正在測驗的天數
+        is_manual_test = self._is_manual_test(user)     # 是否為手動發送的測驗
         current_round = self._get_training_round(user)
         course_version = self._get_course_version(user)
 
@@ -133,8 +161,8 @@ class TrainingService:
                 round_count=0
             )
 
-        # 取得今日課程
-        day_data = self.get_today_training(current_day, course_version)
+        # 取得測驗天數的課程（使用 testing_day，不是 current_day）
+        day_data = self.get_today_training(testing_day, course_version)
         if not day_data:
             # 標記訓練完成
             if active_training:
@@ -173,18 +201,26 @@ class TrainingService:
                 user=user,
                 user_message=user_message,
                 ai_response=ai_response,
-                training_day=current_day
+                training_day=testing_day
             )
 
-            # 自動進入下一天
-            self._update_progress(user, active_training, current_day + 1)
-            self._reset_round(user, active_training)
+            # 只有非手動測驗才推進進度
+            if not is_manual_test:
+                self._update_progress(user, active_training, current_day + 1)
+                self._reset_round(user, active_training)
+                self._clear_testing_day(active_training)
+                next_day = current_day + 1
+            else:
+                # 手動測驗完成，清除 testing_day 但不改變 current_day
+                self._reset_round(user, active_training)
+                self._clear_testing_day(active_training)
+                next_day = current_day  # 維持原進度
 
             return TrainingResult(
                 user_message=user_message,
                 ai_response=ai_response,
                 current_day=current_day,
-                next_day=current_day + 1,
+                next_day=next_day,
                 is_completed=False,
                 round_count=0
             )
@@ -202,21 +238,21 @@ class TrainingService:
         # 增加輪數
         new_round = current_round + 1
 
-        # 呼叫 AI 產生回應
+        # 呼叫 AI 產生回應（使用 testing_day）
         ai_response = self.ai_service.generate_response(
-            day=current_day,
+            day=testing_day,
             persona=persona,
             user_message=user_message,
             round_count=new_round,
             conversation_history=conversation_history
         )
 
-        # 儲存對話記錄
+        # 儲存對話記錄（使用 testing_day）
         self.message_service.save_message(
             user=user,
             user_message=user_message,
             ai_response=ai_response,
-            training_day=current_day
+            training_day=testing_day
         )
 
         # 更新輪數
@@ -228,22 +264,31 @@ class TrainingService:
 
         if ai_response.is_final:
             if ai_response.pass_:
-                # 通過：進入下一天
-                if current_day < MAX_TRAINING_DAY:
+                # 通過
+                if is_manual_test:
+                    # 手動測驗：不推進進度，只清除 testing_day
+                    self._reset_round(user, active_training)
+                    self._clear_testing_day(active_training)
+                    # next_day 維持 current_day（不變）
+                elif current_day < MAX_TRAINING_DAY:
+                    # 正常測驗且還沒到最後一天：進入下一天
                     next_day = current_day + 1
                     self._update_progress(user, active_training, next_day)
                     self._reset_round(user, active_training)
+                    self._clear_testing_day(active_training)
                 else:
+                    # 已完成所有訓練
                     is_completed = True
-                    # 標記訓練完成
+                    self._clear_testing_day(active_training)
                     if active_training:
                         from datetime import datetime
                         active_training.status = TrainingStatus.COMPLETED.value
                         active_training.completed_at = datetime.now()
                         self.db.commit()
             else:
-                # 未通過：重置輪數，明天繼續同一天
+                # 未通過：重置輪數（不管是否手動測驗）
                 self._reset_round(user, active_training)
+                # 不清除 testing_day，讓用戶可以重新測驗
 
         return TrainingResult(
             user_message=user_message,
@@ -302,6 +347,12 @@ class TrainingService:
         else:
             self.user_service.set_persona(user, persona)
         self.db.commit()
+
+    def _clear_testing_day(self, training: UserTraining | None) -> None:
+        """清除 testing_day（測驗完成後呼叫）"""
+        if training:
+            training.testing_day = None
+            self.db.commit()
 
     def get_progress_summary(self, user: User) -> dict:
         """取得用戶訓練進度摘要"""

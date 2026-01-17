@@ -114,11 +114,13 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             # 處理訓練開始按鈕
             if action == "start_training":
                 training_id = data.get("training_id", [None])[0]
+                day = data.get("day", [None])[0]
                 if training_id:
                     try:
                         training_id = int(training_id)
+                        day = int(day) if day else None
                         push_service = PushService(db)
-                        result = push_service.send_training_opening(training_id)
+                        result = push_service.send_training_opening(training_id, day=day)
 
                         if result["status"] == "success":
                             # 開場訊息會由 push_service 發送（用 Push）

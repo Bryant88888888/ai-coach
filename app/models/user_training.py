@@ -22,7 +22,8 @@ class UserTraining(Base):
     batch_id = Column(Integer, ForeignKey("training_batches.id"), nullable=False, index=True)
 
     # 訓練進度
-    current_day = Column(Integer, default=0)      # 當前天數
+    current_day = Column(Integer, default=0)      # 當前天數（正式進度）
+    testing_day = Column(Integer, nullable=True)  # 正在測驗的天數（手動發送時可能與 current_day 不同）
     current_round = Column(Integer, default=0)    # 當天對話輪數
     status = Column(String(20), default=TrainingStatus.PENDING.value)
 
