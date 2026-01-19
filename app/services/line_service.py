@@ -310,12 +310,14 @@ class LineService:
         """
         通知主管有新的請假申請
 
+        使用統一用戶系統，從 users 表查詢有 manager 角色且開啟通知的用戶
+
         Args:
             leave_request: LeaveRequest 物件
             db: 資料庫 Session（可選，如未提供則自行建立）
         """
         from app.database import SessionLocal
-        from app.models.manager import Manager
+        from app.models.user import User
 
         # 如果沒有傳入 db，自行建立
         should_close = False
@@ -324,8 +326,11 @@ class LineService:
             should_close = True
 
         try:
-            # 從資料庫取得啟用中的主管
-            managers = db.query(Manager).filter(Manager.is_active == True).all()
+            # 從 users 表取得有主管角色且開啟通知的用戶
+            managers = db.query(User).filter(
+                User.roles.contains('"manager"'),
+                User.manager_notification_enabled == True
+            ).all()
 
             if not managers:
                 print("警告：未設定主管，無法發送通知")
@@ -334,7 +339,7 @@ class LineService:
             # 建立 Flex Message 內容
             flex_content = self._build_leave_request_flex(leave_request)
 
-            # 發送給所有啟用中的主管
+            # 發送給所有啟用通知的主管
             for manager in managers:
                 try:
                     self.send_flex_message(
@@ -342,9 +347,9 @@ class LineService:
                         alt_text=f"請假申請 - {leave_request.applicant_name or '員工'}",
                         flex_content=flex_content
                     )
-                    print(f"✅ 已發送請假通知給主管 {manager.name}: {manager.line_user_id}")
+                    print(f"✅ 已發送請假通知給主管 {manager.display_name}: {manager.line_user_id}")
                 except Exception as e:
-                    print(f"❌ 發送請假通知失敗 ({manager.name}): {e}")
+                    print(f"❌ 發送請假通知失敗 ({manager.display_name}): {e}")
         finally:
             if should_close:
                 db.close()
@@ -725,3 +730,121 @@ class LineService:
                 "contents": content_items
             }
         }
+
+    def build_duty_reminder_flex(self, schedule) -> dict:
+        """
+        建立值日提醒 Flex Message
+
+        Args:
+            schedule: DutySchedule 物件
+        """
+        config = schedule.config
+        tasks = config.get_tasks() if config else []
+
+        task_items = []
+        for task in tasks:
+            task_items.append({
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": "☐", "size": "sm", "flex": 0},
+                    {"type": "text", "text": task, "size": "sm", "color": "#333333", "margin": "sm", "wrap": True}
+                ]
+            })
+
+        if not task_items:
+            task_items.append({
+                "type": "text",
+                "text": "請完成今日值日工作",
+                "size": "sm",
+                "color": "#666666"
+            })
+
+        return {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#3B82F6",
+                "paddingAll": "15px",
+                "contents": [
+                    {"type": "text", "text": "🧹 值日提醒", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": f"{schedule.duty_date}", "color": "#E0E0E0", "size": "sm", "margin": "xs"}
+                ]
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "paddingAll": "15px",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"今天輪到你值日！",
+                        "size": "md",
+                        "weight": "bold",
+                        "color": "#333333"
+                    },
+                    {
+                        "type": "text",
+                        "text": config.name if config else "值日清潔",
+                        "size": "sm",
+                        "color": "#666666",
+                        "margin": "sm"
+                    },
+                    {"type": "separator", "margin": "lg"},
+                    {
+                        "type": "text",
+                        "text": "任務清單",
+                        "size": "sm",
+                        "color": "#888888",
+                        "margin": "lg"
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "margin": "sm",
+                        "spacing": "sm",
+                        "contents": task_items
+                    }
+                ]
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "paddingAll": "15px",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#22C55E",
+                        "action": {
+                            "type": "postback",
+                            "label": "📷 完成回報",
+                            "data": f"action=start_duty_report&schedule_id={schedule.id}"
+                        }
+                    }
+                ]
+            }
+        }
+
+    def send_duty_reminder(self, schedule) -> bool:
+        """
+        發送值日提醒
+
+        Args:
+            schedule: DutySchedule 物件
+
+        Returns:
+            是否發送成功
+        """
+        try:
+            flex_content = self.build_duty_reminder_flex(schedule)
+            self.send_flex_message(
+                user_id=schedule.user.line_user_id,
+                alt_text=f"🧹 值日提醒 - {schedule.duty_date}",
+                flex_content=flex_content
+            )
+            return True
+        except Exception as e:
+            print(f"發送值日提醒失敗: {e}")
+            return False

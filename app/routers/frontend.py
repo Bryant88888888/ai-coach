@@ -17,7 +17,7 @@ from app.services.auth_service import AuthService
 from app.services.line_service import LineService
 from app.services.course_service import CourseService
 from app.models.leave_request import LeaveRequest, LeaveStatus
-from app.models.manager import Manager
+from app.models.user import User, UserRole
 from app.models.training_batch import TrainingBatch
 from app.models.user_training import UserTraining, TrainingStatus
 from app.services.training_batch_service import TrainingBatchService
@@ -908,7 +908,7 @@ async def leave_review(
     return RedirectResponse(url="/dashboard/leave", status_code=303)
 
 
-# ========== 主管管理 ==========
+# ========== 主管管理（統一用戶系統） ==========
 
 @router.get("/dashboard/managers", response_class=HTMLResponse)
 async def managers_list(
@@ -917,16 +917,25 @@ async def managers_list(
     success: str = None,
     error: str = None
 ):
-    """主管管理頁面"""
+    """主管管理頁面 - 使用統一用戶系統"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    managers = db.query(Manager).order_by(Manager.created_at.desc()).all()
+    # 從 users 表查詢有 manager 角色的用戶
+    managers = db.query(User).filter(
+        User.roles.contains('"manager"')
+    ).order_by(User.created_at.desc()).all()
+
+    # 取得所有用戶（用於新增主管時選擇）
+    all_users = db.query(User).filter(
+        ~User.roles.contains('"manager"')
+    ).order_by(User.line_display_name).all()
 
     return templates.TemplateResponse("managers.html", {
         "request": request,
         "active_page": "managers",
         "managers": managers,
+        "all_users": all_users,
         "success_message": success,
         "error_message": error
     })
@@ -936,84 +945,127 @@ async def managers_list(
 async def manager_add(
     request: Request,
     db: Session = Depends(get_db),
-    name: str = Form(...),
-    line_user_id: str = Form(...)
+    user_id: int = Form(None),
+    name: str = Form(None),
+    line_user_id: str = Form(None)
 ):
-    """新增主管"""
+    """新增主管 - 可從現有用戶選擇或輸入新的 LINE ID"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    # 檢查 LINE User ID 格式
-    line_user_id = line_user_id.strip()
-    if not line_user_id.startswith("U") or len(line_user_id) != 33:
+    if user_id:
+        # 從現有用戶添加主管角色
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return RedirectResponse(
+                url="/dashboard/managers?error=用戶不存在",
+                status_code=303
+            )
+
+        if user.has_role(UserRole.MANAGER.value):
+            return RedirectResponse(
+                url=f"/dashboard/managers?error=此用戶已是主管",
+                status_code=303
+            )
+
+        user.add_role(UserRole.MANAGER.value)
+        user.manager_notification_enabled = True
+        db.commit()
+
         return RedirectResponse(
-            url="/dashboard/managers?error=LINE User ID 格式不正確（應為 U 開頭的 33 字元）",
+            url=f"/dashboard/managers?success=已將「{user.display_name}」設為主管",
             status_code=303
         )
 
-    # 檢查是否已存在
-    existing = db.query(Manager).filter(Manager.line_user_id == line_user_id).first()
-    if existing:
-        return RedirectResponse(
-            url=f"/dashboard/managers?error=此 LINE User ID 已存在（{existing.name}）",
-            status_code=303
-        )
+    elif line_user_id:
+        # 透過 LINE ID 新增
+        line_user_id = line_user_id.strip()
+        if not line_user_id.startswith("U") or len(line_user_id) != 33:
+            return RedirectResponse(
+                url="/dashboard/managers?error=LINE User ID 格式不正確（應為 U 開頭的 33 字元）",
+                status_code=303
+            )
 
-    # 新增主管
-    manager = Manager(
-        name=name.strip(),
-        line_user_id=line_user_id,
-        is_active=True
-    )
-    db.add(manager)
-    db.commit()
+        # 檢查用戶是否已存在
+        existing_user = db.query(User).filter(User.line_user_id == line_user_id).first()
+        if existing_user:
+            if existing_user.has_role(UserRole.MANAGER.value):
+                return RedirectResponse(
+                    url=f"/dashboard/managers?error=此用戶已是主管（{existing_user.display_name}）",
+                    status_code=303
+                )
+            # 添加主管角色
+            existing_user.add_role(UserRole.MANAGER.value)
+            existing_user.manager_notification_enabled = True
+            if name and not existing_user.real_name:
+                existing_user.real_name = name.strip()
+            db.commit()
+            return RedirectResponse(
+                url=f"/dashboard/managers?success=已將「{existing_user.display_name}」設為主管",
+                status_code=303
+            )
+        else:
+            # 創建新用戶
+            import json
+            new_user = User(
+                line_user_id=line_user_id,
+                real_name=name.strip() if name else None,
+                roles=json.dumps([UserRole.TRAINEE.value, UserRole.MANAGER.value]),
+                manager_notification_enabled=True
+            )
+            db.add(new_user)
+            db.commit()
+            return RedirectResponse(
+                url=f"/dashboard/managers?success=已成功新增主管「{name or line_user_id[:10]}...」",
+                status_code=303
+            )
 
     return RedirectResponse(
-        url=f"/dashboard/managers?success=已成功新增主管「{name}」",
+        url="/dashboard/managers?error=請選擇用戶或輸入 LINE User ID",
         status_code=303
     )
 
 
-@router.post("/dashboard/managers/{manager_id}/toggle")
+@router.post("/dashboard/managers/{user_id}/toggle")
 async def manager_toggle(
     request: Request,
-    manager_id: int,
+    user_id: int,
     db: Session = Depends(get_db)
 ):
     """切換主管通知狀態"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    manager = db.query(Manager).filter(Manager.id == manager_id).first()
-    if manager:
-        manager.is_active = not manager.is_active
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.has_role(UserRole.MANAGER.value):
+        user.manager_notification_enabled = not user.manager_notification_enabled
         db.commit()
-        status = "啟用" if manager.is_active else "停用"
+        status = "啟用" if user.manager_notification_enabled else "停用"
         return RedirectResponse(
-            url=f"/dashboard/managers?success=已{status}「{manager.name}」的通知",
+            url=f"/dashboard/managers?success=已{status}「{user.display_name}」的通知",
             status_code=303
         )
 
     return RedirectResponse(url="/dashboard/managers", status_code=303)
 
 
-@router.post("/dashboard/managers/{manager_id}/delete")
+@router.post("/dashboard/managers/{user_id}/delete")
 async def manager_delete(
     request: Request,
-    manager_id: int,
+    user_id: int,
     db: Session = Depends(get_db)
 ):
-    """刪除主管"""
+    """移除主管角色（不刪除用戶）"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    manager = db.query(Manager).filter(Manager.id == manager_id).first()
-    if manager:
-        name = manager.name
-        db.delete(manager)
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.has_role(UserRole.MANAGER.value):
+        name = user.display_name
+        user.remove_role(UserRole.MANAGER.value)
         db.commit()
         return RedirectResponse(
-            url=f"/dashboard/managers?success=已刪除主管「{name}」",
+            url=f"/dashboard/managers?success=已移除「{name}」的主管角色",
             status_code=303
         )
 
@@ -1583,3 +1635,444 @@ async def user_send_any_training(
                 url=f"/dashboard/users/{line_user_id}?error=發送失敗：{str(e)}",
                 status_code=303
             )
+
+
+# ========== 值日生管理 ==========
+
+from app.services.duty_service import DutyService
+from app.models.duty_config import DutyConfig
+from app.models.duty_schedule import DutySchedule
+from app.models.duty_report import DutyReport, DutyReportStatus
+from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
+
+
+@router.get("/dashboard/duty", response_class=HTMLResponse)
+async def duty_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """值日生管理首頁"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    # 取得統計資料
+    duty_stats = duty_service.get_duty_stats()
+    duty_members = duty_service.get_duty_members()
+
+    stats = {
+        "duty_members": len(duty_members),
+        "pending_reports": duty_stats.get("pending_reports", 0),
+        "pending_complaints": duty_stats.get("pending_complaints", 0),
+        "approved": duty_stats.get("approved", 0)
+    }
+
+    # 今日值日
+    today_duty = duty_service.get_today_duty()
+
+    return templates.TemplateResponse("duty.html", {
+        "request": request,
+        "active_page": "duty",
+        "stats": stats,
+        "today_duty": today_duty,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.get("/dashboard/duty/members", response_class=HTMLResponse)
+async def duty_members_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """值日生名單頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    # 取得值日生列表
+    duty_members = duty_service.get_duty_members()
+
+    # 取得可選用戶（非值日生）
+    all_users = db.query(User).filter(
+        ~User.roles.contains('"duty_member"')
+    ).order_by(User.line_display_name).all()
+
+    return templates.TemplateResponse("duty_members.html", {
+        "request": request,
+        "active_page": "duty",
+        "duty_members": duty_members,
+        "available_users": all_users,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/duty/members/add")
+async def duty_member_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: int = Form(...)
+):
+    """新增值日生"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+    user = duty_service.add_duty_member(user_id)
+
+    if user:
+        return RedirectResponse(
+            url=f"/dashboard/duty/members?success=已將「{user.display_name}」設為值日生",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url="/dashboard/duty/members?error=新增失敗",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/duty/members/{user_id}/remove")
+async def duty_member_remove(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """移除值日生"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+    user = duty_service.remove_duty_member(user_id)
+
+    if user:
+        return RedirectResponse(
+            url=f"/dashboard/duty/members?success=已移除「{user.display_name}」的值日生角色",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/duty/members", status_code=303)
+
+
+@router.get("/dashboard/duty/config", response_class=HTMLResponse)
+async def duty_config_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """排班設定頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+    config = duty_service.get_config()
+
+    return templates.TemplateResponse("duty_config.html", {
+        "request": request,
+        "active_page": "duty",
+        "config": config,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/duty/config")
+async def duty_config_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    members_per_day: int = Form(1),
+    notify_time: str = Form("08:00"),
+    tasks: str = Form(None)
+):
+    """建立排班設定"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    task_list = []
+    if tasks:
+        task_list = [t.strip() for t in tasks.strip().split("\n") if t.strip()]
+
+    duty_service.create_config(
+        name=name,
+        members_per_day=members_per_day,
+        notify_time=notify_time,
+        tasks=task_list
+    )
+
+    return RedirectResponse(
+        url="/dashboard/duty/config?success=排班設定已建立",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/duty/config/{config_id}")
+async def duty_config_update(
+    request: Request,
+    config_id: int,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    members_per_day: int = Form(1),
+    notify_time: str = Form("08:00"),
+    tasks: str = Form(None),
+    is_active: bool = Form(False)
+):
+    """更新排班設定"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    task_list = []
+    if tasks:
+        task_list = [t.strip() for t in tasks.strip().split("\n") if t.strip()]
+
+    duty_service.update_config(
+        config_id=config_id,
+        name=name,
+        members_per_day=members_per_day,
+        notify_time=notify_time,
+        tasks=task_list,
+        is_active=is_active
+    )
+
+    return RedirectResponse(
+        url="/dashboard/duty/config?success=排班設定已更新",
+        status_code=303
+    )
+
+
+@router.get("/dashboard/duty/schedule", response_class=HTMLResponse)
+async def duty_schedule_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    year: int = None,
+    month: int = None,
+    success: str = None,
+    error: str = None
+):
+    """排班表頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+    config = duty_service.get_config()
+
+    # 預設當月
+    today = date.today()
+    if not year:
+        year = today.year
+    if not month:
+        month = today.month
+
+    # 計算上下月
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+
+    if month == 12:
+        next_year, next_month = year + 1, 1
+    else:
+        next_year, next_month = year, month + 1
+
+    # 取得月曆資料
+    config_id = config.id if config else None
+    calendar_data = duty_service.get_month_schedule(year, month, config_id)
+
+    # 計算本月最後一天
+    import calendar as cal_module
+    _, last_day = cal_module.monthrange(year, month)
+    end_of_month = date(year, month, last_day)
+
+    return templates.TemplateResponse("duty_schedule.html", {
+        "request": request,
+        "active_page": "duty",
+        "config": config,
+        "calendar_data": calendar_data,
+        "today": today.isoformat(),
+        "end_of_month": end_of_month.isoformat(),
+        "prev_year": prev_year,
+        "prev_month": prev_month,
+        "next_year": next_year,
+        "next_month": next_month,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/duty/schedule/generate")
+async def duty_schedule_generate(
+    request: Request,
+    db: Session = Depends(get_db),
+    start_date: date = Form(...),
+    end_date: date = Form(...)
+):
+    """自動生成排班"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+    config = duty_service.get_config()
+
+    if not config:
+        return RedirectResponse(
+            url="/dashboard/duty/schedule?error=請先建立排班設定",
+            status_code=303
+        )
+
+    try:
+        schedules = duty_service.auto_generate_schedule(config.id, start_date, end_date)
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?success=已生成 {len(schedules)} 筆排班",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.get("/dashboard/duty/reports", response_class=HTMLResponse)
+async def duty_reports_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """回報審核頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    pending_reports = duty_service.get_pending_reports()
+
+    # 已審核（最近 20 件）
+    reviewed_reports = db.query(DutyReport).filter(
+        DutyReport.status != DutyReportStatus.PENDING.value
+    ).order_by(DutyReport.reviewed_at.desc()).limit(20).all()
+
+    return templates.TemplateResponse("duty_reports.html", {
+        "request": request,
+        "active_page": "duty",
+        "pending_reports": pending_reports,
+        "reviewed_reports": reviewed_reports,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/duty/reports/{report_id}/review")
+async def duty_report_review(
+    request: Request,
+    report_id: int,
+    db: Session = Depends(get_db),
+    status: str = Form(...),
+    note: str = Form(None)
+):
+    """審核回報"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    # 這裡應該要用登入用戶的 ID，暫時用 1
+    reviewer_id = 1
+
+    report = duty_service.review_report(
+        report_id=report_id,
+        reviewer_id=reviewer_id,
+        status=status,
+        note=note
+    )
+
+    if report:
+        status_text = "通過" if status == "approved" else "拒絕"
+        return RedirectResponse(
+            url=f"/dashboard/duty/reports?success=已{status_text}回報",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url="/dashboard/duty/reports?error=審核失敗",
+        status_code=303
+    )
+
+
+@router.get("/dashboard/duty/complaints", response_class=HTMLResponse)
+async def duty_complaints_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None
+):
+    """檢舉處理頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    pending_complaints = duty_service.get_pending_complaints()
+
+    # 已處理（最近 20 件）
+    handled_complaints = db.query(DutyComplaint).filter(
+        DutyComplaint.status != DutyComplaintStatus.PENDING.value
+    ).order_by(DutyComplaint.handled_at.desc()).limit(20).all()
+
+    return templates.TemplateResponse("duty_complaints.html", {
+        "request": request,
+        "active_page": "duty",
+        "pending_complaints": pending_complaints,
+        "handled_complaints": handled_complaints,
+        "success_message": success,
+        "error_message": error
+    })
+
+
+@router.post("/dashboard/duty/complaints/{complaint_id}/handle")
+async def duty_complaint_handle(
+    request: Request,
+    complaint_id: int,
+    db: Session = Depends(get_db),
+    status: str = Form(...),
+    note: str = Form(None)
+):
+    """處理檢舉"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    # 這裡應該要用登入用戶的 ID，暫時用 1
+    handler_id = 1
+
+    complaint = duty_service.handle_complaint(
+        complaint_id=complaint_id,
+        handler_id=handler_id,
+        status=status,
+        note=note
+    )
+
+    if complaint:
+        status_text = "處理完成" if status == "resolved" else "駁回"
+        return RedirectResponse(
+            url=f"/dashboard/duty/complaints?success=檢舉已{status_text}",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url="/dashboard/duty/complaints?error=處理失敗",
+        status_code=303
+    )

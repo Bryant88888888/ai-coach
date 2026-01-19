@@ -9,7 +9,9 @@ from app.database import get_db
 from app.services.line_service import LineService
 from app.services.user_service import UserService
 from app.services.push_service import PushService
+from app.services.duty_service import DutyService
 from app.models.leave_request import LeaveRequest, LeaveStatus
+from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 
 router = APIRouter(prefix="/webhook", tags=["LINE Webhook"])
 
@@ -257,6 +259,41 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                 except Exception as e:
                     print(f"處理請假審核失敗: {e}")
                     line_service.send_reply(event.reply_token, f"❌ 處理失敗：{str(e)}")
+
+            # 處理值日回報開始按鈕
+            if action == "start_duty_report":
+                schedule_id = data.get("schedule_id", [None])[0]
+                if schedule_id:
+                    try:
+                        schedule_id = int(schedule_id)
+                        schedule = db.query(DutySchedule).filter(
+                            DutySchedule.id == schedule_id
+                        ).first()
+
+                        if not schedule:
+                            line_service.send_reply(event.reply_token, "❌ 找不到此值日排班")
+                            return
+
+                        if schedule.status != DutyScheduleStatus.SCHEDULED.value:
+                            line_service.send_reply(
+                                event.reply_token,
+                                f"此值日已{schedule.status_display}，無法再次回報"
+                            )
+                            return
+
+                        # 發送回報說明
+                        line_service.send_reply(
+                            event.reply_token,
+                            "📝 請回傳值日完成回報：\n\n"
+                            "1️⃣ 拍攝完成照片\n"
+                            "2️⃣ 發送照片到此對話\n"
+                            "3️⃣ 輸入簡短說明（例如：已完成清潔）\n\n"
+                            "⚠️ 請在今日內完成回報"
+                        )
+
+                    except Exception as e:
+                        print(f"處理值日回報開始失敗: {e}")
+                        line_service.send_reply(event.reply_token, "❌ 發生錯誤，請稍後再試")
 
         # 處理 Webhook 事件
         handler.handle(body_str, signature)

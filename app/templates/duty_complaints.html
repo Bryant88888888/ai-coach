@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}檢舉處理 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="/dashboard/duty" class="hover:text-indigo-600 dark:hover:text-indigo-400">值日生管理</a>
+        <i class="fas fa-chevron-right text-xs"></i>
+        <span>檢舉處理</span>
+    </div>
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">檢舉處理</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">處理員工對值日生的檢舉</p>
+</div>
+
+{% if success_message %}
+<div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-check-circle mr-3 text-xl"></i>
+    <span>{{ success_message }}</span>
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-exclamation-circle mr-3 text-xl"></i>
+    <span>{{ error_message }}</span>
+</div>
+{% endif %}
+
+<!-- 待處理列表 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+    <div class="p-4 border-b dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-flag text-red-500 mr-2"></i>待處理檢舉
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({{ pending_complaints|length }} 件)</span>
+        </h2>
+    </div>
+
+    {% if pending_complaints %}
+    <div class="divide-y dark:divide-gray-700">
+        {% for complaint in pending_complaints %}
+        <div class="p-4">
+            <div class="flex flex-col lg:flex-row gap-4">
+                <!-- 檢舉資訊 -->
+                <div class="flex-1">
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="flex items-center gap-2">
+                            {% if complaint.reporter.line_picture_url %}
+                            <img src="{{ complaint.reporter.line_picture_url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                            <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-400 text-sm"></i>
+                            </div>
+                            {% endif %}
+                            <span class="text-sm text-gray-600 dark:text-gray-400">{{ complaint.reporter.display_name }}</span>
+                        </div>
+                        <i class="fas fa-arrow-right text-gray-400"></i>
+                        <div class="flex items-center gap-2">
+                            {% if complaint.reported_user.line_picture_url %}
+                            <img src="{{ complaint.reported_user.line_picture_url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                            <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-400 text-sm"></i>
+                            </div>
+                            {% endif %}
+                            <span class="text-sm font-medium text-gray-800 dark:text-white">{{ complaint.reported_user.display_name }}</span>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        <i class="fas fa-calendar mr-1"></i>值日日期：{{ complaint.schedule.duty_date }}
+                    </p>
+
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-2">
+                        <p class="text-gray-700 dark:text-gray-300">{{ complaint.complaint_text }}</p>
+                    </div>
+
+                    {% if complaint.get_photo_urls() %}
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        {% for url in complaint.get_photo_urls() %}
+                        <a href="{{ url }}" target="_blank" class="block">
+                            <img src="{{ url }}" alt="檢舉證據" class="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <p class="text-xs text-gray-400 dark:text-gray-500">
+                        <i class="fas fa-clock mr-1"></i>提交時間：{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </p>
+                </div>
+
+                <!-- 處理動作 -->
+                <div class="flex lg:flex-col gap-2 lg:w-1/4">
+                    <form method="POST" action="/dashboard/duty/complaints/{{ complaint.id }}/handle" class="flex-1 lg:flex-none">
+                        <input type="hidden" name="status" value="resolved">
+                        <input type="text" name="note" placeholder="處理備註..."
+                               class="w-full mb-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <button type="submit" class="w-full bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-900 text-green-700 dark:text-green-400 font-medium py-2 px-4 rounded-lg transition min-h-[44px]">
+                            <i class="fas fa-check mr-1"></i>處理完成
+                        </button>
+                    </form>
+                    <form method="POST" action="/dashboard/duty/complaints/{{ complaint.id }}/handle" class="flex-1 lg:flex-none">
+                        <input type="hidden" name="status" value="dismissed">
+                        <button type="submit" class="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-400 font-medium py-2 px-4 rounded-lg transition min-h-[44px]">
+                            <i class="fas fa-ban mr-1"></i>駁回
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-flag text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 text-lg">沒有待處理的檢舉</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 已處理列表 -->
+{% if handled_complaints %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden mt-6">
+    <div class="p-4 border-b dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-history text-gray-500 mr-2"></i>已處理檢舉
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">(最近 20 件)</span>
+        </h2>
+    </div>
+    <div class="divide-y dark:divide-gray-700">
+        {% for complaint in handled_complaints %}
+        <div class="p-4 flex items-center justify-between">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-gray-600 dark:text-gray-400">{{ complaint.reporter.display_name }}</span>
+                    <i class="fas fa-arrow-right text-gray-400 text-xs"></i>
+                    <span class="font-medium text-gray-800 dark:text-white">{{ complaint.reported_user.display_name }}</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ complaint.schedule.duty_date }} | 處理時間：{{ complaint.handled_at.strftime('%Y-%m-%d') if complaint.handled_at else '-' }}
+                </p>
+                {% if complaint.handler_note %}
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">備註：{{ complaint.handler_note }}</p>
+                {% endif %}
+            </div>
+            <span class="px-3 py-1 rounded-full text-sm font-medium
+                {% if complaint.status == 'resolved' %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400
+                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                {{ complaint.status_display }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

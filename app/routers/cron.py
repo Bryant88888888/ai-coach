@@ -6,6 +6,8 @@ from datetime import datetime
 from app.database import get_db, SessionLocal
 from app.config import get_settings
 from app.services.push_service import PushService
+from app.services.duty_service import DutyService
+from app.services.line_service import LineService
 
 router = APIRouter(prefix="/cron", tags=["排程任務"])
 
@@ -233,3 +235,60 @@ async def analyze_messages(
         analysis["issues"].append(f"發現 {len(analysis['ai_behavior_issues'])} 則 AI 行為問題")
 
     return analysis
+
+
+# ========== 值日生排程 ==========
+
+def run_duty_reminder_background():
+    """背景執行值日提醒（獨立的 DB session）"""
+    db = SessionLocal()
+    try:
+        duty_service = DutyService(db)
+        line_service = LineService()
+
+        # 取得需要提醒的排班
+        schedules = duty_service.get_schedules_to_notify()
+
+        sent_count = 0
+        for schedule in schedules:
+            try:
+                success = line_service.send_duty_reminder(schedule)
+                if success:
+                    duty_service.mark_as_notified(schedule.id)
+                    sent_count += 1
+                    print(f"✅ 已發送值日提醒給 {schedule.user.display_name}")
+            except Exception as e:
+                print(f"❌ 發送值日提醒失敗 ({schedule.user.display_name}): {e}")
+
+        # 標記過期未回報的排班
+        missed_count = duty_service.mark_missed_schedules()
+        if missed_count > 0:
+            print(f"⚠️ 已標記 {missed_count} 筆過期未回報的排班為 missed")
+
+        print(f"✅ 值日提醒完成: 發送 {sent_count} 則提醒")
+
+    except Exception as e:
+        print(f"❌ 值日提醒失敗: {e}")
+    finally:
+        db.close()
+
+
+@router.post("/duty-reminder")
+async def duty_reminder(
+    background_tasks: BackgroundTasks,
+    _: None = Depends(verify_cron_secret)
+):
+    """
+    值日提醒推送（背景執行）
+
+    此端點可由 Cron Job 呼叫，根據排班設定的提醒時間發送提醒
+    - 發送今日值日提醒給尚未被通知的排班
+    - 標記昨日未回報的排班為 missed
+    """
+    background_tasks.add_task(run_duty_reminder_background)
+
+    return {
+        "status": "started",
+        "message": "值日提醒已在背景執行",
+        "started_at": datetime.now().isoformat()
+    }
