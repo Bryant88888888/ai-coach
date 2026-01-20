@@ -1893,17 +1893,24 @@ async def duty_schedule_page(
     _, last_day = cal_module.monthrange(year, month)
     end_of_month = date(year, month, last_day)
 
+    # 取得值日生名單（for 換班選單）
+    duty_members = duty_service.get_duty_members()
+
     return templates.TemplateResponse("duty_schedule.html", {
         "request": request,
         "active_page": "duty",
         "config": config,
         "calendar_data": calendar_data,
         "today": today.isoformat(),
+        "today_year": today.year,
+        "today_month": today.month,
+        "today_day": today.day,
         "end_of_month": end_of_month.isoformat(),
         "prev_year": prev_year,
         "prev_month": prev_month,
         "next_year": next_year,
         "next_month": next_month,
+        "duty_members": duty_members,
         "success_message": success,
         "error_message": error
     })
@@ -1936,6 +1943,69 @@ async def duty_schedule_generate(
             status_code=303
         )
     except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/duty/schedule/swap")
+async def duty_schedule_swap(
+    request: Request,
+    db: Session = Depends(get_db),
+    schedule_id: int = Form(...),
+    new_user_id: int = Form(...)
+):
+    """換班"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    try:
+        schedule = duty_service.update_schedule(schedule_id, new_user_id)
+        if schedule:
+            return RedirectResponse(
+                url=f"/dashboard/duty/schedule?success=已將排班更換為 {schedule.user.display_name}",
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url="/dashboard/duty/schedule?error=找不到該排班",
+                status_code=303
+            )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/duty/schedule/delete")
+async def duty_schedule_delete(
+    request: Request,
+    db: Session = Depends(get_db),
+    schedule_id: int = Form(...)
+):
+    """刪除排班"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    try:
+        success = duty_service.delete_schedule(schedule_id)
+        if success:
+            return RedirectResponse(
+                url="/dashboard/duty/schedule?success=已刪除排班",
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url="/dashboard/duty/schedule?error=找不到該排班或無法刪除",
+                status_code=303
+            )
+    except Exception as e:
         return RedirectResponse(
             url=f"/dashboard/duty/schedule?error={str(e)}",
             status_code=303

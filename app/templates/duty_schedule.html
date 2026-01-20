@@ -80,25 +80,31 @@
         {% for week in calendar_data.calendar %}
         <div class="grid grid-cols-7 gap-1">
             {% for day in week %}
-            <div class="min-h-[80px] lg:min-h-[100px] border border-gray-200 dark:border-gray-700 rounded-lg p-1 lg:p-2
-                {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% else %}bg-white dark:bg-gray-800{% endif %}">
+            {% set is_today = (day != 0 and calendar_data.year == today_year and calendar_data.month == today_month and day == today_day) %}
+            <div class="min-h-[80px] lg:min-h-[100px] border rounded-lg p-1 lg:p-2
+                {% if day == 0 %}bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700
+                {% elif is_today %}bg-indigo-50 dark:bg-indigo-900/30 border-indigo-400 dark:border-indigo-500 border-2
+                {% else %}bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700{% endif %}">
                 {% if day != 0 %}
-                <div class="text-sm font-medium mb-1
+                <div class="text-sm font-medium mb-1 flex items-center gap-1
                     {% if loop.index0 == 0 %}text-red-500
                     {% elif loop.index0 == 6 %}text-blue-500
                     {% else %}text-gray-700 dark:text-gray-300{% endif %}">
                     {{ day }}
+                    {% if is_today %}
+                    <span class="text-xs bg-indigo-500 text-white px-1.5 py-0.5 rounded">今天</span>
+                    {% endif %}
                 </div>
                 {% if day in calendar_data.schedules %}
                 <div class="space-y-1">
                     {% for schedule in calendar_data.schedules[day] %}
-                    <div class="text-xs truncate px-1 py-0.5 rounded
+                    <div class="text-xs truncate px-1.5 py-1 rounded cursor-pointer hover:opacity-80 transition
                         {% if schedule.status == 'approved' %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400
                         {% elif schedule.status == 'reported' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400
                         {% elif schedule.status == 'missed' %}bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400
                         {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400{% endif %}"
-                        title="{{ schedule.user.display_name }} - {{ schedule.status_display }}">
-                        {{ schedule.user.display_name[:4] }}
+                        onclick="openScheduleModal({{ schedule.id }}, '{{ schedule.user.display_name }}', '{{ schedule.duty_date }}', '{{ schedule.status }}', '{{ schedule.status_display }}')">
+                        {{ schedule.user.display_name[:4] }}{% if schedule.user.display_name|length > 4 %}..{% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -128,6 +134,127 @@
             <div class="w-4 h-4 rounded bg-red-100 dark:bg-red-900/50"></div>
             <span class="text-sm text-gray-600 dark:text-gray-400">未完成</span>
         </div>
+        <div class="flex items-center gap-2 ml-4">
+            <div class="w-4 h-4 rounded border-2 border-indigo-400"></div>
+            <span class="text-sm text-gray-600 dark:text-gray-400">今天</span>
+        </div>
     </div>
 </div>
+
+<!-- 排班詳情 Modal -->
+<div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-calendar-day text-indigo-500 mr-2"></i>排班詳情
+            </h3>
+            <button onclick="closeScheduleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-4">
+            <!-- 目前排班資訊 -->
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">值日日期</p>
+                <p id="modal-date" class="text-lg font-medium text-gray-800 dark:text-white"></p>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">值日生</p>
+                <p id="modal-name" class="text-lg font-medium text-gray-800 dark:text-white"></p>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">狀態</p>
+                <p id="modal-status" class="text-lg font-medium"></p>
+            </div>
+
+            <!-- 換班表單 -->
+            <div id="swap-section" class="border-t dark:border-gray-700 pt-4 mt-4">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-exchange-alt mr-1"></i>換班
+                </p>
+                <form method="POST" action="/dashboard/duty/schedule/swap" id="swap-form">
+                    <input type="hidden" name="schedule_id" id="modal-schedule-id">
+                    <select name="new_user_id" required
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 mb-3">
+                        <option value="">-- 選擇新的值日生 --</option>
+                        {% for member in duty_members %}
+                        <option value="{{ member.id }}">{{ member.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-check mr-1"></i>確認換班
+                        </button>
+                        <button type="button" onclick="deleteSchedule()" class="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 刪除確認表單 (隱藏) -->
+<form id="delete-form" method="POST" action="/dashboard/duty/schedule/delete" class="hidden">
+    <input type="hidden" name="schedule_id" id="delete-schedule-id">
+</form>
+
+<script>
+function openScheduleModal(scheduleId, userName, date, status, statusDisplay) {
+    document.getElementById('modal-schedule-id').value = scheduleId;
+    document.getElementById('delete-schedule-id').value = scheduleId;
+    document.getElementById('modal-date').textContent = date;
+    document.getElementById('modal-name').textContent = userName;
+
+    const statusEl = document.getElementById('modal-status');
+    statusEl.textContent = statusDisplay;
+
+    // 設定狀態顏色
+    statusEl.className = 'text-lg font-medium ';
+    if (status === 'approved') {
+        statusEl.className += 'text-green-600 dark:text-green-400';
+    } else if (status === 'reported') {
+        statusEl.className += 'text-yellow-600 dark:text-yellow-400';
+    } else if (status === 'missed') {
+        statusEl.className += 'text-red-600 dark:text-red-400';
+    } else {
+        statusEl.className += 'text-blue-600 dark:text-blue-400';
+    }
+
+    // 只有「已排班」狀態才能換班
+    const swapSection = document.getElementById('swap-section');
+    if (status === 'scheduled') {
+        swapSection.classList.remove('hidden');
+    } else {
+        swapSection.classList.add('hidden');
+    }
+
+    document.getElementById('schedule-modal').classList.remove('hidden');
+}
+
+function closeScheduleModal() {
+    document.getElementById('schedule-modal').classList.add('hidden');
+}
+
+function deleteSchedule() {
+    if (confirm('確定要刪除這筆排班嗎？')) {
+        document.getElementById('delete-form').submit();
+    }
+}
+
+// 點擊 modal 外部關閉
+document.getElementById('schedule-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeScheduleModal();
+    }
+});
+
+// ESC 鍵關閉
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeScheduleModal();
+    }
+});
+</script>
 {% endblock %}

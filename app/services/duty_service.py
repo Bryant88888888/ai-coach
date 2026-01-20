@@ -245,6 +245,7 @@ class DutyService:
             schedule.status = status
 
         self.db.commit()
+        self.db.refresh(schedule)
         return schedule
 
     def delete_schedule(self, schedule_id: int) -> bool:
