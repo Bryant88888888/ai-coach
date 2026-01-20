@@ -259,6 +259,38 @@ class DutyService:
             return True
         return False
 
+    def clear_schedules(
+        self,
+        start_date: date,
+        end_date: date,
+        config_id: int = None
+    ) -> int:
+        """
+        清除指定日期範圍的排班
+
+        Args:
+            start_date: 開始日期
+            end_date: 結束日期
+            config_id: 排班設定 ID（可選，不指定則清除所有設定的排班）
+
+        Returns:
+            刪除的排班數量
+        """
+        query = self.db.query(DutySchedule).filter(
+            DutySchedule.duty_date >= start_date,
+            DutySchedule.duty_date <= end_date,
+            # 只清除「已排班」狀態的，保留已回報/已審核的
+            DutySchedule.status == DutyScheduleStatus.SCHEDULED.value
+        )
+
+        if config_id:
+            query = query.filter(DutySchedule.config_id == config_id)
+
+        count = query.count()
+        query.delete(synchronize_session=False)
+        self.db.commit()
+        return count
+
     # ===== 回報管理 =====
 
     def submit_report(

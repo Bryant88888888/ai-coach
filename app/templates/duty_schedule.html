@@ -32,21 +32,35 @@
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
         <i class="fas fa-magic text-indigo-500 mr-2"></i>自動生成排班
     </h2>
-    <form method="POST" action="/dashboard/duty/schedule/generate" class="flex flex-wrap gap-4 items-end">
+    <div class="flex flex-wrap gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">開始日期</label>
-            <input type="date" name="start_date" value="{{ today }}" required
+            <input type="date" id="schedule-start-date" value="{{ today }}" required
                    class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">結束日期</label>
-            <input type="date" name="end_date" value="{{ end_of_month }}" required
+            <input type="date" id="schedule-end-date" value="{{ end_of_month }}" required
                    class="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
         </div>
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
-            <i class="fas fa-calendar-plus mr-2"></i>生成排班
-        </button>
-    </form>
+        <form method="POST" action="/dashboard/duty/schedule/generate" id="generate-form" class="contents">
+            <input type="hidden" name="start_date" id="generate-start-date">
+            <input type="hidden" name="end_date" id="generate-end-date">
+            <button type="submit" onclick="syncDates('generate')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
+                <i class="fas fa-calendar-plus mr-2"></i>生成排班
+            </button>
+        </form>
+        <form method="POST" action="/dashboard/duty/schedule/clear" id="clear-form" class="contents">
+            <input type="hidden" name="start_date" id="clear-start-date">
+            <input type="hidden" name="end_date" id="clear-end-date">
+            <button type="submit" onclick="return confirmClear()" class="bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 text-red-600 dark:text-red-400 font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
+                <i class="fas fa-trash-alt mr-2"></i>清除排班
+            </button>
+        </form>
+    </div>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">
+        <i class="fas fa-info-circle mr-1"></i>排班會依照值日生名單順序輪替，已有排班的日期會跳過
+    </p>
 </div>
 
 <!-- 月曆導航 -->
@@ -256,5 +270,22 @@ document.addEventListener('keydown', function(e) {
         closeScheduleModal();
     }
 });
+
+// 同步日期到表單
+function syncDates(formType) {
+    const startDate = document.getElementById('schedule-start-date').value;
+    const endDate = document.getElementById('schedule-end-date').value;
+    document.getElementById(formType + '-start-date').value = startDate;
+    document.getElementById(formType + '-end-date').value = endDate;
+    return true;
+}
+
+// 確認清除排班
+function confirmClear() {
+    syncDates('clear');
+    const startDate = document.getElementById('schedule-start-date').value;
+    const endDate = document.getElementById('schedule-end-date').value;
+    return confirm(`確定要清除 ${startDate} 到 ${endDate} 的所有排班嗎？\n\n此操作無法復原！`);
+}
 </script>
 {% endblock %}

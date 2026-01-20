@@ -2012,6 +2012,38 @@ async def duty_schedule_delete(
         )
 
 
+@router.post("/dashboard/duty/schedule/clear")
+async def duty_schedule_clear(
+    request: Request,
+    db: Session = Depends(get_db),
+    start_date: date = Form(...),
+    end_date: date = Form(...)
+):
+    """清除指定日期範圍的排班"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    try:
+        count = duty_service.clear_schedules(start_date, end_date)
+        if count > 0:
+            return RedirectResponse(
+                url=f"/dashboard/duty/schedule?success=已清除 {count} 筆排班",
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url="/dashboard/duty/schedule?success=該日期範圍沒有可清除的排班",
+                status_code=303
+            )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
 @router.get("/dashboard/duty/reports", response_class=HTMLResponse)
 async def duty_reports_page(
     request: Request,
