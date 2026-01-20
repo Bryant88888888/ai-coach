@@ -189,6 +189,8 @@ class DutyService:
                 "schedules": {日期: [排班列表], ...}
             }
         """
+        # 設定週日為一週的第一天（6 = Sunday）
+        calendar.setfirstweekday(6)
         # 生成月曆
         cal = calendar.monthcalendar(year, month)
 
