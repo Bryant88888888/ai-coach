@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
-from app.models.user import User, UserStatus, Persona
+from app.models.user import User, UserStatus, Persona, UserRole
 from typing import Optional
+import json
 
 
 class UserService:
@@ -24,7 +25,7 @@ class UserService:
         line_picture_url: Optional[str] = None,
         name: Optional[str] = None
     ) -> User:
-        """建立新用戶"""
+        """建立新用戶 - 預設會參與值日"""
         user = User(
             line_user_id=line_user_id,
             line_display_name=line_display_name,
@@ -32,6 +33,8 @@ class UserService:
             name=name,
             current_day=0,
             status=UserStatus.ACTIVE.value,
+            # 新用戶預設角色：trainee + duty_member（參與值日）
+            roles=json.dumps([UserRole.TRAINEE.value, UserRole.DUTY_MEMBER.value]),
         )
         self.db.add(user)
         self.db.commit()

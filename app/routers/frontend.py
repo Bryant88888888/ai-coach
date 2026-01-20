@@ -1690,75 +1690,73 @@ async def duty_members_page(
     success: str = None,
     error: str = None
 ):
-    """值日生名單頁面"""
+    """值日生名單頁面 - 列出所有用戶，勾選方式管理"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    duty_service = DutyService(db)
+    # 取得所有用戶
+    all_users = db.query(User).order_by(User.line_display_name).all()
 
-    # 取得值日生列表
-    duty_members = duty_service.get_duty_members()
-
-    # 取得可選用戶（非值日生）
-    all_users = db.query(User).filter(
-        ~User.roles.contains('"duty_member"')
-    ).order_by(User.line_display_name).all()
+    # 取得已設為值日生的用戶 ID 列表
+    duty_member_ids = set()
+    for user in all_users:
+        if user.has_role(UserRole.DUTY_MEMBER.value):
+            duty_member_ids.add(user.id)
 
     return templates.TemplateResponse("duty_members.html", {
         "request": request,
         "active_page": "duty",
-        "duty_members": duty_members,
-        "available_users": all_users,
+        "all_users": all_users,
+        "duty_member_ids": duty_member_ids,
         "success_message": success,
         "error_message": error
     })
 
 
-@router.post("/dashboard/duty/members/add")
-async def duty_member_add(
+@router.post("/dashboard/duty/members/update")
+async def duty_members_update(
     request: Request,
-    db: Session = Depends(get_db),
-    user_id: int = Form(...)
-):
-    """新增值日生"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
-
-    duty_service = DutyService(db)
-    user = duty_service.add_duty_member(user_id)
-
-    if user:
-        return RedirectResponse(
-            url=f"/dashboard/duty/members?success=已將「{user.display_name}」設為值日生",
-            status_code=303
-        )
-
-    return RedirectResponse(
-        url="/dashboard/duty/members?error=新增失敗",
-        status_code=303
-    )
-
-
-@router.post("/dashboard/duty/members/{user_id}/remove")
-async def duty_member_remove(
-    request: Request,
-    user_id: int,
     db: Session = Depends(get_db)
 ):
-    """移除值日生"""
+    """批次更新值日生名單"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    duty_service = DutyService(db)
-    user = duty_service.remove_duty_member(user_id)
+    # 取得表單資料
+    form_data = await request.form()
+    selected_ids = set(int(id) for id in form_data.getlist("duty_members"))
 
-    if user:
-        return RedirectResponse(
-            url=f"/dashboard/duty/members?success=已移除「{user.display_name}」的值日生角色",
-            status_code=303
-        )
+    # 取得所有用戶
+    all_users = db.query(User).all()
 
-    return RedirectResponse(url="/dashboard/duty/members", status_code=303)
+    added_count = 0
+    removed_count = 0
+
+    for user in all_users:
+        is_currently_duty = user.has_role(UserRole.DUTY_MEMBER.value)
+        should_be_duty = user.id in selected_ids
+
+        if should_be_duty and not is_currently_duty:
+            # 新增值日生角色
+            user.add_role(UserRole.DUTY_MEMBER.value)
+            added_count += 1
+        elif not should_be_duty and is_currently_duty:
+            # 移除值日生角色
+            user.remove_role(UserRole.DUTY_MEMBER.value)
+            removed_count += 1
+
+    db.commit()
+
+    message = f"已更新值日生名單"
+    if added_count > 0:
+        message += f"，新增 {added_count} 人"
+    if removed_count > 0:
+        message += f"，移除 {removed_count} 人"
+
+    return RedirectResponse(
+        url=f"/dashboard/duty/members?success={message}",
+        status_code=303
+    )
 
 
 @router.get("/dashboard/duty/config", response_class=HTMLResponse)
