@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-import calendar
+from calendar import Calendar
 
 from app.models.user import User, UserRole
 from app.models.duty_config import DutyConfig
@@ -189,10 +189,10 @@ class DutyService:
                 "schedules": {日期: [排班列表], ...}
             }
         """
-        # 設定週日為一週的第一天（6 = Sunday）
-        calendar.setfirstweekday(6)
-        # 生成月曆
-        cal = calendar.monthcalendar(year, month)
+        # 使用 Calendar 實例，設定週日為一週的第一天（6 = Sunday）
+        # 這樣不會影響全域設定，且閏年等邊界情況由 Python 標準庫處理
+        sunday_first_cal = Calendar(firstweekday=6)
+        cal = sunday_first_cal.monthdayscalendar(year, month)
 
         # 取得該月所有排班
         first_day = date(year, month, 1)
