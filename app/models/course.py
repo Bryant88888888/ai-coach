@@ -25,8 +25,9 @@ class Course(Base):
     min_rounds = Column(Integer, default=3)  # 最少對話輪數
     max_rounds = Column(Integer, default=5)  # 最多對話輪數
 
-    # 教學內容（教學類型用）
-    teaching_content = Column(Text, nullable=True)  # Day 0 等教學內容
+    # 教學內容
+    teaching_content = Column(Text, nullable=True)  # 完整教學內容（純教學日用）
+    lesson_content = Column(Text, nullable=True)    # 當日重點（顯示在卡片上，測驗前閱讀）
 
     # AI Prompt（進階自訂）
     system_prompt = Column(Text, nullable=True)  # 自訂系統 prompt
@@ -67,6 +68,7 @@ class Course(Base):
             "min_rounds": self.min_rounds,
             "max_rounds": self.max_rounds,
             "teaching_content": self.teaching_content,
+            "lesson_content": self.lesson_content,
             "system_prompt": self.system_prompt,
             "course_version": self.course_version,
         }

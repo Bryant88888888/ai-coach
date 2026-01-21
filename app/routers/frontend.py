@@ -314,12 +314,12 @@ async def day_create_save(
     day: int = Form(...),
     title: str = Form(...),
     goal: str = Form(None),
-    course_type: str = Form("assessment"),
     opening_a: str = Form(None),
     opening_b: str = Form(None),
     criteria: str = Form(None),
     min_rounds: int = Form(3),
     max_rounds: int = Form(5),
+    lesson_content: str = Form(None),
     teaching_content: str = Form(None),
     course_version: str = Form("v1")
 ):
@@ -338,6 +338,11 @@ async def day_create_save(
                 status_code=303
             )
 
+        # 根據填寫的欄位自動決定課程類型
+        has_opening = bool(opening_a and opening_a.strip()) or bool(opening_b and opening_b.strip())
+        has_teaching = bool(teaching_content and teaching_content.strip())
+        course_type = "teaching" if has_teaching and not has_opening else "assessment"
+
         # 建立課程
         criteria_text = criteria.strip() if criteria else None
         course_service.create_course(
@@ -351,6 +356,7 @@ async def day_create_save(
             criteria=criteria_text,
             min_rounds=min_rounds,
             max_rounds=max_rounds,
+            lesson_content=lesson_content.strip() if lesson_content else None,
             teaching_content=teaching_content.strip() if teaching_content else None
         )
 
@@ -406,12 +412,12 @@ async def day_edit_save(
     course_id: int = Form(...),
     title: str = Form(...),
     goal: str = Form(None),
-    course_type: str = Form("assessment"),
     opening_a: str = Form(None),
     opening_b: str = Form(None),
     criteria: str = Form(None),
     min_rounds: int = Form(3),
     max_rounds: int = Form(5),
+    lesson_content: str = Form(None),
     teaching_content: str = Form(None),
     course_version: str = Form("v1")
 ):
@@ -429,6 +435,11 @@ async def day_edit_save(
         }, status_code=404)
 
     try:
+        # 根據填寫的欄位自動決定課程類型
+        has_opening = bool(opening_a and opening_a.strip()) or bool(opening_b and opening_b.strip())
+        has_teaching = bool(teaching_content and teaching_content.strip())
+        course_type = "teaching" if has_teaching and not has_opening else "assessment"
+
         # 更新課程
         criteria_text = criteria.strip() if criteria else None
         course_service.update_course(
@@ -441,6 +452,7 @@ async def day_edit_save(
             criteria=criteria_text,
             min_rounds=min_rounds,
             max_rounds=max_rounds,
+            lesson_content=lesson_content.strip() if lesson_content else None,
             teaching_content=teaching_content.strip() if teaching_content else None
         )
 

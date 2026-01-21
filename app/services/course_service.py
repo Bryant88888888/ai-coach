@@ -27,6 +27,7 @@ class CourseService:
         min_rounds: int = 3,
         max_rounds: int = 5,
         teaching_content: str = None,
+        lesson_content: str = None,
         system_prompt: str = None
     ) -> Course:
         """建立新課程"""
@@ -42,6 +43,7 @@ class CourseService:
             min_rounds=min_rounds,
             max_rounds=max_rounds,
             teaching_content=teaching_content,
+            lesson_content=lesson_content,
             system_prompt=system_prompt,
             is_active=True
         )
@@ -149,6 +151,7 @@ class CourseService:
                 min_rounds=course.min_rounds,
                 max_rounds=course.max_rounds,
                 teaching_content=course.teaching_content,
+                lesson_content=course.lesson_content,
                 system_prompt=course.system_prompt,
                 is_active=True
             )
