@@ -57,7 +57,7 @@ class PushService:
                 )
             )
 
-    def _build_start_training_card(self, day: int, title: str, training_id: int) -> dict:
+    def _build_start_training_card(self, day: int, title: str, training_id: int, lesson_content: str = None) -> dict:
         """
         建立「準備開始」的 Flex Message 卡片
 
@@ -65,13 +65,63 @@ class PushService:
             day: 訓練天數
             title: 課程標題
             training_id: UserTraining ID（用於 postback）
+            lesson_content: 當日教學內容（選填）
 
         Returns:
             Flex Message 的 dict 格式
         """
+        # 基本 body 內容
+        body_contents = [
+            {
+                "type": "text",
+                "text": title,
+                "weight": "bold",
+                "size": "lg",
+                "wrap": True,
+                "margin": "md"
+            }
+        ]
+
+        # 如果有教學內容，加入卡片
+        if lesson_content:
+            body_contents.append({
+                "type": "separator",
+                "margin": "lg"
+            })
+            body_contents.append({
+                "type": "text",
+                "text": "📖 今日重點",
+                "weight": "bold",
+                "size": "md",
+                "color": "#1DB446",
+                "margin": "lg"
+            })
+            body_contents.append({
+                "type": "text",
+                "text": lesson_content,
+                "size": "sm",
+                "color": "#333333",
+                "margin": "md",
+                "wrap": True
+            })
+            body_contents.append({
+                "type": "separator",
+                "margin": "lg"
+            })
+
+        # 加入提示文字
+        body_contents.append({
+            "type": "text",
+            "text": "閱讀完畢後，按下「開始」進入今天的測驗！" if lesson_content else "今天的訓練準備好了！",
+            "size": "sm",
+            "color": "#666666",
+            "margin": "lg",
+            "wrap": True
+        })
+
         return {
             "type": "bubble",
-            "size": "kilo",
+            "size": "mega" if lesson_content else "kilo",  # 有教學內容時用大卡片
             "header": {
                 "type": "box",
                 "layout": "vertical",
@@ -90,32 +140,7 @@ class PushService:
             "body": {
                 "type": "box",
                 "layout": "vertical",
-                "contents": [
-                    {
-                        "type": "text",
-                        "text": title,
-                        "weight": "bold",
-                        "size": "lg",
-                        "wrap": True,
-                        "margin": "md"
-                    },
-                    {
-                        "type": "text",
-                        "text": "今天的訓練準備好了！",
-                        "size": "sm",
-                        "color": "#666666",
-                        "margin": "lg",
-                        "wrap": True
-                    },
-                    {
-                        "type": "text",
-                        "text": "準備好之後，按下「開始」按鈕就會開始今天的課程囉！",
-                        "size": "sm",
-                        "color": "#888888",
-                        "margin": "md",
-                        "wrap": True
-                    }
-                ],
+                "contents": body_contents,
                 "paddingAll": "15px"
             },
             "footer": {
@@ -353,12 +378,14 @@ class PushService:
             # 取得課程資料
             day_data = get_course_data(self.db, user_training.current_day, course_version)
             course_title = day_data.get("title", "今日訓練") if day_data else "今日訓練"
+            lesson_content = day_data.get("lesson_content") if day_data else None
 
             # 建立並發送「準備開始」卡片
             card = self._build_start_training_card(
                 day=user_training.current_day,
                 title=course_title,
-                training_id=user_training.id
+                training_id=user_training.id,
+                lesson_content=lesson_content
             )
 
             self._send_flex_message(
@@ -609,12 +636,14 @@ class PushService:
             # 取得課程資料
             day_data = get_course_data(self.db, target_day, course_version)
             course_title = day_data.get("title", "今日訓練") if day_data else "今日訓練"
+            lesson_content = day_data.get("lesson_content") if day_data else None
 
             # 建立並發送圖卡
             card = self._build_start_training_card(
                 day=target_day,
                 title=course_title,
-                training_id=user_training.id
+                training_id=user_training.id,
+                lesson_content=lesson_content
             )
 
             self._send_flex_message(
