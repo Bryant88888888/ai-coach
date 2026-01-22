@@ -681,10 +681,12 @@ async def leave_manage(request: Request, db: Session = Depends(get_db)):
 async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
     """請假申請表單頁面（員工用，需 LINE 登入）"""
     settings = get_settings()
+    # 優先使用請假專用 LIFF ID，否則用通用的
+    liff_id = settings.liff_id_leave or settings.liff_id
 
     return templates.TemplateResponse("leave_form.html", {
         "request": request,
-        "liff_id": settings.liff_id,
+        "liff_id": liff_id,
         "is_public": True
     })
 

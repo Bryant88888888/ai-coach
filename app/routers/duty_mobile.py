@@ -34,13 +34,18 @@ def get_user_by_line_id(line_user_id: str, db: Session):
 
 # ===== 頁面路由 =====
 
+def get_duty_liff_id():
+    """取得值日專區的 LIFF ID（優先用專用的，否則用通用的）"""
+    settings = get_settings()
+    return settings.liff_id_duty or settings.liff_id
+
+
 @router.get("", response_class=HTMLResponse)
 async def duty_mobile_home(request: Request, db: Session = Depends(get_db)):
     """值日專區首頁"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile.html", {
         "request": request,
-        "liff_id": settings.liff_id
+        "liff_id": get_duty_liff_id()
     })
 
 
@@ -51,10 +56,9 @@ async def duty_mobile_schedule(
     line_user_id: str = None
 ):
     """我的排班頁面"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile_schedule.html", {
         "request": request,
-        "liff_id": settings.liff_id
+        "liff_id": get_duty_liff_id()
     })
 
 
@@ -66,10 +70,9 @@ async def duty_mobile_report(
     schedule_id: int = None
 ):
     """值日回報頁面"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile_report.html", {
         "request": request,
-        "liff_id": settings.liff_id,
+        "liff_id": get_duty_liff_id(),
         "schedule_id": schedule_id
     })
 
@@ -81,10 +84,9 @@ async def duty_mobile_swap(
     line_user_id: str = None
 ):
     """換班申請頁面"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile_swap.html", {
         "request": request,
-        "liff_id": settings.liff_id
+        "liff_id": get_duty_liff_id()
     })
 
 
@@ -95,10 +97,9 @@ async def duty_mobile_complaint(
     line_user_id: str = None
 ):
     """檢舉回報頁面"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile_complaint.html", {
         "request": request,
-        "liff_id": settings.liff_id
+        "liff_id": get_duty_liff_id()
     })
 
 
@@ -109,10 +110,9 @@ async def duty_mobile_history(
     line_user_id: str = None
 ):
     """我的記錄頁面"""
-    settings = get_settings()
     return templates.TemplateResponse("duty_mobile_history.html", {
         "request": request,
-        "liff_id": settings.liff_id
+        "liff_id": get_duty_liff_id()
     })
 
 

@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     session_secret_key: str = "aicoach-secret-key-change-in-production-2024"
 
     # LIFF 設定（LINE 前端框架）
-    liff_id: str = ""
+    liff_id: str = ""  # 通用（向下相容）
+    liff_id_duty: str = ""  # 值日專區
+    liff_id_leave: str = ""  # 請假申請
 
     # 請假通知設定（主管 LINE User IDs，用逗號分隔）
     manager_line_ids: str = ""
