@@ -9,6 +9,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.database import init_db
 from app.routers import webhook_router, admin_router, frontend_router, cron_router
+from app.routers.duty_mobile import router as duty_mobile_router, api_router as duty_api_router
 
 
 @asynccontextmanager
@@ -61,6 +62,8 @@ app.include_router(webhook_router)
 app.include_router(admin_router)
 app.include_router(frontend_router)
 app.include_router(cron_router)
+app.include_router(duty_mobile_router)
+app.include_router(duty_api_router)
 
 
 @app.get("/")

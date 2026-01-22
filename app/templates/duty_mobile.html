@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>值日專區 - 寶格教育訓練</title>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
+    <!-- 頂部導航 -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-4 sticky top-0 z-10">
+        <div class="flex items-center justify-between max-w-lg mx-auto">
+            <h1 class="text-xl font-bold">
+                <i class="fas fa-broom mr-2"></i>值日專區
+            </h1>
+            <div id="user-info" class="flex items-center gap-2">
+                <img id="user-avatar" src="" alt="" class="w-8 h-8 rounded-full hidden">
+                <span id="user-name" class="text-sm"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-lg mx-auto p-4">
+        <!-- 載入中 -->
+        <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 mb-4">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400">正在載入...</p>
+        </div>
+
+        <!-- 主要內容區 -->
+        <div id="main-content" class="hidden space-y-4">
+            <!-- 今日值日提示 -->
+            <div id="today-duty-alert" class="hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl shadow-lg p-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white/20 rounded-full p-3">
+                        <i class="fas fa-bell text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-lg">今天輪到你值日！</p>
+                        <p class="text-sm opacity-90">請完成值日工作後回報</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 功能選單 -->
+            <div class="grid grid-cols-2 gap-4">
+                <!-- 我的排班 -->
+                <a href="/duty/my/schedule" id="link-schedule" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 flex flex-col items-center justify-center min-h-[140px] hover:shadow-xl transition">
+                    <div class="w-14 h-14 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-calendar-alt text-2xl text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <span class="font-semibold text-gray-800 dark:text-white">我的排班</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">查看值日時間</span>
+                </a>
+
+                <!-- 值日回報 -->
+                <a href="/duty/my/report" id="link-report" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 flex flex-col items-center justify-center min-h-[140px] hover:shadow-xl transition">
+                    <div class="w-14 h-14 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-camera text-2xl text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <span class="font-semibold text-gray-800 dark:text-white">值日回報</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">拍照完成回報</span>
+                </a>
+
+                <!-- 換班申請 -->
+                <a href="/duty/my/swap" id="link-swap" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 flex flex-col items-center justify-center min-h-[140px] hover:shadow-xl transition">
+                    <div class="w-14 h-14 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-exchange-alt text-2xl text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <span class="font-semibold text-gray-800 dark:text-white">換班申請</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">與他人交換</span>
+                </a>
+
+                <!-- 檢舉回報 -->
+                <a href="/duty/my/complaint" id="link-complaint" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 flex flex-col items-center justify-center min-h-[140px] hover:shadow-xl transition">
+                    <div class="w-14 h-14 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-flag text-2xl text-red-600 dark:text-red-400"></i>
+                    </div>
+                    <span class="font-semibold text-gray-800 dark:text-white">檢舉回報</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">回報問題</span>
+                </a>
+            </div>
+
+            <!-- 今日值日生 -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5">
+                <h2 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center">
+                    <i class="fas fa-users text-blue-500 mr-2"></i>今日值日生
+                </h2>
+                <div id="today-duty-list" class="space-y-2">
+                    <!-- 動態載入 -->
+                </div>
+            </div>
+
+            <!-- 我的近期排班 -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5">
+                <h2 class="font-bold text-gray-800 dark:text-white mb-3 flex items-center">
+                    <i class="fas fa-calendar-check text-green-500 mr-2"></i>我的近期排班
+                </h2>
+                <div id="my-upcoming-list" class="space-y-2">
+                    <!-- 動態載入 -->
+                </div>
+            </div>
+
+            <!-- 我的記錄 -->
+            <a href="/duty/my/history" id="link-history" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 flex items-center justify-between hover:shadow-xl transition">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                        <i class="fas fa-history text-gray-600 dark:text-gray-400"></i>
+                    </div>
+                    <span class="font-semibold text-gray-800 dark:text-white">我的值日記錄</span>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+            </a>
+        </div>
+
+        <!-- 版權 -->
+        <p class="text-center text-gray-400 dark:text-gray-600 text-sm mt-8 mb-4">
+            &copy; 2024 寶格教育訓練
+        </p>
+    </div>
+
+    <!-- 主題切換按鈕 -->
+    <button
+        id="theme-toggle"
+        class="fixed bottom-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition min-w-[48px] min-h-[48px]"
+        title="切換深淺色模式"
+    >
+        <i class="fas fa-sun text-yellow-500 dark:hidden"></i>
+        <i class="fas fa-moon text-indigo-400 hidden dark:block"></i>
+    </button>
+
+    <script>
+        const LIFF_ID = "{{ liff_id }}";
+        let currentUser = null;
+
+        // 主題切換
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        });
+
+        // LIFF 初始化
+        async function initializeLiff() {
+            const loadingSection = document.getElementById('loading-section');
+            const mainContent = document.getElementById('main-content');
+
+            try {
+                await liff.init({ liffId: LIFF_ID });
+
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+
+                // 取得用戶資料
+                const profile = await liff.getProfile();
+                currentUser = {
+                    lineUserId: profile.userId,
+                    displayName: profile.displayName,
+                    pictureUrl: profile.pictureUrl
+                };
+
+                // 顯示用戶資訊
+                document.getElementById('user-name').textContent = profile.displayName;
+                if (profile.pictureUrl) {
+                    const avatar = document.getElementById('user-avatar');
+                    avatar.src = profile.pictureUrl;
+                    avatar.classList.remove('hidden');
+                }
+
+                // 載入資料
+                await loadDutyData();
+
+                // 顯示主內容
+                loadingSection.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+
+                // 更新連結加上 line_user_id
+                updateLinks();
+
+            } catch (error) {
+                console.error('LIFF 初始化失敗:', error);
+                loadingSection.innerHTML = `
+                    <div class="text-center">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full mb-4">
+                            <i class="fas fa-exclamation-triangle text-3xl text-red-600 dark:text-red-400"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">載入失敗</h2>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">${error.message || '請稍後再試'}</p>
+                        <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition">
+                            重新載入
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // 更新連結加上 line_user_id 參數
+        function updateLinks() {
+            if (!currentUser) return;
+            const links = ['link-schedule', 'link-report', 'link-swap', 'link-complaint', 'link-history'];
+            links.forEach(id => {
+                const link = document.getElementById(id);
+                if (link) {
+                    const url = new URL(link.href, window.location.origin);
+                    url.searchParams.set('line_user_id', currentUser.lineUserId);
+                    link.href = url.toString();
+                }
+            });
+        }
+
+        // 載入值日資料
+        async function loadDutyData() {
+            try {
+                const response = await fetch(`/api/duty/my-data?line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+
+                // 今日是否輪到我值日
+                if (data.is_my_duty_today) {
+                    document.getElementById('today-duty-alert').classList.remove('hidden');
+                }
+
+                // 今日值日生列表
+                const todayList = document.getElementById('today-duty-list');
+                if (data.today_duty && data.today_duty.length > 0) {
+                    todayList.innerHTML = data.today_duty.map(d => `
+                        <div class="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            ${d.picture_url
+                                ? `<img src="${d.picture_url}" class="w-10 h-10 rounded-full object-cover">`
+                                : `<div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-blue-500"></i></div>`
+                            }
+                            <div>
+                                <p class="font-medium text-gray-800 dark:text-white">${d.display_name}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">${d.status_display}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    todayList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">今日無排班</p>';
+                }
+
+                // 我的近期排班
+                const upcomingList = document.getElementById('my-upcoming-list');
+                if (data.my_upcoming && data.my_upcoming.length > 0) {
+                    upcomingList.innerHTML = data.my_upcoming.map(s => `
+                        <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
+                                    <span class="font-bold text-blue-600 dark:text-blue-400">${new Date(s.duty_date).getDate()}</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">${s.duty_date}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${s.weekday}</p>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(s.status)}">${s.status_display}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    upcomingList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">目前沒有排班</p>';
+                }
+
+            } catch (error) {
+                console.error('載入資料失敗:', error);
+            }
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400';
+                case 'reported': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400';
+                case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400';
+                case 'missed': return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400';
+                default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400';
+            }
+        }
+
+        // 初始化
+        if (LIFF_ID) {
+            initializeLiff();
+        } else {
+            document.getElementById('loading-section').innerHTML = `
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/50 rounded-full mb-4">
+                        <i class="fas fa-cog text-3xl text-yellow-600 dark:text-yellow-400"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">系統設定中</h2>
+                    <p class="text-gray-600 dark:text-gray-400">請聯繫管理員設定 LIFF ID</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

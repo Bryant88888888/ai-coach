@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的排班 - 值日專區</title>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
+    <!-- 頂部導航 -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-4 sticky top-0 z-10">
+        <div class="flex items-center gap-3 max-w-lg mx-auto">
+            <a href="/duty/my" class="p-2 hover:bg-white/20 rounded-lg transition">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold">我的排班</h1>
+        </div>
+    </div>
+
+    <div class="max-w-lg mx-auto p-4">
+        <!-- 載入中 -->
+        <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
+            <p class="text-gray-600 dark:text-gray-400">載入中...</p>
+        </div>
+
+        <!-- 排班列表 -->
+        <div id="schedule-list" class="hidden space-y-3">
+            <!-- 動態載入 -->
+        </div>
+
+        <div id="empty-state" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+            <i class="fas fa-calendar-times text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+            <p class="text-gray-500 dark:text-gray-400">目前沒有排班</p>
+        </div>
+    </div>
+
+    <script>
+        const LIFF_ID = "{{ liff_id }}";
+        let currentUser = null;
+
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+                const profile = await liff.getProfile();
+                currentUser = { lineUserId: profile.userId };
+                await loadSchedules();
+            } catch (error) {
+                document.getElementById('loading-section').innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <p class="text-gray-600 dark:text-gray-400">載入失敗，請重試</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg">重新載入</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadSchedules() {
+            try {
+                const response = await fetch(`/duty/my/api/schedule?line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+
+                document.getElementById('loading-section').classList.add('hidden');
+
+                if (data.schedules && data.schedules.length > 0) {
+                    const list = document.getElementById('schedule-list');
+                    list.innerHTML = data.schedules.map(s => `
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 flex items-center justify-between ${s.is_today ? 'ring-2 ring-blue-500' : ''}">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl flex flex-col items-center justify-center ${s.is_past ? 'bg-gray-100 dark:bg-gray-700' : 'bg-blue-100 dark:bg-blue-900/50'}">
+                                    <span class="text-lg font-bold ${s.is_past ? 'text-gray-500' : 'text-blue-600 dark:text-blue-400'}">${new Date(s.duty_date).getDate()}</span>
+                                    <span class="text-xs ${s.is_past ? 'text-gray-400' : 'text-blue-500'}">${s.weekday.replace('星期', '')}</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">${s.duty_date}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">${s.weekday}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${s.is_today ? '<span class="px-2 py-1 bg-blue-500 text-white text-xs rounded-full">今天</span>' : ''}
+                                <span class="px-3 py-1 text-sm rounded-full ${getStatusClass(s.status)}">${s.status_display}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                    list.classList.remove('hidden');
+                } else {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('載入排班失敗:', error);
+            }
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400';
+                case 'reported': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400';
+                case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400';
+                case 'missed': return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400';
+                default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400';
+            }
+        }
+
+        if (LIFF_ID) {
+            initializeLiff();
+        }
+    </script>
+</body>
+</html>

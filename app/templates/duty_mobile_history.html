@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的記錄 - 值日專區</title>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
+    <!-- 頂部導航 -->
+    <div class="bg-gradient-to-r from-gray-700 to-gray-800 text-white px-4 py-4 sticky top-0 z-10">
+        <div class="flex items-center gap-3 max-w-lg mx-auto">
+            <a href="/duty/my" class="p-2 hover:bg-white/20 rounded-lg transition">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold">我的記錄</h1>
+        </div>
+    </div>
+
+    <div class="max-w-lg mx-auto p-4">
+        <!-- 載入中 -->
+        <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-gray-600 dark:text-gray-400 mb-4"></i>
+            <p class="text-gray-600 dark:text-gray-400">載入中...</p>
+        </div>
+
+        <!-- 主要內容 -->
+        <div id="main-content" class="hidden space-y-4">
+            <!-- 統計卡片 -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
+                    <p class="text-3xl font-bold text-blue-600 dark:text-blue-400" id="stat-total">0</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">總排班次數</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
+                    <p class="text-3xl font-bold text-green-600 dark:text-green-400" id="stat-completed">0</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">完成次數</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
+                    <p class="text-3xl font-bold text-red-600 dark:text-red-400" id="stat-missed">0</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">未完成</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
+                    <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400" id="stat-rate">0%</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">完成率</p>
+                </div>
+            </div>
+
+            <!-- 完成率進度條 -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">完成率</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400" id="rate-text">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div id="rate-bar" class="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 歷史記錄 -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="p-4 border-b dark:border-gray-700">
+                    <h2 class="font-bold text-gray-800 dark:text-white">
+                        <i class="fas fa-history text-gray-500 mr-2"></i>過去 90 天記錄
+                    </h2>
+                </div>
+                <div id="history-list" class="divide-y dark:divide-gray-700">
+                    <!-- 動態載入 -->
+                </div>
+                <div id="empty-history" class="hidden p-8 text-center">
+                    <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
+                    <p class="text-gray-500 dark:text-gray-400">尚無值日記錄</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const LIFF_ID = "{{ liff_id }}";
+        let currentUser = null;
+
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+                const profile = await liff.getProfile();
+                currentUser = { lineUserId: profile.userId };
+                await loadHistory();
+            } catch (error) {
+                document.getElementById('loading-section').innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <p class="text-gray-600 dark:text-gray-400">載入失敗</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg">重試</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch(`/duty/my/api/history?line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+
+                document.getElementById('loading-section').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+
+                // 更新統計
+                document.getElementById('stat-total').textContent = data.stats.total;
+                document.getElementById('stat-completed').textContent = data.stats.completed;
+                document.getElementById('stat-missed').textContent = data.stats.missed;
+                document.getElementById('stat-rate').textContent = data.stats.completion_rate + '%';
+                document.getElementById('rate-text').textContent = data.stats.completion_rate + '%';
+                document.getElementById('rate-bar').style.width = data.stats.completion_rate + '%';
+
+                // 更新進度條顏色
+                const rateBar = document.getElementById('rate-bar');
+                if (data.stats.completion_rate >= 80) {
+                    rateBar.className = 'bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-500';
+                } else if (data.stats.completion_rate >= 50) {
+                    rateBar.className = 'bg-gradient-to-r from-yellow-400 to-yellow-600 h-3 rounded-full transition-all duration-500';
+                } else {
+                    rateBar.className = 'bg-gradient-to-r from-red-400 to-red-600 h-3 rounded-full transition-all duration-500';
+                }
+
+                // 更新歷史列表
+                const historyList = document.getElementById('history-list');
+                if (data.history && data.history.length > 0) {
+                    historyList.innerHTML = data.history.map(h => `
+                        <div class="p-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg flex flex-col items-center justify-center ${getStatusBgClass(h.status)}">
+                                    <span class="text-sm font-bold">${new Date(h.duty_date).getDate()}</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">${h.duty_date}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${h.weekday}</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 text-sm rounded-full ${getStatusClass(h.status)}">${h.status_display}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('empty-history').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('載入失敗:', error);
+            }
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400';
+                case 'reported': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400';
+                case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400';
+                case 'missed': return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400';
+                default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400';
+            }
+        }
+
+        function getStatusBgClass(status) {
+            switch(status) {
+                case 'approved': return 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400';
+                case 'reported': return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400';
+                case 'missed': return 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400';
+                default: return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+            }
+        }
+
+        if (LIFF_ID) {
+            initializeLiff();
+        }
+    </script>
+</body>
+</html>
