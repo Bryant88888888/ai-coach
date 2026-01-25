@@ -1704,23 +1704,26 @@ async def duty_members_page(
     success: str = None,
     error: str = None
 ):
-    """值日生名單頁面 - 列出所有用戶，勾選方式管理"""
+    """值日生名單頁面 - 只列出已填寫員工資料的用戶"""
     if not require_auth(request):
         return RedirectResponse(url="/login", status_code=303)
 
-    # 取得所有用戶
-    all_users = db.query(User).order_by(User.line_display_name).all()
+    # 只取得已填寫員工資料的用戶（有 real_name 的用戶）
+    registered_users = db.query(User).filter(
+        User.real_name.isnot(None),
+        User.real_name != ""
+    ).order_by(User.real_name).all()
 
     # 取得已設為值日生的用戶 ID 列表
     duty_member_ids = set()
-    for user in all_users:
+    for user in registered_users:
         if user.has_role(UserRole.DUTY_MEMBER.value):
             duty_member_ids.add(user.id)
 
     return templates.TemplateResponse("duty_members.html", {
         "request": request,
         "active_page": "duty",
-        "all_users": all_users,
+        "all_users": registered_users,
         "duty_member_ids": duty_member_ids,
         "success_message": success,
         "error_message": error
@@ -2190,3 +2193,70 @@ async def duty_complaint_handle(
         url="/dashboard/duty/complaints?error=處理失敗",
         status_code=303
     )
+
+
+# ========== 員工資料（Profile）==========
+
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request):
+    """員工資料頁面（需 LINE 登入）"""
+    settings = get_settings()
+    # 使用通用 LIFF ID
+    liff_id = settings.liff_id
+
+    return templates.TemplateResponse("profile_mobile.html", {
+        "request": request,
+        "liff_id": liff_id
+    })
+
+
+@router.get("/api/profile")
+async def get_profile(
+    line_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """取得用戶資料 API"""
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+
+    if not user:
+        return {"success": False, "error": "用戶不存在"}
+
+    return {
+        "success": True,
+        "real_name": user.real_name,
+        "phone": user.phone,
+        "employee_id": user.employee_id
+    }
+
+
+@router.post("/api/profile")
+async def save_profile(
+    db: Session = Depends(get_db),
+    line_user_id: str = Form(...),
+    real_name: str = Form(...),
+    phone: str = Form(...),
+    employee_id: str = Form(None)
+):
+    """儲存用戶資料 API"""
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+
+    if not user:
+        # 創建新用戶
+        user = user_service.create_user(
+            line_user_id=line_user_id
+        )
+
+    # 更新資料
+    user.real_name = real_name.strip() if real_name else None
+    user.phone = phone.strip() if phone else None
+    user.employee_id = employee_id.strip() if employee_id else None
+
+    # 設置註冊時間（如果尚未設置）
+    if not user.registered_at:
+        user.registered_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {"success": True}

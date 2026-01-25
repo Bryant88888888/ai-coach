@@ -27,7 +27,7 @@
 </div>
 {% endif %}
 
-<!-- 用戶列表 -->
+<!-- 員工列表 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
     <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
@@ -106,8 +106,9 @@
     {% else %}
     <div class="p-12 text-center">
         <i class="fas fa-users text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400 text-lg">尚無用戶</p>
-        <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">請先讓用戶加入 LINE Bot 好友</p>
+        <p class="text-gray-500 dark:text-gray-400 text-lg">尚無員工資料</p>
+        <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">請讓員工透過 LINE 填寫個人資料</p>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">員工資料頁面：<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">/profile</code></p>
     </div>
     {% endif %}
 </div>
@@ -118,9 +119,9 @@
         <i class="fas fa-lightbulb mr-2"></i>說明
     </h3>
     <ul class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
-        <li>勾選的用戶會參與值日輪班</li>
-        <li>取消勾選的用戶不會被排到值日</li>
-        <li>新加入的用戶預設會參與值日</li>
+        <li>此列表只顯示已填寫員工資料的人員</li>
+        <li>勾選的員工會參與值日輪班</li>
+        <li>取消勾選的員工不會被排到值日</li>
         <li>修改後請點擊「儲存變更」</li>
     </ul>
 </div>
