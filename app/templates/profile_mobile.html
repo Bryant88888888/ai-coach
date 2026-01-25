@@ -149,7 +149,8 @@
                 document.getElementById('loading-section').innerHTML = `
                     <div class="text-center">
                         <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">載入失敗</p>
+                        <p class="text-gray-600 dark:text-gray-400 mb-2">載入失敗</p>
+                        <p class="text-red-500 text-sm mb-4">${error.message || error}</p>
                         <button onclick="location.reload()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">重試</button>
                     </div>
                 `;
