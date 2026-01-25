@@ -2201,8 +2201,8 @@ async def duty_complaint_handle(
 async def profile_page(request: Request):
     """員工資料頁面（需 LINE 登入）"""
     settings = get_settings()
-    # 使用通用 LIFF ID，若無則用請假的 LIFF ID
-    liff_id = settings.liff_id or settings.liff_id_leave
+    # 使用員工註冊專用 LIFF ID
+    liff_id = settings.liff_id_profile or settings.liff_id
 
     return templates.TemplateResponse("profile_mobile.html", {
         "request": request,
