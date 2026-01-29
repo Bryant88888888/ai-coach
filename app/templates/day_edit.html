@@ -154,6 +154,22 @@
         </div>
     </div>
 
+    <!-- AI 測驗指引 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+            <i class="fas fa-robot mr-2 text-indigo-500"></i>AI 測驗指引
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400">（選填，進階設定）</span>
+        </h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            告訴 AI 這天要如何測驗學員。AI 會根據這個指引來決定對話方向和評分重點，避免隨機聊天。
+        </p>
+        <div>
+            <textarea name="system_prompt" rows="10"
+                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="例如：&#10;你要測試新人能不能正確應對薪水問題。&#10;&#10;測試方向：&#10;1. 先輕鬆問薪水，看新人會不會直接報數字&#10;2. 如果新人沒報，繼續追問「大概說一下嘛」&#10;3. 觀察新人能不能把話拉回制度說明&#10;&#10;常見陷阱題：&#10;- 「其他家都有說欸，你們為什麼不說？」&#10;- 「我朋友說她一個月賺20萬，你們也差不多吧？」">{{ day.system_prompt or '' }}</textarea>
+        </div>
+    </div>
+
     <!-- 純教學內容（進階） -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">

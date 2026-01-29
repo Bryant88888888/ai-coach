@@ -321,6 +321,7 @@ async def day_create_save(
     max_rounds: int = Form(5),
     lesson_content: str = Form(None),
     teaching_content: str = Form(None),
+    system_prompt: str = Form(None),
     course_version: str = Form("v1")
 ):
     """儲存新課程"""
@@ -357,7 +358,8 @@ async def day_create_save(
             min_rounds=min_rounds,
             max_rounds=max_rounds,
             lesson_content=lesson_content.strip() if lesson_content else None,
-            teaching_content=teaching_content.strip() if teaching_content else None
+            teaching_content=teaching_content.strip() if teaching_content else None,
+            system_prompt=system_prompt.strip() if system_prompt else None
         )
 
         return RedirectResponse(
@@ -419,6 +421,7 @@ async def day_edit_save(
     max_rounds: int = Form(5),
     lesson_content: str = Form(None),
     teaching_content: str = Form(None),
+    system_prompt: str = Form(None),
     course_version: str = Form("v1")
 ):
     """儲存課程編輯"""
@@ -453,7 +456,8 @@ async def day_edit_save(
             min_rounds=min_rounds,
             max_rounds=max_rounds,
             lesson_content=lesson_content.strip() if lesson_content else None,
-            teaching_content=teaching_content.strip() if teaching_content else None
+            teaching_content=teaching_content.strip() if teaching_content else None,
+            system_prompt=system_prompt.strip() if system_prompt else None
         )
 
         # 重新取得更新後的課程資料

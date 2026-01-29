@@ -419,6 +419,26 @@ def get_exam_prompt(day_data: dict, persona: str, round_count: int = 0) -> str:
     min_rounds = day_data.get("min_rounds", 3)
     max_rounds = day_data.get("max_rounds", 5)
 
+    # 取得當日教學重點和測驗指引
+    lesson_content = day_data.get("lesson_content", "")
+    system_prompt_content = day_data.get("system_prompt", "")
+
+    # 組合當日教學重點區塊
+    lesson_section = ""
+    if lesson_content:
+        lesson_section = f"""
+## 當日教學重點（新人應該學會的內容）
+{lesson_content}
+"""
+
+    # 組合 AI 測驗指引區塊
+    testing_guide_section = ""
+    if system_prompt_content:
+        testing_guide_section = f"""
+## AI 測驗指引（你要如何測試新人）
+{system_prompt_content}
+"""
+
     prompt = f"""## 情境設定
 
 你正在參與一個「經紀公司新人訓練系統」的對話練習。
@@ -439,7 +459,7 @@ def get_exam_prompt(day_data: dict, persona: str, round_count: int = 0) -> str:
 
 ## 今日訓練：Day {day_data['day']} - {day_data['title']}
 ## 訓練目標：{day_data['goal']}
-
+{lesson_section}{testing_guide_section}
 ## 你的開場白（用這句話開始對話）
 「{opening}」
 
