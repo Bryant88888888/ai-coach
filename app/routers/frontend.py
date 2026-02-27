@@ -2233,7 +2233,8 @@ async def get_profile(
         "success": True,
         "real_name": user.real_name,
         "phone": user.phone,
-        "nickname": user.nickname
+        "nickname": user.nickname,
+        "registered": user.registered_at is not None
     }
 
 
@@ -2254,6 +2255,10 @@ async def save_profile(
         user = user_service.create_user(
             line_user_id=line_user_id
         )
+
+    # 已註冊過的用戶不允許再次修改
+    if user.registered_at:
+        return {"success": False, "error": "您已填寫過員工資料，無法重複填寫"}
 
     # 更新資料
     user.real_name = real_name.strip() if real_name else None

@@ -28,7 +28,7 @@
             <p class="text-gray-600 dark:text-gray-400">正在載入...</p>
         </div>
 
-        <!-- 成功訊息 -->
+        <!-- 成功訊息（首次填寫後顯示） -->
         <div id="success-section" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
             <div class="w-20 h-20 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-check text-4xl text-green-600 dark:text-green-400"></i>
@@ -37,6 +37,45 @@
             <p class="text-gray-600 dark:text-gray-400 mb-6">您的員工資料已更新完成</p>
             <button onclick="liff.closeWindow()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition">
                 關閉視窗
+            </button>
+        </div>
+
+        <!-- 已填寫過（唯讀顯示） -->
+        <div id="readonly-section" class="hidden space-y-4">
+            <!-- LINE 資訊顯示 -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
+                <div class="flex items-center gap-4">
+                    <img id="readonly-avatar" src="" class="w-16 h-16 rounded-full object-cover">
+                    <div>
+                        <p id="readonly-line-name" class="font-bold text-gray-800 dark:text-white text-lg"></p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">LINE 帳號</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5 space-y-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span class="text-green-600 dark:text-green-400 font-medium text-sm">資料已填寫完成</span>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1"><i class="fas fa-user text-indigo-500 mr-1"></i>真實姓名</p>
+                    <p id="readonly-real-name" class="text-lg font-medium text-gray-800 dark:text-white"></p>
+                </div>
+                <hr class="border-gray-200 dark:border-gray-700">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1"><i class="fas fa-phone text-indigo-500 mr-1"></i>手機號碼</p>
+                    <p id="readonly-phone" class="text-lg font-medium text-gray-800 dark:text-white"></p>
+                </div>
+                <hr class="border-gray-200 dark:border-gray-700">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1"><i class="fas fa-star text-indigo-500 mr-1"></i>暱稱（綽號）</p>
+                    <p id="readonly-nickname" class="text-lg font-medium text-gray-800 dark:text-white"></p>
+                </div>
+            </div>
+
+            <button onclick="liff.closeWindow()" class="w-full bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-4 px-6 rounded-2xl transition duration-200 flex items-center justify-center min-h-[60px] shadow-xl text-xl active:scale-95">
+                <i class="fas fa-times mr-3"></i>關閉視窗
             </button>
         </div>
 
@@ -137,12 +176,19 @@
                 document.getElementById('line-name').textContent = profile.displayName;
                 document.getElementById('line-avatar').src = profile.pictureUrl || '/static/default-avatar.png';
 
-                // 載入現有資料
-                await loadExistingData();
+                // 載入現有資料並判斷是否已註冊
+                const isRegistered = await loadExistingData();
 
-                // 顯示表單
                 document.getElementById('loading-section').classList.add('hidden');
-                document.getElementById('form-section').classList.remove('hidden');
+                if (isRegistered) {
+                    // 已填過 → 顯示唯讀資料
+                    document.getElementById('readonly-avatar').src = profile.pictureUrl || '/static/default-avatar.png';
+                    document.getElementById('readonly-line-name').textContent = profile.displayName;
+                    document.getElementById('readonly-section').classList.remove('hidden');
+                } else {
+                    // 未填過 → 顯示表單
+                    document.getElementById('form-section').classList.remove('hidden');
+                }
 
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
@@ -157,19 +203,24 @@
             }
         }
 
-        // 載入現有資料
+        // 載入現有資料，回傳是否已註冊
         async function loadExistingData() {
             try {
                 const response = await fetch(`/api/profile?line_user_id=${currentUser.lineUserId}`);
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.real_name) document.getElementById('real_name').value = data.real_name;
-                    if (data.phone) document.getElementById('phone').value = data.phone;
-                    if (data.nickname) document.getElementById('nickname').value = data.nickname;
+                    if (data.registered) {
+                        // 已註冊 → 填入唯讀區域
+                        document.getElementById('readonly-real-name').textContent = data.real_name || '';
+                        document.getElementById('readonly-phone').textContent = data.phone || '';
+                        document.getElementById('readonly-nickname').textContent = data.nickname || '';
+                        return true;
+                    }
                 }
             } catch (error) {
                 console.log('無現有資料或載入失敗');
             }
+            return false;
         }
 
         // 表單送出
