@@ -2202,7 +2202,31 @@ async def duty_complaint_handle(
     )
 
 
-# ========== 員工資料（Profile）==========
+# ========== 人事資料（後台）==========
+
+@router.get("/dashboard/profiles", response_class=HTMLResponse)
+async def profiles_page(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """人事資料列表頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    # 取得已填寫員工資料的用戶
+    registered_users = db.query(User).filter(
+        User.real_name.isnot(None),
+        User.real_name != ""
+    ).order_by(User.real_name).all()
+
+    return templates.TemplateResponse("profiles.html", {
+        "request": request,
+        "active_page": "profiles",
+        "users": registered_users
+    })
+
+
+# ========== 員工資料（Profile LIFF）==========
 
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request):
