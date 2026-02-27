@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block title %}人事資料填寫 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- 頁面標題 -->
+    <div class="mb-6">
+        <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">人事資料填寫</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">請詳細填寫以下資料，所有欄位皆為必填</p>
+    </div>
+
+    <!-- 提醒區塊 -->
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4 mb-6">
+        <div class="flex items-start">
+            <i class="fas fa-exclamation-triangle text-amber-600 dark:text-amber-400 mt-0.5 mr-3"></i>
+            <div class="text-sm text-amber-800 dark:text-amber-300">
+                <p class="font-semibold mb-1">填寫注意事項</p>
+                <ul class="list-disc list-inside space-y-0.5 text-amber-700 dark:text-amber-400">
+                    <li>請仔細核對每一項資料，確認無誤後再送出</li>
+                    <li>姓名、身分證字號等重要欄位請特別留意，<span class="font-semibold">避免打錯字</span></li>
+                    <li>送出後如需修改，請聯繫管理人員</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 類別切換 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow mb-6">
+        <div class="flex border-b border-gray-200 dark:border-gray-700">
+            <button type="button" data-tab="pr"
+                class="tab-btn flex-1 py-3.5 text-center text-sm font-semibold transition-colors border-b-2 border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400">
+                公關版本
+            </button>
+            <button type="button" data-tab="agent"
+                class="tab-btn flex-1 py-3.5 text-center text-sm font-semibold transition-colors border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                經紀人版本
+            </button>
+            <button type="button" data-tab="transfer"
+                class="tab-btn flex-1 py-3.5 text-center text-sm font-semibold transition-colors border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                異動資料
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== 公關版本表單 ===== -->
+    <form id="form-pr" class="tab-content bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-8 space-y-5" novalidate>
+        <input type="hidden" name="form_type" value="公關版本">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                本名 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="real_name" required maxlength="20"
+                placeholder="請輸入真實姓名"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                身分證字號 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="id_number" required maxlength="10"
+                placeholder="例：A123456789"
+                pattern="^[A-Z][12]\d{8}$"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px] uppercase tracking-wider">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">格式：1 個英文字母 + 9 位數字（英文字母會自動轉為大寫）</p>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                出生（民國） <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="birth_roc" required maxlength="9"
+                placeholder="例：85/06/15"
+                pattern="^\d{2,3}/\d{2}/\d{2}$"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">格式：民國年/月/日，例如 85/06/15</p>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                藝名 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="stage_name" required maxlength="20"
+                placeholder="請輸入藝名"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                經紀人 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="manager" required maxlength="20"
+                placeholder="請輸入經紀人姓名"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                店家 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="store" required maxlength="30"
+                placeholder="請輸入所屬店家名稱"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                狀況 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="status" required maxlength="50"
+                placeholder="請填寫目前狀況"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                備註 <span class="text-red-500">*</span>
+            </label>
+            <textarea name="note" required maxlength="200" rows="3"
+                placeholder="請填寫備註事項"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition resize-none"></textarea>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                IG <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="ig" required maxlength="50"
+                placeholder="例：@username"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">請填入 Instagram 帳號</p>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-6 rounded-xl transition min-h-[48px]">
+                確認送出
+            </button>
+        </div>
+    </form>
+
+    <!-- ===== 經紀人版本表單 ===== -->
+    <form id="form-agent" class="tab-content bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-8 space-y-5 hidden" novalidate>
+        <input type="hidden" name="form_type" value="經紀人版本">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                本名 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="real_name" required maxlength="20"
+                placeholder="請輸入真實姓名"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                身分證字號 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="id_number" required maxlength="10"
+                placeholder="例：A123456789"
+                pattern="^[A-Z][12]\d{8}$"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px] uppercase tracking-wider">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">格式：1 個英文字母 + 9 位數字（英文字母會自動轉為大寫）</p>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                出生（民國） <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="birth_roc" required maxlength="9"
+                placeholder="例：85/06/15"
+                pattern="^\d{2,3}/\d{2}/\d{2}$"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">格式：民國年/月/日，例如 85/06/15</p>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                暱稱 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="nickname" required maxlength="20"
+                placeholder="請輸入暱稱"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                職稱位階 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="job_title" required maxlength="30"
+                placeholder="請輸入職稱或位階"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                組長 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="team_leader" required maxlength="20"
+                placeholder="請輸入組長姓名"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                狀況 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="status" required maxlength="50"
+                placeholder="請填寫目前狀況"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                備註 <span class="text-red-500">*</span>
+            </label>
+            <textarea name="note" required maxlength="200" rows="3"
+                placeholder="請填寫備註事項"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition resize-none"></textarea>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-6 rounded-xl transition min-h-[48px]">
+                確認送出
+            </button>
+        </div>
+    </form>
+
+    <!-- ===== 異動資料表單 ===== -->
+    <form id="form-transfer" class="tab-content bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-8 space-y-5 hidden" novalidate>
+        <input type="hidden" name="form_type" value="異動資料">
+
+        <!-- 原資料區塊 -->
+        <div class="pb-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">原資料</h3>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        原店家 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="old_store" required maxlength="30"
+                        placeholder="請輸入原店家名稱"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        原藝名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="old_stage_name" required maxlength="20"
+                        placeholder="請輸入原藝名"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        原經紀人 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="old_manager" required maxlength="20"
+                        placeholder="請輸入原經紀人姓名"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新資料區塊 -->
+        <div class="pb-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">新資料</h3>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        新店家 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="new_store" required maxlength="30"
+                        placeholder="請輸入新店家名稱"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        新藝名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="new_stage_name" required maxlength="20"
+                        placeholder="請輸入新藝名"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        新經紀人 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="new_manager" required maxlength="20"
+                        placeholder="請輸入新經紀人姓名"
+                        class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+                    <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                狀況 <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="status" required maxlength="50"
+                placeholder="請填寫異動狀況，例如：白紙"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition min-h-[48px]">
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                備註 <span class="text-red-500">*</span>
+            </label>
+            <textarea name="note" required maxlength="200" rows="3"
+                placeholder="請填寫備註事項"
+                class="form-input w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition resize-none"></textarea>
+            <p class="field-error text-red-500 text-xs mt-1 hidden"></p>
+        </div>
+
+        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-6 rounded-xl transition min-h-[48px]">
+                確認送出
+            </button>
+        </div>
+    </form>
+
+    <!-- 送出成功提示（預設隱藏） -->
+    <div id="success-msg" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow p-8 text-center">
+        <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-check text-2xl text-green-600 dark:text-green-400"></i>
+        </div>
+        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">資料已送出</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">感謝您的填寫，資料已成功送出。</p>
+        <button type="button" onclick="location.reload()"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-xl transition min-h-[48px]">
+            填寫新資料
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // ===== Tab 切換 =====
+    const tabMap = {
+        'pr': 'form-pr',
+        'agent': 'form-agent',
+        'transfer': 'form-transfer'
+    };
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const target = this.dataset.tab;
+
+            // 更新 tab 樣式
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-indigo-400', 'dark:text-indigo-400');
+                b.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            });
+            this.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            this.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-indigo-400', 'dark:text-indigo-400');
+
+            // 切換表單
+            document.querySelectorAll('.tab-content').forEach(f => f.classList.add('hidden'));
+            document.getElementById(tabMap[target]).classList.remove('hidden');
+
+            // 清除所有錯誤
+            clearAllErrors();
+        });
+    });
+
+    // ===== 驗證規則 =====
+
+    // 台灣身分證字號驗證（含檢查碼）
+    function validateTWID(id) {
+        if (!id) return '請輸入身分證字號';
+        id = id.toUpperCase();
+        if (!/^[A-Z][12]\d{8}$/.test(id)) return '格式錯誤：需為 1 個英文字母 + 9 位數字，第二碼為 1 或 2';
+
+        const mapping = {
+            A:10,B:11,C:12,D:13,E:14,F:15,G:16,H:17,I:34,J:18,K:19,L:20,
+            M:21,N:22,O:35,P:23,Q:24,R:25,S:26,T:27,U:28,V:29,W:32,X:30,Y:31,Z:33
+        };
+        const n1 = mapping[id[0]];
+        let sum = Math.floor(n1 / 10) + (n1 % 10) * 9;
+        for (let i = 1; i < 9; i++) {
+            sum += parseInt(id[i]) * (8 - i + 1);
+        }
+        sum += parseInt(id[9]);
+        if (sum % 10 !== 0) return '身分證字號檢查碼錯誤，請確認是否輸入正確';
+        return '';
+    }
+
+    // 民國出生日期驗證
+    function validateBirthROC(val) {
+        if (!val) return '請輸入出生日期';
+        if (!/^\d{2,3}\/\d{2}\/\d{2}$/.test(val)) return '格式錯誤：請使用 民國年/月/日，例如 85/06/15';
+        const parts = val.split('/');
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const day = parseInt(parts[2]);
+        if (year < 1 || year > 115) return '民國年份範圍不合理，請確認';
+        if (month < 1 || month > 12) return '月份應為 01 ~ 12';
+        if (day < 1 || day > 31) return '日期應為 01 ~ 31';
+        return '';
+    }
+
+    // 通用必填檢查
+    function validateRequired(val, label) {
+        if (!val || !val.trim()) return '請輸入' + label;
+        return '';
+    }
+
+    // ===== 顯示 / 清除錯誤 =====
+    function showError(input, msg) {
+        const errorEl = input.closest('div').querySelector('.field-error');
+        if (errorEl) {
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+        input.classList.add('border-red-500', 'dark:border-red-500');
+        input.classList.remove('border-gray-300', 'dark:border-gray-600');
+    }
+
+    function clearError(input) {
+        const errorEl = input.closest('div').querySelector('.field-error');
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        }
+        input.classList.remove('border-red-500', 'dark:border-red-500');
+        input.classList.add('border-gray-300', 'dark:border-gray-600');
+    }
+
+    function clearAllErrors() {
+        document.querySelectorAll('.field-error').forEach(el => {
+            el.textContent = '';
+            el.classList.add('hidden');
+        });
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.classList.remove('border-red-500', 'dark:border-red-500');
+            input.classList.add('border-gray-300', 'dark:border-gray-600');
+        });
+    }
+
+    // ===== 即時驗證（失焦時） =====
+    document.querySelectorAll('.form-input').forEach(input => {
+        input.addEventListener('blur', function() {
+            validateField(this);
+        });
+        // 輸入時清除錯誤
+        input.addEventListener('input', function() {
+            clearError(this);
+        });
+    });
+
+    // 身分證字號自動轉大寫
+    document.querySelectorAll('input[name="id_number"]').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    });
+
+    function validateField(input) {
+        const name = input.name;
+        const val = input.value;
+        let error = '';
+
+        if (name === 'id_number') {
+            error = validateTWID(val);
+        } else if (name === 'birth_roc') {
+            error = validateBirthROC(val);
+        } else {
+            // 從 label 取得欄位名稱
+            const label = input.closest('div').querySelector('label');
+            const labelText = label ? label.textContent.replace('*', '').trim() : '此欄位';
+            error = validateRequired(val, labelText);
+        }
+
+        if (error) {
+            showError(input, error);
+            return false;
+        } else {
+            clearError(input);
+            return true;
+        }
+    }
+
+    // ===== 表單送出 =====
+    document.querySelectorAll('form.tab-content').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            let isValid = true;
+            let firstError = null;
+
+            // 驗證所有欄位
+            this.querySelectorAll('.form-input').forEach(input => {
+                if (!validateField(input)) {
+                    isValid = false;
+                    if (!firstError) firstError = input;
+                }
+            });
+
+            if (!isValid) {
+                firstError.focus();
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // 收集資料
+            const formData = new FormData(this);
+            const data = {};
+            formData.forEach((val, key) => { data[key] = val; });
+            console.log('送出資料：', data);
+
+            // 顯示成功畫面
+            document.querySelectorAll('.tab-content').forEach(f => f.classList.add('hidden'));
+            document.querySelector('.bg-amber-50, .dark\\:bg-amber-900\\/20')?.closest('.bg-amber-50')?.classList.add('hidden');
+            // 隱藏提醒區塊
+            const warningBlock = document.querySelector('.bg-amber-50');
+            if (warningBlock) warningBlock.classList.add('hidden');
+            // 隱藏 tab
+            document.querySelector('.bg-white.dark\\:bg-gray-800.rounded-xl.shadow.mb-6')?.classList.add('hidden');
+            document.getElementById('success-msg').classList.remove('hidden');
+        });
+    });
+})();
+</script>
+{% endblock %}

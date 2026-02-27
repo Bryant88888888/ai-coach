@@ -2227,6 +2227,20 @@ async def duty_complaint_handle(
     )
 
 
+# ========== 人事資料填寫表單 ==========
+
+@router.get("/dashboard/info-form", response_class=HTMLResponse)
+async def info_form_page(request: Request):
+    """人事資料填寫表單頁面"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    return templates.TemplateResponse("info_form.html", {
+        "request": request,
+        "active_page": "profiles"
+    })
+
+
 # ========== 人事資料（後台）==========
 
 @router.get("/dashboard/profiles", response_class=HTMLResponse)
