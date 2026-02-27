@@ -2233,7 +2233,7 @@ async def duty_complaint_handle(
 async def info_form_page(request: Request):
     """人事資料填寫表單頁面（LINE 內使用）"""
     settings = get_settings()
-    liff_id = settings.liff_id_profile or settings.liff_id
+    liff_id = settings.liff_id_info_form or settings.liff_id
 
     return templates.TemplateResponse("info_form.html", {
         "request": request,

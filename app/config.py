@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     liff_id_profile: str = ""  # 員工註冊 2008963144-EzIS1UVr
     liff_id_duty: str = ""  # 值日專區 2008947006-AmZt0mCM
     liff_id_leave: str = ""  # 請假申請 2008773725-gGNIKakw
+    liff_id_info_form: str = ""  # 人事資料填寫 2008963144-cG4uU4W4
 
     # 請假通知設定（主管 LINE User IDs，用逗號分隔）
     manager_line_ids: str = ""
