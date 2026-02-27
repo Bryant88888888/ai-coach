@@ -38,6 +38,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">暱稱</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">手機號碼</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">職位</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">狀態</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">註冊時間</th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
                     </tr>
@@ -65,6 +66,17 @@
                             </span>
                             {% else %}-{% endif %}
                         </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if user.status == 'Active' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400">
+                                <i class="fas fa-circle text-[6px] mr-1.5"></i>啟用
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400">
+                                <i class="fas fa-circle text-[6px] mr-1.5"></i>停用
+                            </span>
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                             {% if user.registered_at %}
                                 {{ user.registered_at.strftime('%Y-%m-%d %H:%M') }}
@@ -73,7 +85,7 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <button onclick="openEditModal({{ user.id }}, '{{ user.line_display_name or '' }}', '{{ user.real_name or '' }}', '{{ user.nickname or '' }}', '{{ user.phone or '' }}', '{{ user.position or '' }}')"
+                            <button onclick="openEditModal({{ user.id }}, '{{ user.line_display_name or '' }}', '{{ user.real_name or '' }}', '{{ user.nickname or '' }}', '{{ user.phone or '' }}', '{{ user.position or '' }}', '{{ user.status or 'Active' }}')"
                                 class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition">
                                 <i class="fas fa-pen"></i>
                             </button>
@@ -134,6 +146,14 @@
                     <option value="助理">助理</option>
                 </select>
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">狀態</label>
+                <select name="active_status" id="edit-active-status"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    <option value="Active">啟用</option>
+                    <option value="Inactive">停用（離職）</option>
+                </select>
+            </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeEditModal()"
                     class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
@@ -151,13 +171,14 @@
 
 {% block scripts %}
 <script>
-    function openEditModal(userId, lineName, realName, nickname, phone, position) {
+    function openEditModal(userId, lineName, realName, nickname, phone, position, status) {
         document.getElementById('edit-form').action = `/dashboard/profiles/${userId}/edit`;
         document.getElementById('edit-line-name').value = lineName;
         document.getElementById('edit-real-name').value = realName;
         document.getElementById('edit-nickname').value = nickname;
         document.getElementById('edit-phone').value = phone;
         document.getElementById('edit-position').value = position || '';
+        document.getElementById('edit-active-status').value = status || 'Active';
         document.getElementById('edit-modal').classList.remove('hidden');
     }
 

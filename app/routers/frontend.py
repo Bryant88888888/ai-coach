@@ -2285,6 +2285,7 @@ async def profiles_edit(
     phone = form_data.get("phone", "").strip()
     line_display_name = form_data.get("line_display_name", "").strip()
     position = form_data.get("position", "").strip()
+    active_status = form_data.get("active_status", "Active").strip()
 
     if not real_name or not nickname or not phone:
         return RedirectResponse(url="/dashboard/profiles?error=所有欄位皆為必填", status_code=303)
@@ -2293,6 +2294,7 @@ async def profiles_edit(
     user.nickname = nickname
     user.phone = phone
     user.position = position if position else None
+    user.status = active_status
     if line_display_name:
         user.line_display_name = line_display_name
 
