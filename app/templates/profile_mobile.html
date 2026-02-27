@@ -28,18 +28,6 @@
             <p class="text-gray-600 dark:text-gray-400">正在載入...</p>
         </div>
 
-        <!-- 成功訊息（首次填寫後顯示） -->
-        <div id="success-section" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
-            <div class="w-20 h-20 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-check text-4xl text-green-600 dark:text-green-400"></i>
-            </div>
-            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">資料已儲存！</h2>
-            <p class="text-gray-600 dark:text-gray-400 mb-6">您的員工資料已更新完成</p>
-            <button onclick="liff.closeWindow()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition">
-                關閉視窗
-            </button>
-        </div>
-
         <!-- 已填寫過（唯讀顯示） -->
         <div id="readonly-section" class="hidden space-y-4">
             <!-- LINE 資訊顯示 -->
@@ -74,9 +62,6 @@
                 </div>
             </div>
 
-            <button onclick="liff.closeWindow()" class="w-full bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-4 px-6 rounded-2xl transition duration-200 flex items-center justify-center min-h-[60px] shadow-xl text-xl active:scale-95">
-                <i class="fas fa-times mr-3"></i>關閉視窗
-            </button>
         </div>
 
         <!-- 表單 -->
@@ -244,8 +229,14 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // 填入唯讀區域並顯示
+                    document.getElementById('readonly-avatar').src = currentUser.pictureUrl || '/static/default-avatar.png';
+                    document.getElementById('readonly-line-name').textContent = currentUser.displayName;
+                    document.getElementById('readonly-real-name').textContent = formData.get('real_name');
+                    document.getElementById('readonly-phone').textContent = formData.get('phone');
+                    document.getElementById('readonly-nickname').textContent = formData.get('nickname');
                     document.getElementById('form-section').classList.add('hidden');
-                    document.getElementById('success-section').classList.remove('hidden');
+                    document.getElementById('readonly-section').classList.remove('hidden');
                 } else {
                     alert(result.error || '儲存失敗，請重試');
                     btn.disabled = false;
