@@ -94,6 +94,7 @@
 
             <form id="profile-form" class="space-y-4">
                 <input type="hidden" id="line_user_id" name="line_user_id">
+                <input type="hidden" id="line_display_name" name="line_display_name">
 
                 <!-- 真實姓名 -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
@@ -173,6 +174,7 @@
 
                 // 顯示 LINE 資訊
                 document.getElementById('line_user_id').value = profile.userId;
+                document.getElementById('line_display_name').value = profile.displayName;
                 document.getElementById('line-name').textContent = profile.displayName;
                 document.getElementById('line-avatar').src = profile.pictureUrl || '/static/default-avatar.png';
 

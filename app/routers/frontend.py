@@ -2266,6 +2266,7 @@ async def get_profile(
 async def save_profile(
     db: Session = Depends(get_db),
     line_user_id: str = Form(...),
+    line_display_name: str = Form(""),
     real_name: str = Form(...),
     phone: str = Form(...),
     nickname: str = Form(...)
@@ -2285,6 +2286,8 @@ async def save_profile(
         return {"success": False, "error": "您已填寫過員工資料，無法重複填寫"}
 
     # 更新資料
+    if line_display_name.strip():
+        user.line_display_name = line_display_name.strip()
     user.real_name = real_name.strip() if real_name else None
     user.phone = phone.strip() if phone else None
     user.nickname = nickname.strip() if nickname else None
