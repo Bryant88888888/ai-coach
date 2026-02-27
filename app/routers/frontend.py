@@ -1747,8 +1747,11 @@ async def duty_members_update(
     form_data = await request.form()
     selected_ids = set(int(id) for id in form_data.getlist("duty_members"))
 
-    # 取得所有用戶
-    all_users = db.query(User).all()
+    # 只取得已填寫員工資料的用戶
+    all_users = db.query(User).filter(
+        User.real_name.isnot(None),
+        User.real_name != ""
+    ).all()
 
     added_count = 0
     removed_count = 0

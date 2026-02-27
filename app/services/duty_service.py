@@ -80,10 +80,12 @@ class DutyService:
     # ===== 值日生名單管理 =====
 
     def get_duty_members(self) -> list[User]:
-        """取得所有值日生（有 duty_member 角色的用戶）"""
+        """取得所有值日生（有 duty_member 角色且已填寫員工資料的用戶）"""
         return self.db.query(User).filter(
-            User.roles.contains('"duty_member"')
-        ).order_by(User.line_display_name).all()
+            User.roles.contains('"duty_member"'),
+            User.real_name.isnot(None),
+            User.real_name != ""
+        ).order_by(User.real_name).all()
 
     def add_duty_member(self, user_id: int) -> Optional[User]:
         """將用戶設為值日生"""
