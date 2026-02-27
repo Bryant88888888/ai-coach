@@ -98,13 +98,31 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                     line_service.send_reply(event.reply_token, reply_data["content"])
 
             except Exception as e:
-                # 發生錯誤時也要回覆，避免用戶等不到回應
+                # 發生錯誤時不回覆用戶，改為通知管理員
                 print(f"❌ 處理訊息失敗: {e}")
-                error_reply = "抱歉，系統處理時發生錯誤，請稍後再試。如持續發生問題，請聯繫管理員。"
-                try:
-                    line_service.send_reply(event.reply_token, error_reply)
-                except Exception as reply_error:
-                    print(f"❌ 發送錯誤回覆也失敗: {reply_error}")
+
+                # 通知管理員
+                from app.config import get_settings
+                settings = get_settings()
+                if settings.error_notify_line_id:
+                    try:
+                        user_id = event.source.user_id
+                        user_msg = event.message.text[:50]  # 截取前50字
+                        error_msg = str(e)[:200]  # 截取前200字
+
+                        notify_message = (
+                            f"⚠️ 系統錯誤通知\n\n"
+                            f"👤 用戶: {user_id[:10]}...\n"
+                            f"💬 訊息: {user_msg}\n"
+                            f"❌ 錯誤: {error_msg}"
+                        )
+                        line_service.send_push_message(
+                            settings.error_notify_line_id,
+                            notify_message
+                        )
+                        print(f"✅ 已發送錯誤通知給管理員")
+                    except Exception as notify_error:
+                        print(f"❌ 發送錯誤通知失敗: {notify_error}")
 
         # 註冊 Postback 處理器（用於請假審核按鈕和訓練開始按鈕）
         @handler.add(PostbackEvent)

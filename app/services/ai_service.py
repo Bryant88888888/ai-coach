@@ -1,6 +1,7 @@
 import json
 import re
-from anthropic import Anthropic
+import time
+from anthropic import Anthropic, APIStatusError
 from app.config import get_settings
 from app.schemas.ai_response import AIResponse
 from app.data.days_data import get_exam_prompt, get_day_data
@@ -9,10 +10,36 @@ from app.data.days_data import get_exam_prompt, get_day_data
 class AIService:
     """AI 服務（Claude 串接與評分）"""
 
+    # 重試設定
+    MAX_RETRIES = 3
+    RETRY_DELAY = 2  # 秒
+
     def __init__(self):
         settings = get_settings()
         self.client = Anthropic(api_key=settings.anthropic_api_key)
         self.model = settings.claude_model
+
+    def _call_api_with_retry(self, **kwargs) -> any:
+        """
+        帶重試機制的 API 調用
+
+        處理 529 (Overloaded) 和其他暫時性錯誤
+        """
+        last_error = None
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                return self.client.messages.create(**kwargs)
+            except APIStatusError as e:
+                last_error = e
+                # 529 = Overloaded, 503 = Service Unavailable
+                if e.status_code in (529, 503):
+                    if attempt < self.MAX_RETRIES - 1:
+                        wait_time = self.RETRY_DELAY * (attempt + 1)
+                        print(f"⚠️ API 過載 (嘗試 {attempt + 1}/{self.MAX_RETRIES})，{wait_time}秒後重試...")
+                        time.sleep(wait_time)
+                        continue
+                raise
+        raise last_error
 
     def generate_response(
         self,
@@ -68,8 +95,8 @@ class AIService:
         # 加入用戶訊息
         messages.append({"role": "user", "content": user_message})
 
-        # 呼叫 Claude
-        response = self.client.messages.create(
+        # 呼叫 Claude（帶重試機制）
+        response = self._call_api_with_retry(
             model=self.model,
             max_tokens=1000,
             system=system_prompt,
@@ -168,7 +195,7 @@ B. 有經驗新人（特徵：問待遇、抽成、比較其他店、使用行�
 如果無法判斷，預設回覆 "A"。"""
 
         try:
-            response = self.client.messages.create(
+            response = self._call_api_with_retry(
                 model=self.model,
                 max_tokens=10,
                 system=system_prompt,
