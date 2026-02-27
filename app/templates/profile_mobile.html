@@ -74,12 +74,12 @@
                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg">
                 </div>
 
-                <!-- 員工編號（選填） -->
+                <!-- 暱稱（綽號） -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-id-badge text-indigo-500 mr-2"></i>員工編號 <span class="text-gray-400 text-xs">（選填）</span>
+                        <i class="fas fa-star text-indigo-500 mr-2"></i>暱稱（綽號） <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" id="employee_id" name="employee_id" placeholder="如有請填寫"
+                    <input type="text" id="nickname" name="nickname" required placeholder="請輸入您的暱稱"
                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg">
                 </div>
 
@@ -165,7 +165,7 @@
                     const data = await response.json();
                     if (data.real_name) document.getElementById('real_name').value = data.real_name;
                     if (data.phone) document.getElementById('phone').value = data.phone;
-                    if (data.employee_id) document.getElementById('employee_id').value = data.employee_id;
+                    if (data.nickname) document.getElementById('nickname').value = data.nickname;
                 }
             } catch (error) {
                 console.log('無現有資料或載入失敗');

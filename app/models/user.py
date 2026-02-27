@@ -48,7 +48,7 @@ class User(Base):
     # 新增欄位：統一用戶系統
     roles = Column(Text, default='["trainee"]')  # JSON array: trainee, staff, duty_member, manager, admin
     phone = Column(String(20), nullable=True)  # 電話號碼
-    employee_id = Column(String(50), nullable=True)  # 員工編號
+    nickname = Column(String(100), nullable=True)  # 暱稱（綽號）
     registered_at = Column(DateTime(timezone=True), nullable=True)  # 正式註冊時間
     manager_notification_enabled = Column(Boolean, default=True)  # 主管通知設定
 

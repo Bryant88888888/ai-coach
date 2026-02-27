@@ -2233,7 +2233,7 @@ async def get_profile(
         "success": True,
         "real_name": user.real_name,
         "phone": user.phone,
-        "employee_id": user.employee_id
+        "nickname": user.nickname
     }
 
 
@@ -2243,7 +2243,7 @@ async def save_profile(
     line_user_id: str = Form(...),
     real_name: str = Form(...),
     phone: str = Form(...),
-    employee_id: str = Form(None)
+    nickname: str = Form(...)
 ):
     """儲存用戶資料 API"""
     user_service = UserService(db)
@@ -2258,7 +2258,7 @@ async def save_profile(
     # 更新資料
     user.real_name = real_name.strip() if real_name else None
     user.phone = phone.strip() if phone else None
-    user.employee_id = employee_id.strip() if employee_id else None
+    user.nickname = nickname.strip() if nickname else None
 
     # 設置註冊時間（如果尚未設置）
     if not user.registered_at:

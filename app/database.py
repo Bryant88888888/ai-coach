@@ -122,12 +122,12 @@ def run_migrations():
                     except Exception as e:
                         print(f"Migration note: {e}")
 
-                if 'employee_id' not in columns:
+                if 'nickname' not in columns:
                     try:
                         conn.execute(text(
-                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_id VARCHAR(50)"
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(100)"
                         ))
-                        print("Migration: Added 'employee_id' column to users table")
+                        print("Migration: Added 'nickname' column to users table")
                     except Exception as e:
                         print(f"Migration note: {e}")
 
