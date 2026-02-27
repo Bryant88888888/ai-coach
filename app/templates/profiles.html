@@ -12,6 +12,18 @@
         </div>
     </div>
 
+    <!-- 訊息提示 -->
+    {% if request.query_params.get('success') %}
+    <div class="mb-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400">
+        <i class="fas fa-check-circle mr-2"></i>{{ request.query_params.get('success') }}
+    </div>
+    {% endif %}
+    {% if request.query_params.get('error') %}
+    <div class="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400">
+        <i class="fas fa-exclamation-circle mr-2"></i>{{ request.query_params.get('error') }}
+    </div>
+    {% endif %}
+
     {% if users %}
     <!-- 員工列表 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
@@ -26,6 +38,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">暱稱</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">手機號碼</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">註冊時間</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -46,6 +59,12 @@
                                 -
                             {% endif %}
                         </td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="openEditModal({{ user.id }}, '{{ user.line_display_name or '' }}', '{{ user.real_name or '' }}', '{{ user.nickname or '' }}', '{{ user.phone or '' }}')"
+                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -60,4 +79,72 @@
     </div>
     {% endif %}
 </div>
+
+<!-- 編輯 Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white">編輯員工資料</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="edit-form" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LINE 名稱</label>
+                <input type="text" name="line_display_name" id="edit-line-name"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">真實姓名 <span class="text-red-500">*</span></label>
+                <input type="text" name="real_name" id="edit-real-name" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">暱稱 <span class="text-red-500">*</span></label>
+                <input type="text" name="nickname" id="edit-nickname" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">手機號碼 <span class="text-red-500">*</span></label>
+                <input type="tel" name="phone" id="edit-phone" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeEditModal()"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    取消
+                </button>
+                <button type="submit"
+                    class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">
+                    <i class="fas fa-save mr-2"></i>儲存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditModal(userId, lineName, realName, nickname, phone) {
+        document.getElementById('edit-form').action = `/dashboard/profiles/${userId}/edit`;
+        document.getElementById('edit-line-name').value = lineName;
+        document.getElementById('edit-real-name').value = realName;
+        document.getElementById('edit-nickname').value = nickname;
+        document.getElementById('edit-phone').value = phone;
+        document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal').classList.add('hidden');
+    }
+
+    // 點擊背景關閉
+    document.getElementById('edit-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('edit-modal')) {
+            closeEditModal();
+        }
+    });
+</script>
 {% endblock %}

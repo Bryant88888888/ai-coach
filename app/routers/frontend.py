@@ -2226,6 +2226,40 @@ async def profiles_page(
     })
 
 
+@router.post("/dashboard/profiles/{user_id}/edit")
+async def profiles_edit(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """編輯員工人事資料"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    form_data = await request.form()
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/dashboard/profiles?error=找不到該用戶", status_code=303)
+
+    real_name = form_data.get("real_name", "").strip()
+    nickname = form_data.get("nickname", "").strip()
+    phone = form_data.get("phone", "").strip()
+    line_display_name = form_data.get("line_display_name", "").strip()
+
+    if not real_name or not nickname or not phone:
+        return RedirectResponse(url="/dashboard/profiles?error=所有欄位皆為必填", status_code=303)
+
+    user.real_name = real_name
+    user.nickname = nickname
+    user.phone = phone
+    if line_display_name:
+        user.line_display_name = line_display_name
+
+    db.commit()
+
+    return RedirectResponse(url="/dashboard/profiles?success=已更新員工資料", status_code=303)
+
+
 # ========== 員工資料（Profile LIFF）==========
 
 @router.get("/profile", response_class=HTMLResponse)
