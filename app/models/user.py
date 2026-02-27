@@ -51,6 +51,7 @@ class User(Base):
     nickname = Column(String(100), nullable=True)  # 暱稱（綽號）
     registered_at = Column(DateTime(timezone=True), nullable=True)  # 正式註冊時間
     manager_notification_enabled = Column(Boolean, default=True)  # 主管通知設定
+    position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
 
     # 關聯
     messages = relationship("Message", back_populates="user", order_by="Message.created_at.desc()")

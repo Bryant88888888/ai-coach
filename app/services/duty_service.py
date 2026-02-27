@@ -20,10 +20,13 @@ class DutyService:
     # ===== 設定管理 =====
 
     def get_config(self, config_id: int = None) -> Optional[DutyConfig]:
-        """取得排班設定（預設取第一個活躍設定）"""
+        """取得排班設定（預設取第一個活躍的一般設定，排除駐店組長）"""
         if config_id:
             return self.db.query(DutyConfig).filter(DutyConfig.id == config_id).first()
-        return self.db.query(DutyConfig).filter(DutyConfig.is_active == True).first()
+        return self.db.query(DutyConfig).filter(
+            DutyConfig.is_active == True,
+            DutyConfig.name != '駐店組長'
+        ).first()
 
     def get_all_configs(self) -> list[DutyConfig]:
         """取得所有排班設定"""
@@ -102,6 +105,81 @@ class DutyService:
             user.remove_role(UserRole.DUTY_MEMBER.value)
             self.db.commit()
         return user
+
+    # ===== 組長名單管理 =====
+
+    def get_leader_members(self) -> list[User]:
+        """取得所有職位為「組長」且已填寫員工資料的用戶"""
+        return self.db.query(User).filter(
+            User.position == '組長',
+            User.real_name.isnot(None),
+            User.real_name != ""
+        ).order_by(User.real_name).all()
+
+    def get_or_create_leader_config(self) -> DutyConfig:
+        """取得或建立「駐店組長」排班設定"""
+        config = self.db.query(DutyConfig).filter(
+            DutyConfig.name == '駐店組長'
+        ).first()
+        if not config:
+            config = DutyConfig(
+                name='駐店組長',
+                members_per_day=1,
+                notify_time='08:00',
+                is_active=True
+            )
+            self.db.add(config)
+            self.db.commit()
+            self.db.refresh(config)
+        return config
+
+    def auto_generate_leader_schedule(
+        self,
+        start_date: date,
+        end_date: date
+    ) -> list[DutySchedule]:
+        """
+        自動生成駐店組長排班（輪替制）
+
+        Args:
+            start_date: 開始日期
+            end_date: 結束日期
+
+        Returns:
+            生成的排班列表
+        """
+        config = self.get_or_create_leader_config()
+        leader_members = self.get_leader_members()
+        if not leader_members:
+            raise ValueError("沒有職位為「組長」的員工可排班")
+
+        schedules = []
+        current_date = start_date
+        member_index = 0
+
+        while current_date <= end_date:
+            # 跳過已有排班的日期
+            existing = self.db.query(DutySchedule).filter(
+                DutySchedule.config_id == config.id,
+                DutySchedule.duty_date == current_date
+            ).first()
+
+            if not existing:
+                for i in range(config.members_per_day):
+                    member = leader_members[member_index % len(leader_members)]
+                    schedule = DutySchedule(
+                        config_id=config.id,
+                        user_id=member.id,
+                        duty_date=current_date
+                    )
+                    self.db.add(schedule)
+                    schedules.append(schedule)
+                    member_index += 1
+
+            current_date += timedelta(days=1)
+
+        self.db.commit()
+        return schedules
 
     # ===== 排班管理 =====
 

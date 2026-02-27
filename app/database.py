@@ -149,6 +149,15 @@ def run_migrations():
                     except Exception as e:
                         print(f"Migration note: {e}")
 
+                if 'position' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(50)"
+                        ))
+                        print("Migration: Added 'position' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
                 conn.commit()
 
         # 檢查並加入 leave_requests 新欄位

@@ -1908,9 +1908,8 @@ async def duty_schedule_page(
     else:
         next_year, next_month = year, month + 1
 
-    # 取得月曆資料
-    config_id = config.id if config else None
-    calendar_data = duty_service.get_month_schedule(year, month, config_id)
+    # 取得月曆資料（不傳 config_id，顯示所有排班）
+    calendar_data = duty_service.get_month_schedule(year, month)
 
     # 計算本月最後一天
     import calendar as cal_module
@@ -1964,6 +1963,32 @@ async def duty_schedule_generate(
         schedules = duty_service.auto_generate_schedule(config.id, start_date, end_date)
         return RedirectResponse(
             url=f"/dashboard/duty/schedule?success=已生成 {len(schedules)} 筆排班",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/duty/schedule/generate-leader")
+async def duty_schedule_generate_leader(
+    request: Request,
+    db: Session = Depends(get_db),
+    start_date: date = Form(...),
+    end_date: date = Form(...)
+):
+    """自動生成駐店組長排班"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    duty_service = DutyService(db)
+
+    try:
+        schedules = duty_service.auto_generate_leader_schedule(start_date, end_date)
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?success=已生成 {len(schedules)} 筆組長排班",
             status_code=303
         )
     except ValueError as e:
@@ -2245,6 +2270,7 @@ async def profiles_edit(
     nickname = form_data.get("nickname", "").strip()
     phone = form_data.get("phone", "").strip()
     line_display_name = form_data.get("line_display_name", "").strip()
+    position = form_data.get("position", "").strip()
 
     if not real_name or not nickname or not phone:
         return RedirectResponse(url="/dashboard/profiles?error=所有欄位皆為必填", status_code=303)
@@ -2252,6 +2278,7 @@ async def profiles_edit(
     user.real_name = real_name
     user.nickname = nickname
     user.phone = phone
+    user.position = position if position else None
     if line_display_name:
         user.line_display_name = line_display_name
 
