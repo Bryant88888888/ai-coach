@@ -27,6 +27,7 @@
 </div>
 {% endif %}
 
+{# 清潔值日設定區塊暫時隱藏
 <!-- 新增設定 -->
 {% if not config %}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
@@ -127,11 +128,13 @@
     </form>
 </div>
 {% endif %}
+#}
 
 {% set weekday_names = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'] %}
 
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 <!-- 值日生排班規則 -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 border-l-4 border-blue-500">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-blue-500">
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
         <i class="fas fa-calendar-check text-blue-500 mr-2"></i>值日生排班規則
     </h2>
@@ -139,37 +142,46 @@
     <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3" id="duty_form">
         <input type="hidden" name="rule_type" value="duty">
         {% for i in range(7) %}
-        <div class="flex items-start gap-3">
-            <span class="w-16 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-2">{{ weekday_names[i] }}</span>
+        <div class="flex items-start gap-2">
+            <span class="w-14 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-1">{{ weekday_names[i] }}</span>
             <div class="flex-1">
                 <input type="hidden" name="weekday_{{ i }}" id="duty_uid_{{ i }}"
                        value="{% if duty_rules.get(i) %}{{ duty_rules[i]|map(attribute='id')|join(',') }}{% endif %}">
-                <!-- 已選人員標籤 -->
-                <div id="duty_tags_{{ i }}" class="flex flex-wrap gap-1 mb-1">
-                    {% if duty_rules.get(i) %}
-                    {% for u in duty_rules[i] %}
-                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" data-uid="{{ u.id }}">
-                        {{ u.nickname or u.real_name }}
-                        <button type="button" onclick="removeTag('duty', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
-                    </span>
-                    {% endfor %}
-                    {% endif %}
-                </div>
-                <!-- 選人輸入框 -->
-                <div class="relative" data-picker="duty_{{ i }}">
-                    <input type="text" id="duty_search_{{ i }}" placeholder="搜尋並新增人員..."
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500"
-                           onfocus="openPicker('duty', {{ i }})" oninput="filterOptions('duty', {{ i }})">
-                    <div id="duty_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {% for user in duty_eligible %}
-                        <div class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
-                            data-uid="{{ user.id }}"
-                            data-name="{{ user.nickname or user.real_name }}"
-                            data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
-                            onclick="addTag('duty', {{ i }}, this)">
-                            {{ user.nickname or user.real_name }}（{{ user.real_name }}）
-                        </div>
+                <div class="flex items-center gap-1 flex-wrap">
+                    <!-- 已選人員標籤 -->
+                    <div id="duty_tags_{{ i }}" class="flex flex-wrap gap-1">
+                        {% if duty_rules.get(i) %}
+                        {% for u in duty_rules[i] %}
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" data-uid="{{ u.id }}">
+                            {{ u.nickname or u.real_name }}
+                            <button type="button" onclick="removeTag('duty', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
+                        </span>
                         {% endfor %}
+                        {% endif %}
+                    </div>
+                    <!-- + 按鈕 -->
+                    <button type="button" onclick="toggleSearch('duty', {{ i }})"
+                        class="w-7 h-7 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition text-sm">
+                        <i class="fas fa-plus text-xs"></i>
+                    </button>
+                </div>
+                <!-- 搜尋區（預設隱藏） -->
+                <div id="duty_picker_{{ i }}" class="hidden mt-1">
+                    <div class="relative" data-picker="duty_{{ i }}">
+                        <input type="text" id="duty_search_{{ i }}" placeholder="搜尋並新增人員..."
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500"
+                               onfocus="openPicker('duty', {{ i }})" oninput="filterOptions('duty', {{ i }})">
+                        <div id="duty_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {% for user in duty_eligible %}
+                            <div class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
+                                data-uid="{{ user.id }}"
+                                data-name="{{ user.nickname or user.real_name }}"
+                                data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
+                                onclick="addTag('duty', {{ i }}, this)">
+                                {{ user.nickname or user.real_name }}（{{ user.real_name }}）
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -184,7 +196,7 @@
 </div>
 
 <!-- 組長排班規則 -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 border-l-4 border-purple-500">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-purple-500">
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
         <i class="fas fa-user-tie text-purple-500 mr-2"></i>組長排班規則
     </h2>
@@ -192,37 +204,46 @@
     <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3" id="leader_form">
         <input type="hidden" name="rule_type" value="leader">
         {% for i in range(7) %}
-        <div class="flex items-start gap-3">
-            <span class="w-16 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-2">{{ weekday_names[i] }}</span>
+        <div class="flex items-start gap-2">
+            <span class="w-14 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-1">{{ weekday_names[i] }}</span>
             <div class="flex-1">
                 <input type="hidden" name="weekday_{{ i }}" id="leader_uid_{{ i }}"
                        value="{% if leader_rules.get(i) %}{{ leader_rules[i]|map(attribute='id')|join(',') }}{% endif %}">
-                <!-- 已選人員標籤 -->
-                <div id="leader_tags_{{ i }}" class="flex flex-wrap gap-1 mb-1">
-                    {% if leader_rules.get(i) %}
-                    {% for u in leader_rules[i] %}
-                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300" data-uid="{{ u.id }}">
-                        {{ u.nickname or u.real_name }}
-                        <button type="button" onclick="removeTag('leader', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
-                    </span>
-                    {% endfor %}
-                    {% endif %}
-                </div>
-                <!-- 選人輸入框 -->
-                <div class="relative" data-picker="leader_{{ i }}">
-                    <input type="text" id="leader_search_{{ i }}" placeholder="搜尋並新增人員..."
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px] focus:ring-2 focus:ring-purple-500"
-                           onfocus="openPicker('leader', {{ i }})" oninput="filterOptions('leader', {{ i }})">
-                    <div id="leader_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {% for user in leader_eligible %}
-                        <div class="px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
-                            data-uid="{{ user.id }}"
-                            data-name="{{ user.nickname or user.real_name }}"
-                            data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
-                            onclick="addTag('leader', {{ i }}, this)">
-                            {{ user.nickname or user.real_name }}（{{ user.real_name }}）
-                        </div>
+                <div class="flex items-center gap-1 flex-wrap">
+                    <!-- 已選人員標籤 -->
+                    <div id="leader_tags_{{ i }}" class="flex flex-wrap gap-1">
+                        {% if leader_rules.get(i) %}
+                        {% for u in leader_rules[i] %}
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300" data-uid="{{ u.id }}">
+                            {{ u.nickname or u.real_name }}
+                            <button type="button" onclick="removeTag('leader', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
+                        </span>
                         {% endfor %}
+                        {% endif %}
+                    </div>
+                    <!-- + 按鈕 -->
+                    <button type="button" onclick="toggleSearch('leader', {{ i }})"
+                        class="w-7 h-7 flex items-center justify-center rounded-full bg-purple-50 text-purple-500 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50 transition text-sm">
+                        <i class="fas fa-plus text-xs"></i>
+                    </button>
+                </div>
+                <!-- 搜尋區（預設隱藏） -->
+                <div id="leader_picker_{{ i }}" class="hidden mt-1">
+                    <div class="relative" data-picker="leader_{{ i }}">
+                        <input type="text" id="leader_search_{{ i }}" placeholder="搜尋並新增人員..."
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px] focus:ring-2 focus:ring-purple-500"
+                               onfocus="openPicker('leader', {{ i }})" oninput="filterOptions('leader', {{ i }})">
+                        <div id="leader_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {% for user in leader_eligible %}
+                            <div class="px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
+                                data-uid="{{ user.id }}"
+                                data-name="{{ user.nickname or user.real_name }}"
+                                data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
+                                onclick="addTag('leader', {{ i }}, this)">
+                                {{ user.nickname or user.real_name }}（{{ user.real_name }}）
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -234,6 +255,7 @@
             </button>
         </div>
     </form>
+</div>
 </div>
 
 <!-- 說明 -->
@@ -259,6 +281,34 @@ function getSelectedIds(type, idx) {
 
 function setSelectedIds(type, idx, ids) {
     document.getElementById(type + '_uid_' + idx).value = ids.join(',');
+}
+
+function closeAllPickers() {
+    ['duty', 'leader'].forEach(function(t) {
+        for (var i = 0; i < 7; i++) {
+            var p = document.getElementById(t + '_picker_' + i);
+            if (p) p.classList.add('hidden');
+            var d = document.getElementById(t + '_dropdown_' + i);
+            if (d) d.classList.add('hidden');
+        }
+    });
+    activeDropdown = null;
+}
+
+function toggleSearch(type, idx) {
+    var picker = document.getElementById(type + '_picker_' + idx);
+    if (picker.classList.contains('hidden')) {
+        closeAllPickers();
+        picker.classList.remove('hidden');
+        var searchInput = document.getElementById(type + '_search_' + idx);
+        searchInput.value = '';
+        searchInput.focus();
+    } else {
+        picker.classList.add('hidden');
+        var d = document.getElementById(type + '_dropdown_' + idx);
+        if (d) d.classList.add('hidden');
+        activeDropdown = null;
+    }
 }
 
 function openPicker(type, idx) {
@@ -314,6 +364,9 @@ function addTag(type, idx, el) {
     // 清空搜尋、重新過濾（隱藏已選）
     document.getElementById(type + '_search_' + idx).value = '';
     filterOptions(type, idx);
+
+    // 選人後自動收起搜尋框
+    closeAllPickers();
 }
 
 function removeTag(type, idx, uid) {
@@ -329,15 +382,23 @@ function removeTag(type, idx, uid) {
     filterOptions(type, idx);
 }
 
-// 點擊外部關閉 dropdown
+// 點擊外部關閉 dropdown 和 picker
 document.addEventListener('click', function(e) {
-    if (activeDropdown) {
-        var dropdown = document.getElementById(activeDropdown);
-        var parent = dropdown.parentElement;
-        if (!parent.contains(e.target)) {
-            dropdown.classList.add('hidden');
-            activeDropdown = null;
+    // 檢查是否點擊了 + 按鈕（由 onclick 處理）
+    if (e.target.closest('button[onclick^="toggleSearch"]')) return;
+
+    var clickedInsidePicker = false;
+    ['duty', 'leader'].forEach(function(t) {
+        for (var i = 0; i < 7; i++) {
+            var p = document.getElementById(t + '_picker_' + i);
+            if (p && !p.classList.contains('hidden') && p.contains(e.target)) {
+                clickedInsidePicker = true;
+            }
         }
+    });
+
+    if (!clickedInsidePicker) {
+        closeAllPickers();
     }
 });
 </script>
