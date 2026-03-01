@@ -1,15 +1,12 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
 
 
 class DutyRule(Base):
-    """排班規則（按星期幾指定人員）"""
+    """排班規則（按星期幾指定人員，同一天可多人）"""
     __tablename__ = "duty_rules"
-    __table_args__ = (
-        UniqueConstraint('rule_type', 'weekday', name='uq_duty_rules_type_weekday'),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     rule_type = Column(String(20), nullable=False)   # 'duty' or 'leader'

@@ -1900,11 +1900,11 @@ async def duty_rules_save(
 
     weekday_user_map = {}
     for i in range(7):
-        user_id = form_data.get(f"weekday_{i}")
-        if user_id:
-            weekday_user_map[i] = int(user_id)
+        raw = form_data.get(f"weekday_{i}", "")
+        if raw:
+            weekday_user_map[i] = [int(uid) for uid in raw.split(",") if uid.strip()]
         else:
-            weekday_user_map[i] = None
+            weekday_user_map[i] = []
 
     duty_service = DutyService(db)
     duty_service.save_rules(rule_type, weekday_user_map)

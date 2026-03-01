@@ -151,11 +151,13 @@ class DutyService:
         """
         config = self.get_or_create_leader_config()
 
-        # 取得組長排班規則 {weekday: DutyRule}
+        # 取得組長排班規則 {weekday: [user_id, ...]}
         rules = self.db.query(DutyRule).filter(
             DutyRule.rule_type == 'leader'
         ).all()
-        rule_map = {rule.weekday: rule.user_id for rule in rules}
+        rule_map = {}
+        for rule in rules:
+            rule_map.setdefault(rule.weekday, []).append(rule.user_id)
 
         if not rule_map:
             raise ValueError("尚未設定組長排班規則，請先到排班設定頁面設定每日組長")
@@ -175,13 +177,14 @@ class DutyService:
                 ).first()
 
                 if not existing:
-                    schedule = DutySchedule(
-                        config_id=config.id,
-                        user_id=rule_map[weekday],
-                        duty_date=current_date
-                    )
-                    self.db.add(schedule)
-                    schedules.append(schedule)
+                    for uid in rule_map[weekday]:
+                        schedule = DutySchedule(
+                            config_id=config.id,
+                            user_id=uid,
+                            duty_date=current_date
+                        )
+                        self.db.add(schedule)
+                        schedules.append(schedule)
 
             current_date += timedelta(days=1)
 
@@ -191,26 +194,34 @@ class DutyService:
     # ===== 排班規則管理 =====
 
     def get_rules(self, rule_type: str) -> dict:
-        """取得指定類型所有規則，回傳 {weekday: user} 的 dict"""
+        """取得指定類型所有規則，回傳 {weekday: [user, ...]} 的 dict"""
         rules = self.db.query(DutyRule).filter(
             DutyRule.rule_type == rule_type
         ).all()
-        return {rule.weekday: rule.user for rule in rules}
+        result = {}
+        for rule in rules:
+            result.setdefault(rule.weekday, []).append(rule.user)
+        return result
 
     def save_rules(self, rule_type: str, weekday_user_map: dict) -> None:
-        """整批儲存規則（刪除舊規則 + 新增）"""
+        """整批儲存規則（刪除舊規則 + 新增），每個 weekday 對應一個 user_id 列表"""
         self.db.query(DutyRule).filter(
             DutyRule.rule_type == rule_type
         ).delete(synchronize_session=False)
 
-        for weekday, user_id in weekday_user_map.items():
-            if user_id:
-                rule = DutyRule(
-                    rule_type=rule_type,
-                    weekday=int(weekday),
-                    user_id=int(user_id)
-                )
-                self.db.add(rule)
+        for weekday, user_ids in weekday_user_map.items():
+            if not user_ids:
+                continue
+            if not isinstance(user_ids, list):
+                user_ids = [user_ids]
+            for uid in user_ids:
+                if uid:
+                    rule = DutyRule(
+                        rule_type=rule_type,
+                        weekday=int(weekday),
+                        user_id=int(uid)
+                    )
+                    self.db.add(rule)
 
         self.db.commit()
 
@@ -248,11 +259,13 @@ class DutyService:
         if not config:
             raise ValueError("找不到排班設定")
 
-        # 取得值日生排班規則 {weekday: user_id}
+        # 取得值日生排班規則 {weekday: [user_id, ...]}
         rules = self.db.query(DutyRule).filter(
             DutyRule.rule_type == 'duty'
         ).all()
-        rule_map = {rule.weekday: rule.user_id for rule in rules}
+        rule_map = {}
+        for rule in rules:
+            rule_map.setdefault(rule.weekday, []).append(rule.user_id)
 
         if not rule_map:
             raise ValueError("尚未設定值日生排班規則，請先到排班設定頁面設定每日值日生")
@@ -272,13 +285,14 @@ class DutyService:
                 ).first()
 
                 if not existing:
-                    schedule = DutySchedule(
-                        config_id=config_id,
-                        user_id=rule_map[weekday],
-                        duty_date=current_date
-                    )
-                    self.db.add(schedule)
-                    schedules.append(schedule)
+                    for uid in rule_map[weekday]:
+                        schedule = DutySchedule(
+                            config_id=config_id,
+                            user_id=uid,
+                            duty_date=current_date
+                        )
+                        self.db.add(schedule)
+                        schedules.append(schedule)
 
             current_date += timedelta(days=1)
 
