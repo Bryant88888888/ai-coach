@@ -1797,10 +1797,22 @@ async def duty_config_page(
     duty_service = DutyService(db)
     config = duty_service.get_config()
 
+    # 載入排班規則
+    duty_rules = duty_service.get_rules('duty')
+    leader_rules = duty_service.get_rules('leader')
+
+    # 載入可選人員
+    duty_eligible = duty_service.get_eligible_users('duty')
+    leader_eligible = duty_service.get_eligible_users('leader')
+
     return templates.TemplateResponse("duty_config.html", {
         "request": request,
         "active_page": "duty",
         "config": config,
+        "duty_rules": duty_rules,
+        "leader_rules": leader_rules,
+        "duty_eligible": duty_eligible,
+        "leader_eligible": leader_eligible,
         "success_message": success,
         "error_message": error
     })
@@ -1870,6 +1882,36 @@ async def duty_config_update(
 
     return RedirectResponse(
         url="/dashboard/duty/config?success=排班設定已更新",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/duty/rules/save")
+async def duty_rules_save(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """儲存排班規則"""
+    if not require_auth(request):
+        return RedirectResponse(url="/login", status_code=303)
+
+    form_data = await request.form()
+    rule_type = form_data.get("rule_type", "duty")
+
+    weekday_user_map = {}
+    for i in range(7):
+        user_id = form_data.get(f"weekday_{i}")
+        if user_id:
+            weekday_user_map[i] = int(user_id)
+        else:
+            weekday_user_map[i] = None
+
+    duty_service = DutyService(db)
+    duty_service.save_rules(rule_type, weekday_user_map)
+
+    type_label = "值日生" if rule_type == "duty" else "組長"
+    return RedirectResponse(
+        url=f"/dashboard/duty/config?success={type_label}排班規則已儲存",
         status_code=303
     )
 

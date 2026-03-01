@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from calendar import Calendar
 
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 from app.models.duty_config import DutyConfig
 from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 from app.models.duty_report import DutyReport, DutyReportStatus
 from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
+from app.models.duty_rule import DutyRule
 
 
 class DutyService:
@@ -139,7 +140,7 @@ class DutyService:
         end_date: date
     ) -> list[DutySchedule]:
         """
-        自動生成駐店組長排班（輪替制）
+        自動生成駐店組長排班（按規則制：依星期幾指定人員）
 
         Args:
             start_date: 開始日期
@@ -149,37 +150,80 @@ class DutyService:
             生成的排班列表
         """
         config = self.get_or_create_leader_config()
-        leader_members = self.get_leader_members()
-        if not leader_members:
-            raise ValueError("沒有職位為「組長」的員工可排班")
+
+        # 取得組長排班規則 {weekday: DutyRule}
+        rules = self.db.query(DutyRule).filter(
+            DutyRule.rule_type == 'leader'
+        ).all()
+        rule_map = {rule.weekday: rule.user_id for rule in rules}
+
+        if not rule_map:
+            raise ValueError("尚未設定組長排班規則，請先到排班設定頁面設定每日組長")
 
         schedules = []
         current_date = start_date
-        member_index = 0
 
         while current_date <= end_date:
-            # 跳過已有排班的日期
-            existing = self.db.query(DutySchedule).filter(
-                DutySchedule.config_id == config.id,
-                DutySchedule.duty_date == current_date
-            ).first()
+            weekday = current_date.weekday()  # 0=Monday ~ 6=Sunday
 
-            if not existing:
-                for i in range(config.members_per_day):
-                    member = leader_members[member_index % len(leader_members)]
+            # 該天有規則才排班
+            if weekday in rule_map:
+                # 跳過已有排班的日期
+                existing = self.db.query(DutySchedule).filter(
+                    DutySchedule.config_id == config.id,
+                    DutySchedule.duty_date == current_date
+                ).first()
+
+                if not existing:
                     schedule = DutySchedule(
                         config_id=config.id,
-                        user_id=member.id,
+                        user_id=rule_map[weekday],
                         duty_date=current_date
                     )
                     self.db.add(schedule)
                     schedules.append(schedule)
-                    member_index += 1
 
             current_date += timedelta(days=1)
 
         self.db.commit()
         return schedules
+
+    # ===== 排班規則管理 =====
+
+    def get_rules(self, rule_type: str) -> dict:
+        """取得指定類型所有規則，回傳 {weekday: user} 的 dict"""
+        rules = self.db.query(DutyRule).filter(
+            DutyRule.rule_type == rule_type
+        ).all()
+        return {rule.weekday: rule.user for rule in rules}
+
+    def save_rules(self, rule_type: str, weekday_user_map: dict) -> None:
+        """整批儲存規則（刪除舊規則 + 新增）"""
+        self.db.query(DutyRule).filter(
+            DutyRule.rule_type == rule_type
+        ).delete(synchronize_session=False)
+
+        for weekday, user_id in weekday_user_map.items():
+            if user_id:
+                rule = DutyRule(
+                    rule_type=rule_type,
+                    weekday=int(weekday),
+                    user_id=int(user_id)
+                )
+                self.db.add(rule)
+
+        self.db.commit()
+
+    def get_eligible_users(self, rule_type: str) -> list[User]:
+        """取得可選人員（Active 且有 real_name）"""
+        query = self.db.query(User).filter(
+            User.status == UserStatus.ACTIVE.value,
+            User.real_name.isnot(None),
+            User.real_name != ""
+        )
+        if rule_type == 'leader':
+            query = query.filter(User.position == '組長')
+        return query.order_by(User.real_name).all()
 
     # ===== 排班管理 =====
 
@@ -190,7 +234,7 @@ class DutyService:
         end_date: date
     ) -> list[DutySchedule]:
         """
-        自動生成排班（輪替制）
+        自動生成排班（按規則制：依星期幾指定人員）
 
         Args:
             config_id: 排班設定 ID
@@ -204,33 +248,37 @@ class DutyService:
         if not config:
             raise ValueError("找不到排班設定")
 
-        duty_members = self.get_duty_members()
-        if not duty_members:
-            raise ValueError("沒有值日生可排班")
+        # 取得值日生排班規則 {weekday: user_id}
+        rules = self.db.query(DutyRule).filter(
+            DutyRule.rule_type == 'duty'
+        ).all()
+        rule_map = {rule.weekday: rule.user_id for rule in rules}
+
+        if not rule_map:
+            raise ValueError("尚未設定值日生排班規則，請先到排班設定頁面設定每日值日生")
 
         schedules = []
         current_date = start_date
-        member_index = 0
 
         while current_date <= end_date:
-            # 跳過已有排班的日期
-            existing = self.db.query(DutySchedule).filter(
-                DutySchedule.config_id == config_id,
-                DutySchedule.duty_date == current_date
-            ).first()
+            weekday = current_date.weekday()  # 0=Monday ~ 6=Sunday
 
-            if not existing:
-                # 為每天排 members_per_day 個人
-                for i in range(config.members_per_day):
-                    member = duty_members[member_index % len(duty_members)]
+            # 該天有規則才排班
+            if weekday in rule_map:
+                # 跳過已有排班的日期
+                existing = self.db.query(DutySchedule).filter(
+                    DutySchedule.config_id == config_id,
+                    DutySchedule.duty_date == current_date
+                ).first()
+
+                if not existing:
                     schedule = DutySchedule(
                         config_id=config_id,
-                        user_id=member.id,
+                        user_id=rule_map[weekday],
                         duty_date=current_date
                     )
                     self.db.add(schedule)
                     schedules.append(schedule)
-                    member_index += 1
 
             current_date += timedelta(days=1)
 

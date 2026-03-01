@@ -128,15 +128,183 @@
 </div>
 {% endif %}
 
+<!-- 值日生排班規則 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 border-l-4 border-blue-500">
+    <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
+        <i class="fas fa-calendar-check text-blue-500 mr-2"></i>值日生排班規則
+    </h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">每個星期幾指定一位值日生，生成排班時將按此規則指派</p>
+    <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3">
+        <input type="hidden" name="rule_type" value="duty">
+        {% set weekday_names = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'] %}
+        {% for i in range(7) %}
+        <div class="flex items-center gap-3">
+            <span class="w-16 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">{{ weekday_names[i] }}</span>
+            <div class="flex-1 relative" data-picker="duty_{{ i }}">
+                <input type="hidden" name="weekday_{{ i }}" id="duty_uid_{{ i }}"
+                       value="{% if duty_rules.get(i) %}{{ duty_rules[i].id }}{% endif %}">
+                <div class="flex gap-2">
+                    <input type="text" id="duty_display_{{ i }}" readonly placeholder="-- 不排班 --"
+                           value="{% if duty_rules.get(i) %}{{ duty_rules[i].nickname or duty_rules[i].real_name }}（{{ duty_rules[i].real_name }}）{% endif %}"
+                           class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer min-h-[44px] focus:ring-2 focus:ring-blue-500"
+                           onclick="openPicker('duty', {{ i }})">
+                    <button type="button" onclick="clearPicker('duty', {{ i }})"
+                            class="px-3 py-2 text-gray-400 hover:text-red-500 transition" title="清除">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="duty_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                    <input type="text" id="duty_search_{{ i }}" placeholder="搜尋姓名或暱稱..."
+                           class="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none"
+                           oninput="filterOptions('duty', {{ i }})">
+                    <ul id="duty_options_{{ i }}" class="overflow-y-auto max-h-48">
+                        {% for user in duty_eligible %}
+                        <li class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
+                            data-uid="{{ user.id }}"
+                            data-name="{{ user.nickname or user.real_name }}（{{ user.real_name }}）"
+                            data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
+                            onclick="selectOption('duty', {{ i }}, this)">
+                            {{ user.nickname or user.real_name }}（{{ user.real_name }}）
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="pt-2">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
+                <i class="fas fa-save mr-2"></i>儲存值日生規則
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 組長排班規則 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 border-l-4 border-purple-500">
+    <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
+        <i class="fas fa-user-tie text-purple-500 mr-2"></i>組長排班規則
+    </h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">每個星期幾指定一位駐店組長，僅顯示職位為「組長」的員工</p>
+    <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3">
+        <input type="hidden" name="rule_type" value="leader">
+        {% for i in range(7) %}
+        <div class="flex items-center gap-3">
+            <span class="w-16 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">{{ weekday_names[i] }}</span>
+            <div class="flex-1 relative" data-picker="leader_{{ i }}">
+                <input type="hidden" name="weekday_{{ i }}" id="leader_uid_{{ i }}"
+                       value="{% if leader_rules.get(i) %}{{ leader_rules[i].id }}{% endif %}">
+                <div class="flex gap-2">
+                    <input type="text" id="leader_display_{{ i }}" readonly placeholder="-- 不排班 --"
+                           value="{% if leader_rules.get(i) %}{{ leader_rules[i].nickname or leader_rules[i].real_name }}（{{ leader_rules[i].real_name }}）{% endif %}"
+                           class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer min-h-[44px] focus:ring-2 focus:ring-purple-500"
+                           onclick="openPicker('leader', {{ i }})">
+                    <button type="button" onclick="clearPicker('leader', {{ i }})"
+                            class="px-3 py-2 text-gray-400 hover:text-red-500 transition" title="清除">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="leader_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                    <input type="text" id="leader_search_{{ i }}" placeholder="搜尋姓名或暱稱..."
+                           class="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none"
+                           oninput="filterOptions('leader', {{ i }})">
+                    <ul id="leader_options_{{ i }}" class="overflow-y-auto max-h-48">
+                        {% for user in leader_eligible %}
+                        <li class="px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
+                            data-uid="{{ user.id }}"
+                            data-name="{{ user.nickname or user.real_name }}（{{ user.real_name }}）"
+                            data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
+                            onclick="selectOption('leader', {{ i }}, this)">
+                            {{ user.nickname or user.real_name }}（{{ user.real_name }}）
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="pt-2">
+            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
+                <i class="fas fa-save mr-2"></i>儲存組長規則
+            </button>
+        </div>
+    </form>
+</div>
+
 <!-- 說明 -->
 <div class="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4">
     <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
         <i class="fas fa-lightbulb mr-2"></i>排班設定說明
     </h3>
     <ul class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
-        <li>每日值日人數：自動排班時每天安排的值日生數量</li>
+        <li>排班規則：每個星期幾指定一個人，自動排班時按規則指派（未設定的日期不排班）</li>
         <li>提醒時間：系統在此時間透過 LINE 提醒當日值日生</li>
         <li>任務清單：值日生回報時需要勾選的任務項目</li>
     </ul>
 </div>
+
+<script>
+// 目前開啟的 dropdown
+let activeDropdown = null;
+
+function openPicker(type, idx) {
+    const dropdownId = type + '_dropdown_' + idx;
+    const dropdown = document.getElementById(dropdownId);
+    const searchInput = document.getElementById(type + '_search_' + idx);
+
+    // 關閉其他已開啟的 dropdown
+    if (activeDropdown && activeDropdown !== dropdownId) {
+        document.getElementById(activeDropdown).classList.add('hidden');
+    }
+
+    dropdown.classList.toggle('hidden');
+    if (!dropdown.classList.contains('hidden')) {
+        activeDropdown = dropdownId;
+        searchInput.value = '';
+        filterOptions(type, idx);
+        setTimeout(function() { searchInput.focus(); }, 50);
+    } else {
+        activeDropdown = null;
+    }
+}
+
+function filterOptions(type, idx) {
+    const searchInput = document.getElementById(type + '_search_' + idx);
+    const optionsList = document.getElementById(type + '_options_' + idx);
+    const keyword = searchInput.value.toLowerCase();
+    const items = optionsList.querySelectorAll('li');
+
+    items.forEach(function(item) {
+        const searchText = item.getAttribute('data-search');
+        item.style.display = searchText.indexOf(keyword) !== -1 ? '' : 'none';
+    });
+}
+
+function selectOption(type, idx, el) {
+    var uid = el.getAttribute('data-uid');
+    var name = el.getAttribute('data-name');
+
+    document.getElementById(type + '_uid_' + idx).value = uid;
+    document.getElementById(type + '_display_' + idx).value = name;
+    document.getElementById(type + '_dropdown_' + idx).classList.add('hidden');
+    activeDropdown = null;
+}
+
+function clearPicker(type, idx) {
+    document.getElementById(type + '_uid_' + idx).value = '';
+    document.getElementById(type + '_display_' + idx).value = '';
+}
+
+// 點擊外部關閉 dropdown
+document.addEventListener('click', function(e) {
+    if (activeDropdown) {
+        var dropdown = document.getElementById(activeDropdown);
+        var parent = dropdown.parentElement;
+        if (!parent.contains(e.target)) {
+            dropdown.classList.add('hidden');
+            activeDropdown = null;
+        }
+    }
+});
+</script>
 {% endblock %}

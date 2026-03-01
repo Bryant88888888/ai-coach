@@ -10,6 +10,7 @@ from app.models.duty_config import DutyConfig
 from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 from app.models.duty_report import DutyReport, DutyReportStatus
 from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
+from app.models.duty_rule import DutyRule
 
 __all__ = [
     "User",
@@ -29,4 +30,5 @@ __all__ = [
     "DutyReportStatus",
     "DutyComplaint",
     "DutyComplaintStatus",
+    "DutyRule",
 ]
