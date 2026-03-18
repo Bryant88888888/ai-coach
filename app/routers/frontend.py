@@ -2271,7 +2271,7 @@ async def duty_complaint_handle(
 
 # ========== 人事資料填寫表單（LINE LIFF）==========
 
-@router.get("/info-form", response_class=HTMLResponse)
+@router.get("/profile/info-form", response_class=HTMLResponse)
 async def info_form_page(request: Request):
     """人事資料填寫表單頁面（LINE 內使用）"""
     settings = get_settings()
