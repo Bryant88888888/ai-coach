@@ -28,6 +28,7 @@
 
         /* 避免 iOS 輸入框放大 */
         input, textarea, select { font-size: 16px !important; }
+        select option { background: #1a1a2e; color: #fff; }
         html { scroll-behavior: smooth; }
 
         body {
@@ -313,16 +314,20 @@
 
                 <div>
                     <label class="field-label block mb-1.5">狀況 <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="status" required maxlength="50" placeholder="請填寫目前狀況"
+                    <select name="status" required
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇狀況</option>
+                        <option value="白紙">白紙</option>
+                        <option value="合約">合約</option>
+                    </select>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">備註 <span style="color: #d4a853;">*</span></label>
-                    <textarea name="note" required maxlength="200" rows="3" placeholder="請填寫備註事項"
+                    <label class="field-label block mb-1.5">備註</label>
+                    <textarea name="note" maxlength="200" rows="3" placeholder="選填"
                         class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
@@ -389,8 +394,13 @@
 
                 <div>
                     <label class="field-label block mb-1.5">職稱位階 <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="job_title" required maxlength="30" placeholder="請輸入職稱或位階"
+                    <select name="job_title" required
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇位階</option>
+                        <option value="兼職">兼職</option>
+                        <option value="正職試用">正職試用</option>
+                        <option value="正式正職">正式正職</option>
+                    </select>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
@@ -415,8 +425,8 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">備註 <span style="color: #d4a853;">*</span></label>
-                    <textarea name="note" required maxlength="200" rows="3" placeholder="請填寫備註事項"
+                    <label class="field-label block mb-1.5">備註</label>
+                    <textarea name="note" maxlength="200" rows="3" placeholder="選填"
                         class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
@@ -493,8 +503,8 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">備註 <span style="color: #d4a853;">*</span></label>
-                    <textarea name="note" required maxlength="200" rows="3" placeholder="請填寫備註事項"
+                    <label class="field-label block mb-1.5">備註</label>
+                    <textarea name="note" maxlength="200" rows="3" placeholder="選填"
                         class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
@@ -636,6 +646,8 @@
     function validateField(input) {
         const name = input.name, val = input.value;
         let err = '';
+        // 非必填欄位（沒有 required 屬性）跳過驗證
+        if (!input.hasAttribute('required')) { clearError(input); return true; }
         if (name === 'id_number') err = validateTWID(val);
         else if (name === 'birth_roc') err = validateBirthROC(val);
         else {
