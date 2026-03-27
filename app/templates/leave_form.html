@@ -4,176 +4,355 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>請假申請 - 寶格教育訓練</title>
-    <script>
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark')
-        }
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            400: '#d4a853',
+                            500: '#c9952e',
+                            600: '#b8841a',
+                        }
+                    }
+                }
+            }
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- LIFF SDK -->
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-</head>
-<body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen p-4">
-    <div class="max-w-lg mx-auto py-6">
-        <!-- 標題區塊 -->
-        <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-white">請假申請</h1>
-        </div>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
 
-        {% if success %}
-        <!-- 成功時不顯示載入中 -->
-        {% else %}
-        <!-- 載入中（僅在非成功狀態顯示） -->
-        <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
-            <div class="inline-flex items-center justify-center w-16 h-16 mb-4">
-                <i class="fas fa-spinner fa-spin text-4xl text-indigo-600 dark:text-indigo-400"></i>
-            </div>
-            <p class="text-gray-600 dark:text-gray-400">正在透過 LINE 登入...</p>
+        body {
+            background-color: #08080e;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 背景光暈 */
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.25;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bg-glow-1 {
+            width: 400px; height: 400px;
+            top: -80px; left: -100px;
+            background: radial-gradient(circle, #4c1d95, transparent 70%);
+        }
+        .bg-glow-2 {
+            width: 350px; height: 350px;
+            bottom: -60px; right: -80px;
+            background: radial-gradient(circle, #1e3a5f, transparent 70%);
+        }
+        .bg-glow-3 {
+            width: 200px; height: 200px;
+            top: 40%; left: 60%;
+            background: radial-gradient(circle, #c9952e, transparent 70%);
+            opacity: 0.08;
+        }
+
+        /* 毛玻璃卡片 */
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* 輸入框樣式 */
+        .form-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            max-width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #d4a853;
+            box-shadow: 0 0 0 2px rgba(212, 168, 83, 0.15);
+        }
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* date input 修正 */
+        input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+
+        /* 選擇卡片 */
+        .type-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+        .type-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .peer:checked ~ .type-card {
+            border-color: #d4a853;
+            background: rgba(212, 168, 83, 0.08);
+            box-shadow: 0 0 20px rgba(212, 168, 83, 0.06);
+        }
+        .peer:checked ~ .type-card .type-icon {
+            color: #d4a853;
+        }
+        .peer:checked ~ .type-card .type-label {
+            color: #d4a853;
+        }
+
+        /* 送出按鈕 */
+        .btn-submit {
+            background: linear-gradient(135deg, #c9952e, #d4a853);
+            color: #08080e;
+            font-weight: 700;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-submit::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 40%;
+            height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.6s;
+        }
+        .btn-submit:hover::after {
+            left: 120%;
+        }
+        .btn-submit:hover {
+            box-shadow: 0 4px 24px rgba(201, 149, 46, 0.25);
+        }
+
+        /* 上傳區域 */
+        .upload-zone {
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.3s;
+        }
+        .upload-zone:hover {
+            border-color: rgba(212, 168, 83, 0.4);
+            background: rgba(212, 168, 83, 0.03);
+        }
+
+        /* 分隔線 */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+        }
+
+        /* 標題樣式 */
+        .page-title {
+            letter-spacing: 0.25em;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .page-subtitle {
+            letter-spacing: 0.12em;
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 0.75rem;
+        }
+
+        /* label 樣式 */
+        .field-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <!-- 背景光暈 -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <div class="max-w-md mx-auto py-8 relative z-10">
+        <!-- 標題區塊 -->
+        <div class="text-center mb-10">
+            <p class="page-subtitle mb-2">LEAVE APPLICATION</p>
+            <h1 class="text-2xl page-title">請 假 申 請</h1>
         </div>
-        {% endif %}
 
         {% if success %}
         <!-- 成功訊息 -->
-        <div id="success-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+        <div class="glass rounded-2xl p-8">
             <div class="text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full mb-4">
-                    <i class="fas fa-check text-3xl text-green-600 dark:text-green-400"></i>
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-5" style="background: rgba(212, 168, 83, 0.1); border: 1px solid rgba(212, 168, 83, 0.3);">
+                    <i class="fas fa-check text-2xl" style="color: #d4a853;"></i>
                 </div>
-                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">申請成功！</h2>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                <h2 class="text-xl font-light text-white mb-2" style="letter-spacing: 0.1em;">申請成功</h2>
+                <p class="text-gray-500 mb-8 text-sm">
                     {% if user_name %}{{ user_name }}，您的{% endif %}請假申請已送出，請等待主管審核。
                 </p>
-                <a href="/leave" class="inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition min-h-[48px]">
-                    <i class="fas fa-plus mr-2"></i>再申請一筆
+                <a href="/leave" class="inline-flex items-center justify-center px-8 py-3 btn-submit rounded-xl min-h-[48px] text-sm" style="letter-spacing: 0.1em;">
+                    <i class="fas fa-plus mr-2 text-xs"></i>再申請一筆
                 </a>
             </div>
         </div>
         {% else %}
 
+        {% if not success %}
+        <!-- 載入中 -->
+        <div id="loading-section" class="glass rounded-2xl p-10 text-center">
+            <div class="inline-flex items-center justify-center w-14 h-14 mb-5">
+                <i class="fas fa-spinner fa-spin text-2xl" style="color: #d4a853;"></i>
+            </div>
+            <p class="text-gray-500 text-sm" style="letter-spacing: 0.08em;">正在透過 LINE 登入...</p>
+        </div>
+        {% endif %}
+
         {% if error %}
-        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center">
-            <i class="fas fa-exclamation-circle mr-3 text-xl"></i>
-            <span>{{ error }}</span>
+        <div class="glass rounded-xl px-4 py-3 mb-6 flex items-center" style="border-color: rgba(239, 68, 68, 0.3);">
+            <i class="fas fa-exclamation-circle mr-3 text-red-400 text-sm"></i>
+            <span class="text-red-400 text-sm">{{ error }}</span>
         </div>
         {% endif %}
 
         <!-- 請假表單 -->
         <div id="form-section" class="hidden">
-            <form method="POST" action="/leave" enctype="multipart/form-data" class="space-y-4">
-                <!-- 隱藏欄位：LINE 用戶資訊（不顯示，只存資料） -->
+            <form method="POST" action="/leave" enctype="multipart/form-data">
+                <!-- 隱藏欄位 -->
                 <input type="hidden" id="line_user_id" name="line_user_id" value="">
                 <input type="hidden" id="line_user_name" name="line_user_name" value="">
                 <input type="hidden" id="line_picture_url" name="line_picture_url" value="">
 
-                <!-- 全名輸入 -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
-                    <label for="full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        <i class="fas fa-user mr-2 text-indigo-500"></i>姓名 <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="full_name"
-                        name="full_name"
-                        required
-                        placeholder="請輸入您的全名"
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[52px] text-lg"
-                    >
-                </div>
+                <div class="glass rounded-2xl p-6 space-y-6">
 
-                <!-- 請假類型 -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        <i class="fas fa-clipboard-list mr-2 text-indigo-500"></i>請假類型 <span class="text-red-500">*</span>
-                    </label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="relative cursor-pointer">
-                            <input type="radio" name="leave_type" value="事假" class="peer sr-only" checked>
-                            <div class="flex flex-col items-center justify-center p-5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl transition peer-checked:border-indigo-500 peer-checked:bg-indigo-50 dark:peer-checked:bg-indigo-900/30 min-h-[90px]">
-                                <i class="fas fa-briefcase text-3xl text-gray-500 dark:text-gray-400 mb-2"></i>
-                                <span class="font-semibold text-gray-800 dark:text-white text-lg">事假</span>
-                            </div>
+                    <!-- 姓名 -->
+                    <div>
+                        <label for="full_name" class="field-label block mb-2">
+                            姓名 <span style="color: #d4a853;">*</span>
                         </label>
-                        <label class="relative cursor-pointer">
-                            <input type="radio" name="leave_type" value="病假" class="peer sr-only">
-                            <div class="flex flex-col items-center justify-center p-5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl transition peer-checked:border-indigo-500 peer-checked:bg-indigo-50 dark:peer-checked:bg-indigo-900/30 min-h-[90px]">
-                                <i class="fas fa-notes-medical text-3xl text-gray-500 dark:text-gray-400 mb-2"></i>
-                                <span class="font-semibold text-gray-800 dark:text-white text-lg">病假</span>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- 請假日期 -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
-                    <label for="leave_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        <i class="fas fa-calendar-alt mr-2 text-indigo-500"></i>請假日期 <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="date"
-                        id="leave_date"
-                        name="leave_date"
-                        required
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[52px] text-lg"
-                    >
-                </div>
-
-                <!-- 事假理由 -->
-                <div id="reason-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5">
-                    <label for="reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        <i class="fas fa-pen mr-2 text-indigo-500"></i>請假理由 <span class="text-red-500">*</span>
-                    </label>
-                    <textarea
-                        id="reason"
-                        name="reason"
-                        rows="4"
-                        required
-                        placeholder="請說明請假原因..."
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-base"
-                    ></textarea>
-                </div>
-
-                <!-- 病假證明上傳 -->
-                <div id="proof-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5 hidden">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-file-medical mr-2 text-indigo-500"></i>上傳證明文件
-                    </label>
-                    <p class="text-sm text-amber-600 dark:text-amber-400 mb-3">
-                        <i class="fas fa-info-circle mr-1"></i>可先送出申請，7 天內補上傳證明
-                    </p>
-                    <div class="relative">
                         <input
-                            type="file"
-                            id="proof_file"
-                            name="proof_file"
-                            accept="image/*"
-                            class="hidden"
+                            type="text"
+                            id="full_name"
+                            name="full_name"
+                            required
+                            placeholder="請輸入您的全名"
+                            class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]"
                         >
-                        <label for="proof_file" class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                            <div id="upload-placeholder" class="text-center">
-                                <i class="fas fa-camera text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
-                                <p class="text-gray-600 dark:text-gray-400 font-medium">點擊上傳證明圖片</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">支援 JPG、PNG 格式（選填）</p>
-                            </div>
-                            <div id="upload-preview" class="hidden text-center w-full h-full p-2">
-                                <img id="preview-image" class="max-h-32 mx-auto rounded-lg object-contain" src="" alt="預覽">
-                                <p id="file-name" class="text-gray-800 dark:text-white font-medium text-sm mt-1 truncate px-2"></p>
-                            </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- 請假類型 -->
+                    <div>
+                        <label class="field-label block mb-3">
+                            請假類型 <span style="color: #d4a853;">*</span>
                         </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="leave_type" value="事假" class="peer sr-only" checked>
+                                <div class="type-card flex flex-col items-center justify-center p-4 rounded-xl min-h-[80px]">
+                                    <i class="fas fa-briefcase text-xl text-gray-600 mb-2 type-icon"></i>
+                                    <span class="text-sm text-gray-400 type-label">事假</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="leave_type" value="病假" class="peer sr-only">
+                                <div class="type-card flex flex-col items-center justify-center p-4 rounded-xl min-h-[80px]">
+                                    <i class="fas fa-notes-medical text-xl text-gray-600 mb-2 type-icon"></i>
+                                    <span class="text-sm text-gray-400 type-label">病假</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- 請假日期 -->
+                    <div>
+                        <label for="leave_date" class="field-label block mb-2">
+                            請假日期 <span style="color: #d4a853;">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            id="leave_date"
+                            name="leave_date"
+                            required
+                            class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]"
+                        >
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- 事假理由 -->
+                    <div id="reason-section">
+                        <label for="reason" class="field-label block mb-2">
+                            請假理由 <span style="color: #d4a853;">*</span>
+                        </label>
+                        <textarea
+                            id="reason"
+                            name="reason"
+                            rows="3"
+                            required
+                            placeholder="請說明請假原因..."
+                            class="form-input w-full px-4 py-3 rounded-lg resize-none text-sm"
+                        ></textarea>
+                    </div>
+
+                    <!-- 病假證明上傳 -->
+                    <div id="proof-section" class="hidden">
+                        <label class="field-label block mb-1">
+                            上傳證明文件
+                        </label>
+                        <p class="text-xs mb-3" style="color: rgba(212, 168, 83, 0.6);">
+                            <i class="fas fa-info-circle mr-1"></i>可先送出申請，7 天內補上傳證明
+                        </p>
+                        <div class="relative">
+                            <input
+                                type="file"
+                                id="proof_file"
+                                name="proof_file"
+                                accept="image/*"
+                                class="hidden"
+                            >
+                            <label for="proof_file" class="upload-zone flex flex-col items-center justify-center w-full h-40 rounded-xl cursor-pointer">
+                                <div id="upload-placeholder" class="text-center">
+                                    <i class="fas fa-cloud-arrow-up text-3xl text-gray-600 mb-2"></i>
+                                    <p class="text-gray-500 text-sm">點擊上傳證明圖片</p>
+                                    <p class="text-gray-600 text-xs mt-1">JPG / PNG（選填）</p>
+                                </div>
+                                <div id="upload-preview" class="hidden text-center w-full h-full p-2">
+                                    <img id="preview-image" class="max-h-28 mx-auto rounded-lg object-contain" src="" alt="預覽">
+                                    <p id="file-name" class="text-gray-400 text-xs mt-1 truncate px-2"></p>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 送出按鈕 -->
                 <button
                     type="submit"
-                    class="w-full bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-4 px-6 rounded-2xl transition duration-200 flex items-center justify-center min-h-[60px] shadow-xl text-xl"
+                    class="btn-submit w-full py-4 px-6 rounded-xl mt-6 flex items-center justify-center min-h-[56px] text-base"
+                    style="letter-spacing: 0.15em;"
                 >
-                    <i class="fas fa-paper-plane mr-3"></i>
+                    <i class="fas fa-paper-plane mr-3 text-sm"></i>
                     送出申請
                 </button>
             </form>
@@ -181,7 +360,7 @@
         {% endif %}
 
         <!-- 版權 -->
-        <p class="text-center text-indigo-100 dark:text-gray-500 text-sm mt-8">
+        <p class="text-center text-sm mt-10" style="color: rgba(255,255,255,0.15); letter-spacing: 0.1em;">
             &copy; <script>document.write(new Date().getFullYear())</script> 寶格教育訓練
         </p>
     </div>
@@ -189,18 +368,17 @@
     <!-- 主題切換按鈕 -->
     <button
         id="theme-toggle"
-        class="fixed bottom-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg min-w-[48px] min-h-[48px] transition-transform duration-100 active:scale-90"
+        class="fixed bottom-4 right-4 p-3 glass rounded-full min-w-[44px] min-h-[44px] transition-transform duration-100 active:scale-90"
         style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
         title="切換深淺色模式"
     >
-        <i class="fas fa-sun text-yellow-500 dark:hidden"></i>
-        <i class="fas fa-moon text-indigo-400 hidden dark:block"></i>
+        <i class="fas fa-moon text-gray-500"></i>
     </button>
 
     <script>
         const LIFF_ID = "{{ liff_id }}";
 
-        // 主題切換
+        // 主題切換（保留功能但此設計以深色為主）
         document.getElementById('theme-toggle').addEventListener('click', () => {
             if (document.documentElement.classList.contains('dark')) {
                 document.documentElement.classList.remove('dark');
@@ -225,13 +403,11 @@
                 console.log('是否已登入:', liff.isLoggedIn());
 
                 if (!liff.isLoggedIn()) {
-                    // 未登入，自動跳轉 LINE 登入
                     console.log('未登入，自動跳轉 LINE 登入...');
                     liff.login({ redirectUri: window.location.href });
                     return;
                 }
 
-                // 已登入，取得用戶資料
                 console.log('LIFF 已登入，取得用戶資料...');
 
                 let profile;
@@ -240,27 +416,22 @@
                     console.log('用戶資料:', profile);
                 } catch (profileError) {
                     console.error('取得用戶資料失敗:', profileError);
-                    // 如果取得資料失敗，可能需要重新登入
                     liff.login({ redirectUri: window.location.href });
                     return;
                 }
 
-                // 填入隱藏欄位（不顯示，只存資料給後端）
                 document.getElementById('line_user_id').value = profile.userId;
                 document.getElementById('line_user_name').value = profile.displayName;
                 document.getElementById('line_picture_url').value = profile.pictureUrl || '';
 
-                // 顯示表單
                 loadingSection.classList.add('hidden');
                 formSection.classList.remove('hidden');
 
-                // 初始化表單功能
                 initFormFeatures();
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
                 let errorMsg = error.message || '未知錯誤';
 
-                // 如果是 INVALID_ID_TOKEN 錯誤，嘗試重新登入
                 if (error.code === 'INVALID_ID_TOKEN' || errorMsg.includes('token')) {
                     console.log('Token 無效，重新登入...');
                     try {
@@ -275,13 +446,13 @@
 
                 loadingSection.innerHTML = `
                     <div class="text-center">
-                        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full mb-4">
-                            <i class="fas fa-exclamation-triangle text-3xl text-red-600 dark:text-red-400"></i>
+                        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);">
+                            <i class="fas fa-exclamation-triangle text-xl text-red-400"></i>
                         </div>
-                        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">載入失敗</h2>
-                        <p class="text-gray-600 dark:text-gray-400 mb-2">LIFF ID: ${LIFF_ID || '未設定'}</p>
-                        <p class="text-red-500 dark:text-red-400 text-sm mb-4">${errorMsg}</p>
-                        <button onclick="location.reload()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition">
+                        <h2 class="text-lg font-light text-white mb-2" style="letter-spacing: 0.1em;">載入失敗</h2>
+                        <p class="text-gray-600 text-xs mb-1">LIFF ID: ${LIFF_ID || '未設定'}</p>
+                        <p class="text-red-400 text-xs mb-5">${errorMsg}</p>
+                        <button onclick="location.reload()" class="btn-submit px-6 py-3 rounded-lg text-sm">
                             重新載入
                         </button>
                     </div>
@@ -291,7 +462,6 @@
 
         // 表單功能初始化
         function initFormFeatures() {
-            // 請假類型切換
             const leaveTypeRadios = document.querySelectorAll('input[name="leave_type"]');
             const reasonSection = document.getElementById('reason-section');
             const proofSection = document.getElementById('proof-section');
@@ -308,7 +478,6 @@
                     reasonSection.classList.add('hidden');
                     proofSection.classList.remove('hidden');
                     reasonInput.removeAttribute('required');
-                    // 病假證明為選填，可之後補件
                 }
             }
 
@@ -316,7 +485,6 @@
                 radio.addEventListener('change', toggleSections);
             });
 
-            // 檔案選擇預覽（圖片預覽）
             const proofFileInput = document.getElementById('proof_file');
             const uploadPlaceholder = document.getElementById('upload-placeholder');
             const uploadPreview = document.getElementById('upload-preview');
@@ -327,13 +495,11 @@
                 proofFileInput.addEventListener('change', function() {
                     if (this.files && this.files[0]) {
                         const file = this.files[0];
-                        // 檢查是否為圖片
                         if (!file.type.startsWith('image/')) {
                             alert('請上傳圖片檔案（JPG、PNG）');
                             this.value = '';
                             return;
                         }
-                        // 顯示圖片預覽
                         const reader = new FileReader();
                         reader.onload = function(e) {
                             previewImage.src = e.target.result;
@@ -350,12 +516,10 @@
                 });
             }
 
-            // 設定日期最小值（下午 5 點後不能選當日）
             const now = new Date();
             const currentHour = now.getHours();
             let minDate = new Date();
 
-            // 如果是下午 5 點（17:00）或之後，最小日期為明天
             if (currentHour >= 17) {
                 minDate.setDate(minDate.getDate() + 1);
             }
@@ -365,7 +529,6 @@
             if (leaveDateInput) {
                 leaveDateInput.setAttribute('min', minDateStr);
 
-                // 表單提交前驗證
                 const form = leaveDateInput.closest('form');
                 if (form) {
                     form.addEventListener('submit', function(e) {
@@ -373,7 +536,6 @@
                         const todayStr = new Date().toISOString().split('T')[0];
                         const checkTime = new Date();
 
-                        // 如果選擇今天且現在是 17:00 或之後
                         if (selectedDate === todayStr && checkTime.getHours() >= 17) {
                             e.preventDefault();
                             alert('當日請假需在下午 5 點前提出申請，請選擇其他日期');
@@ -389,14 +551,13 @@
         if (LIFF_ID) {
             initializeLiff();
         } else {
-            // 沒有 LIFF ID，顯示錯誤
             document.getElementById('loading-section').innerHTML = `
                 <div class="text-center">
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/50 rounded-full mb-4">
-                        <i class="fas fa-cog text-3xl text-yellow-600 dark:text-yellow-400"></i>
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4" style="background: rgba(212,168,83,0.1); border: 1px solid rgba(212,168,83,0.3);">
+                        <i class="fas fa-cog text-xl" style="color: #d4a853;"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-2">系統設定中</h2>
-                    <p class="text-gray-600 dark:text-gray-400">請聯繫管理員設定 LIFF ID</p>
+                    <h2 class="text-lg font-light text-white mb-2" style="letter-spacing: 0.1em;">系統設定中</h2>
+                    <p class="text-gray-500 text-sm">請聯繫管理員設定 LIFF ID</p>
                 </div>
             `;
         }
