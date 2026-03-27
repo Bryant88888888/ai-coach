@@ -20,6 +20,7 @@ from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.user import User, UserRole
 from app.models.training_batch import TrainingBatch
 from app.models.user_training import UserTraining, TrainingStatus
+from app.models.info_form import InfoFormSubmission
 from app.services.training_batch_service import TrainingBatchService
 
 # 設定模板目錄
@@ -2281,6 +2282,43 @@ async def info_form_page(request: Request):
         "request": request,
         "liff_id": liff_id
     })
+
+
+@router.post("/api/info-form")
+async def submit_info_form(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """提交人事資料表單（公關版本/經紀人版本/異動資料）"""
+    import json
+
+    try:
+        data = await request.json()
+    except Exception:
+        return {"success": False, "error": "無效的請求資料"}
+
+    line_user_id = data.get("line_user_id")
+    form_type = data.get("form_type")
+
+    if not line_user_id or not form_type:
+        return {"success": False, "error": "缺少必要欄位"}
+
+    # 查找用戶
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+    user_id = user.id if user else None
+
+    # 儲存表單資料
+    submission = InfoFormSubmission(
+        user_id=user_id,
+        line_user_id=line_user_id,
+        form_type=form_type,
+        form_data=json.dumps(data, ensure_ascii=False)
+    )
+    db.add(submission)
+    db.commit()
+
+    return {"success": True, "id": submission.id}
 
 
 # ========== 人事資料（後台）==========

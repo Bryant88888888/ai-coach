@@ -659,7 +659,7 @@
 
     // ===== 送出 =====
     document.querySelectorAll('form.tab-content').forEach(form => {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
             let valid = true, first = null;
             this.querySelectorAll('.form-input').forEach(input => {
@@ -670,16 +670,33 @@
             const data = {};
             new FormData(this).forEach((v,k) => { data[k] = v; });
             if (lineUserId) data.line_user_id = lineUserId;
-            console.log('送出資料：', data);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>送出中...';
 
-            // TODO: 串接 API 送出資料
-            // await fetch('/api/info-form', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+            try {
+                const resp = await fetch('/api/info-form', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await resp.json();
 
-            // 顯示成功畫面
-            document.querySelectorAll('.tab-content').forEach(f => f.classList.add('hidden'));
-            document.getElementById('warning-block').classList.add('hidden');
-            document.getElementById('tab-bar').classList.add('hidden');
-            document.getElementById('success-msg').classList.remove('hidden');
+                if (result.success) {
+                    document.querySelectorAll('.tab-content').forEach(f => f.classList.add('hidden'));
+                    document.getElementById('warning-block').classList.add('hidden');
+                    document.getElementById('tab-bar').classList.add('hidden');
+                    document.getElementById('success-msg').classList.remove('hidden');
+                } else {
+                    alert(result.error || '送出失敗，請重試');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '確認送出';
+                }
+            } catch (err) {
+                alert('網路錯誤，請重試');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '確認送出';
+            }
         });
     });
 
