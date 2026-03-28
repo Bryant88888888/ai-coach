@@ -524,7 +524,21 @@
                     <i class="fas fa-check text-2xl" style="color: #d4a853;"></i>
                 </div>
                 <h2 class="text-xl font-light text-white mb-2" style="letter-spacing: 0.1em;">資料已送出</h2>
-                <p class="text-sm mb-8" style="color: rgba(255,255,255,0.35);">感謝您的填寫，資料已成功送出。</p>
+                <p class="text-sm mb-4" style="color: rgba(255,255,255,0.35);">感謝您的填寫，資料已成功送出。</p>
+
+                <!-- 合約簽署區塊（公關版本才顯示） -->
+                <div id="signing-section" class="hidden mb-6">
+                    <div class="divider mb-4"></div>
+                    <p class="text-sm mb-3" style="color: rgba(212, 168, 83, 0.8);">
+                        <i class="fas fa-file-signature mr-1"></i>請點擊下方按鈕完成合約簽署
+                    </p>
+                    <a id="signing-link" href="#" target="_blank"
+                        class="inline-flex items-center justify-center px-8 py-3 rounded-xl min-h-[48px] text-sm font-bold transition"
+                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; letter-spacing: 0.1em;">
+                        <i class="fas fa-file-signature mr-2"></i>簽署合約
+                    </a>
+                </div>
+
                 <button type="button" id="btn-close-liff"
                     class="btn-submit py-3 px-8 rounded-xl min-h-[48px] text-sm" style="letter-spacing: 0.1em;">
                     關閉
@@ -729,6 +743,12 @@
                     document.getElementById('warning-block').classList.add('hidden');
                     document.getElementById('tab-bar').classList.add('hidden');
                     document.getElementById('success-msg').classList.remove('hidden');
+
+                    // 公關版本：顯示合約簽署連結
+                    if (result.signing_url) {
+                        document.getElementById('signing-link').href = result.signing_url;
+                        document.getElementById('signing-section').classList.remove('hidden');
+                    }
                 } else {
                     alert(result.error || '送出失敗，請重試');
                     submitBtn.disabled = false;

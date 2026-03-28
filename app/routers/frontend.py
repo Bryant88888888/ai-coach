@@ -2580,7 +2580,37 @@ async def submit_info_form(
     db.add(submission)
     db.commit()
 
-    return {"success": True, "id": submission.id}
+    # 公關版本：自動建立合約簽署任務
+    signing_url = None
+    if form_type == "公關版本":
+        try:
+            import httpx
+            SIGNING_API = "https://pdf-signing-tool.onrender.com"
+            TEMPLATE_ID = "2f81eedd-fdf8-4399-9b73-19a3b1b1e469"
+
+            signer_name = data.get("real_name", "").strip()
+            if signer_name:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        f"{SIGNING_API}/api/signing-tasks",
+                        json={
+                            "template_id": TEMPLATE_ID,
+                            "signer_name": signer_name,
+                            "prefill_data": {
+                                "Applicants_Name": signer_name
+                            }
+                        }
+                    )
+                    if resp.status_code == 200:
+                        result = resp.json()
+                        signing_url = f"{SIGNING_API}{result.get('signing_url', '')}"
+                        print(f"合約簽署任務已建立: {result.get('id')} for {signer_name}")
+                    else:
+                        print(f"建立合約失敗: {resp.status_code} {resp.text}")
+        except Exception as e:
+            print(f"建立合約簽署任務失敗: {e}")
+
+    return {"success": True, "id": submission.id, "signing_url": signing_url}
 
 
 # ========== 人事資料（後台）==========
