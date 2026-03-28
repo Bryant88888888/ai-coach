@@ -113,26 +113,146 @@
     </div>
 </div>
 
-<!-- ===== 雙欄圖表 ===== -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+<!-- ===== 圖表區 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <!-- 經紀人排名橫條圖 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
         <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
-            <i class="fas fa-ranking-star mr-2 text-amber-500"></i>經紀人排名 TOP 10
+            <i class="fas fa-ranking-star mr-2 text-amber-500"></i>經紀人排名
         </h3>
-        <div class="relative" style="height: 300px;">
+        <div class="relative" style="height: 280px;">
             <canvas id="agentBarChart"></canvas>
+        </div>
+    </div>
+
+    <!-- 店家分佈 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-store mr-2 text-purple-500"></i>店家人數分佈
+        </h3>
+        <div class="relative" style="height: 280px;">
+            <canvas id="storeBarChart"></canvas>
         </div>
     </div>
 
     <!-- 狀態分佈甜甜圈圖 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
         <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
-            <i class="fas fa-chart-pie mr-2 text-teal-500"></i>簽約狀態分佈
+            <i class="fas fa-chart-pie mr-2 text-teal-500"></i>簽約狀態
         </h3>
-        <div class="relative flex items-center justify-center" style="height: 300px;">
+        <div class="relative flex items-center justify-center" style="height: 280px;">
             <canvas id="statusDoughnut"></canvas>
         </div>
+    </div>
+</div>
+
+<!-- ===== 最近動態 + 異動追蹤 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- 最近動態時間軸 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-timeline mr-2 text-indigo-500"></i>最近動態
+        </h3>
+        {% if recent_activities %}
+        <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+            {% for act in recent_activities %}
+            <div class="flex items-start gap-3">
+                <div class="mt-1 shrink-0">
+                    {% if act.type == 'recruit' %}
+                    <div class="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                        <i class="fas fa-user-plus text-green-600 dark:text-green-400 text-xs"></i>
+                    </div>
+                    {% else %}
+                    <div class="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                        <i class="fas fa-arrow-right-arrow-left text-amber-600 dark:text-amber-400 text-xs"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    {% if act.type == 'recruit' %}
+                    <p class="text-sm text-gray-800 dark:text-white">
+                        <span class="font-medium">{{ act.manager }}</span> 招募了
+                        <span class="font-medium">{{ act.name }}</span>
+                        {% if act.store %}<span class="text-gray-500 dark:text-gray-400">（{{ act.store }}）</span>{% endif %}
+                    </p>
+                    {% if act.status %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium mt-0.5
+                        {% if act.status == '合約' %}bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400
+                        {% else %}bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">{{ act.status }}</span>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-sm text-gray-800 dark:text-white">
+                        <span class="font-medium">{{ act.name }}</span> 異動
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ act.old_manager }} → {{ act.new_manager }}
+                        {% if act.old_store and act.new_store and act.old_store != act.new_store %}
+                        ・{{ act.old_store }} → {{ act.new_store }}
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{{ act.date_str }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-6 text-sm">尚無動態記錄</p>
+        {% endif %}
+    </div>
+
+    <!-- 異動追蹤 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-arrow-right-arrow-left mr-2 text-amber-500"></i>人員異動記錄
+            {% if transfers %}
+            <span class="text-xs font-normal text-gray-400 ml-1">共 {{ transfers|length }} 筆</span>
+            {% endif %}
+        </h3>
+
+        {% if transfer_flow %}
+        <!-- 經紀人流動摘要 -->
+        <div class="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+            <p class="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2">
+                <i class="fas fa-exchange-alt mr-1"></i>經紀人之間流動
+            </p>
+            <div class="space-y-1.5">
+                {% for flow, count in transfer_flow %}
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-700 dark:text-gray-300">{{ flow }}</span>
+                    <span class="text-xs font-medium bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">{{ count }} 人</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if transfers %}
+        <div class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            {% for t in transfers %}
+            <div class="flex items-start gap-2 text-sm border-b border-gray-100 dark:border-gray-700/50 pb-2.5 last:border-0">
+                <i class="fas fa-repeat text-gray-400 mt-1 text-xs shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-gray-800 dark:text-white font-medium">{{ t.old_stage_name }}{% if t.new_stage_name and t.new_stage_name != t.old_stage_name %} → {{ t.new_stage_name }}{% endif %}</p>
+                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {% if t.old_store and t.new_store %}
+                        <span><i class="fas fa-store mr-0.5"></i>{{ t.old_store }} → {{ t.new_store }}</span>
+                        {% endif %}
+                        {% if t.old_manager and t.new_manager %}
+                        <span><i class="fas fa-user mr-0.5"></i>{{ t.old_manager }} → {{ t.new_manager }}</span>
+                        {% endif %}
+                    </div>
+                    {% if t.status %}
+                    <span class="text-[10px] text-gray-400">{{ t.status }}</span>
+                    {% endif %}
+                </div>
+                <span class="text-[10px] text-gray-400 shrink-0">{{ t.date }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center text-gray-500 dark:text-gray-400 py-6 text-sm">尚無異動記錄</p>
+        {% endif %}
     </div>
 </div>
 
@@ -531,6 +651,41 @@
             }
         }
     });
+
+    // ===== 店家分佈橫條圖 =====
+    const storeData = JSON.parse('{{ recruitment.store_chart_json | safe }}');
+    if (storeData.length > 0) {
+        new Chart(document.getElementById('storeBarChart'), {
+            type: 'bar',
+            data: {
+                labels: storeData.map(d => d.name),
+                datasets: [{
+                    data: storeData.map(d => d.count),
+                    backgroundColor: isDark ? '#8b5cf6' : '#a78bfa',
+                    borderRadius: 6,
+                    barThickness: 22,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDark ? '#374151' : '#1f2937',
+                        titleColor: '#f9fafb', bodyColor: '#f9fafb',
+                        padding: 10, cornerRadius: 8,
+                        callbacks: { label: ctx => ctx.parsed.x + ' 人' }
+                    }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { stepSize: 1, color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor, font: { size: 12 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
 
     // ===== 狀態甜甜圈圖 =====
     new Chart(document.getElementById('statusDoughnut'), {

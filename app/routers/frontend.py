@@ -285,6 +285,80 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     # Chart.js 資料
     agent_chart_data = [{"name": a["name"], "count": a["total_count"], "tier": a["tier"]} for a in agent_stats[:10]]
 
+    # 店家分佈統計
+    store_counts = {}
+    for r in parsed_recruits:
+        store = r.get("store", "").strip()
+        if store:
+            store_counts[store] = store_counts.get(store, 0) + 1
+    store_distribution = sorted(store_counts.items(), key=lambda x: x[1], reverse=True)
+    store_chart_data = [{"name": s, "count": c} for s, c in store_distribution[:10]]
+
+    # 異動資料統計
+    transfer_submissions = db.query(InfoFormSubmission).filter(
+        InfoFormSubmission.form_type == "異動資料"
+    ).order_by(InfoFormSubmission.created_at.desc()).all()
+
+    transfers = []
+    transfer_flow = {}  # { "經紀人A → 經紀人B": count }
+    for sub in transfer_submissions:
+        try:
+            data = json_lib.loads(sub.form_data)
+            cat = sub.created_at
+            if cat and cat.tzinfo is not None:
+                cat = cat.replace(tzinfo=None)
+            t = {
+                "old_store": data.get("old_store", ""),
+                "old_stage_name": data.get("old_stage_name", ""),
+                "old_manager": data.get("old_manager", ""),
+                "new_store": data.get("new_store", ""),
+                "new_stage_name": data.get("new_stage_name", ""),
+                "new_manager": data.get("new_manager", ""),
+                "status": data.get("status", ""),
+                "note": data.get("note", ""),
+                "date": cat.strftime("%m/%d") if cat else "",
+                "created_at": cat,
+            }
+            transfers.append(t)
+            # 經紀人流動統計
+            om = t["old_manager"].strip()
+            nm = t["new_manager"].strip()
+            if om and nm and om != nm:
+                key = f"{om} → {nm}"
+                transfer_flow[key] = transfer_flow.get(key, 0) + 1
+        except Exception:
+            continue
+
+    transfer_flow_sorted = sorted(transfer_flow.items(), key=lambda x: x[1], reverse=True)
+
+    # 最近動態（合併進人+異動，取最近 15 筆）
+    recent_activities = []
+    for r in parsed_recruits:
+        if r["created_at"]:
+            recent_activities.append({
+                "type": "recruit",
+                "date": r["created_at"],
+                "date_str": r["created_at"].strftime("%m/%d %H:%M"),
+                "name": r["stage_name"],
+                "manager": r["manager"],
+                "store": r["store"],
+                "status": r["status"],
+            })
+    for t in transfers:
+        if t["created_at"]:
+            recent_activities.append({
+                "type": "transfer",
+                "date": t["created_at"],
+                "date_str": t["created_at"].strftime("%m/%d %H:%M"),
+                "name": t["old_stage_name"],
+                "old_manager": t["old_manager"],
+                "new_manager": t["new_manager"],
+                "old_store": t["old_store"],
+                "new_store": t["new_store"],
+            })
+    recent_activities.sort(key=lambda x: x["date"], reverse=True)
+    recent_activities = recent_activities[:15]
+
     recruitment = {
         "total_pr": total_pr,
         "current_month_count": current_month_count,
@@ -295,6 +369,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "contract_rate": contract_rate,
         "monthly_trend_json": json_lib.dumps(monthly_trend, ensure_ascii=False),
         "agent_chart_json": json_lib.dumps(agent_chart_data, ensure_ascii=False),
+        "store_chart_json": json_lib.dumps(store_chart_data, ensure_ascii=False),
         "top_agent": top_agent_month,
     }
 
@@ -307,6 +382,9 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "unresponded_pushes": unresponded_pushes,
         "recruitment": recruitment,
         "agent_stats": agent_stats,
+        "transfers": transfers[:20],
+        "transfer_flow": transfer_flow_sorted[:10],
+        "recent_activities": recent_activities,
         "current_month_label": now.strftime("%Y 年 %m 月"),
     })
 
