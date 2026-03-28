@@ -117,42 +117,152 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     # 取得未回覆的推送
     unresponded_pushes = push_service.get_unresponded_pushes(days=7)
 
-    # 經紀人招募績效統計（從公關版本表單的 manager 欄位統計）
+    # ========== 招募績效統計 ==========
     import json as json_lib
-    agent_stats = []
+    import calendar
+
+    def months_ago(dt, n):
+        """回傳 n 個月前的月初日期"""
+        y, m = dt.year, dt.month
+        for _ in range(n):
+            m -= 1
+            if m < 1:
+                m = 12
+                y -= 1
+        return datetime(y, m, 1)
+
+    now = datetime.now()
+    current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_start = months_ago(now, 1)
+
     pr_submissions = db.query(InfoFormSubmission).filter(
         InfoFormSubmission.form_type == "公關版本"
     ).order_by(InfoFormSubmission.created_at.desc()).all()
 
-    agent_counts = {}  # { 經紀人名: { count, latest_date, recruits: [...] } }
+    # 解析所有提交
+    parsed_recruits = []
     for sub in pr_submissions:
         try:
             data = json_lib.loads(sub.form_data)
-            manager_name = data.get("manager", "").strip()
-            if not manager_name:
+            manager = data.get("manager", "").strip()
+            if not manager:
                 continue
-            if manager_name not in agent_counts:
-                agent_counts[manager_name] = {
-                    "count": 0,
-                    "latest_date": sub.created_at,
-                    "recruits": []
-                }
-            agent_counts[manager_name]["count"] += 1
-            recruit_name = data.get("stage_name") or data.get("real_name") or "未知"
-            agent_counts[manager_name]["recruits"].append({
-                "name": recruit_name,
+            parsed_recruits.append({
+                "manager": manager,
+                "stage_name": data.get("stage_name") or data.get("real_name") or "未知",
                 "store": data.get("store", ""),
                 "status": data.get("status", ""),
-                "date": sub.created_at.strftime("%m/%d") if sub.created_at else ""
+                "created_at": sub.created_at,
             })
         except Exception:
             continue
 
-    # 按人數排序
-    agent_stats = [
-        {"name": name, **info}
-        for name, info in sorted(agent_counts.items(), key=lambda x: x[1]["count"], reverse=True)
-    ]
+    total_pr = len(parsed_recruits)
+    current_month_recruits = [r for r in parsed_recruits if r["created_at"] and r["created_at"] >= current_month_start]
+    last_month_recruits = [r for r in parsed_recruits if r["created_at"] and last_month_start <= r["created_at"] < current_month_start]
+    current_month_count = len(current_month_recruits)
+    last_month_count = len(last_month_recruits)
+    month_delta = round((current_month_count - last_month_count) / last_month_count * 100, 1) if last_month_count > 0 else (100.0 if current_month_count > 0 else 0)
+    contract_count = len([r for r in parsed_recruits if r["status"] == "合約"])
+    white_paper_count = len([r for r in parsed_recruits if r["status"] == "白紙"])
+    contract_rate = round(contract_count / total_pr * 100, 1) if total_pr > 0 else 0
+
+    # 近 12 個月趨勢
+    monthly_trend = []
+    for i in range(11, -1, -1):
+        m_start = months_ago(now, i)
+        label = m_start.strftime("%Y/%m")
+        if i > 0:
+            m_end = months_ago(now, i - 1)
+        else:
+            # 本月結束 = 下個月月初
+            y, mo = m_start.year, m_start.month + 1
+            if mo > 12:
+                mo = 1
+                y += 1
+            m_end = datetime(y, mo, 1)
+        count = len([r for r in parsed_recruits if r["created_at"] and m_start <= r["created_at"] < m_end])
+        monthly_trend.append({"label": label, "count": count})
+
+    # 經紀人個別統計
+    agent_map = {}
+    for r in parsed_recruits:
+        name = r["manager"]
+        if name not in agent_map:
+            agent_map[name] = {
+                "name": name,
+                "total_count": 0,
+                "current_month_count": 0,
+                "last_month_count": 0,
+                "contract_count": 0,
+                "latest_date": None,
+                "recruits": [],
+            }
+        a = agent_map[name]
+        a["total_count"] += 1
+        if r["status"] == "合約":
+            a["contract_count"] += 1
+        if r["created_at"] and r["created_at"] >= current_month_start:
+            a["current_month_count"] += 1
+        if r["created_at"] and last_month_start <= r["created_at"] < current_month_start:
+            a["last_month_count"] += 1
+        if a["latest_date"] is None or (r["created_at"] and r["created_at"] > a["latest_date"]):
+            a["latest_date"] = r["created_at"]
+        a["recruits"].append({
+            "name": r["stage_name"],
+            "store": r["store"],
+            "status": r["status"],
+            "date": r["created_at"].strftime("%m/%d") if r["created_at"] else "",
+        })
+
+    # 計算衍生欄位與排名
+    agent_stats = sorted(agent_map.values(), key=lambda x: x["total_count"], reverse=True)
+    agent_stats_by_month = sorted(agent_map.values(), key=lambda x: x["current_month_count"], reverse=True)
+
+    for i, a in enumerate(agent_stats):
+        a["rank_total"] = i + 1
+        a["contract_rate"] = round(a["contract_count"] / a["total_count"] * 100, 1) if a["total_count"] > 0 else 0
+        lm = a["last_month_count"]
+        cm = a["current_month_count"]
+        a["monthly_delta"] = round((cm - lm) / lm * 100, 1) if lm > 0 else (100.0 if cm > 0 else 0)
+
+    for i, a in enumerate(agent_stats_by_month):
+        agent_map[a["name"]]["rank_current"] = i + 1
+
+    # Tier 分級
+    n = len(agent_stats)
+    for a in agent_stats:
+        rc = a.get("rank_current", 999)
+        rt = a["rank_total"]
+        if rc == 1 and a["current_month_count"] >= 1:
+            a["tier"] = "fire"
+        elif rt <= max(1, n * 0.25):
+            a["tier"] = "gold"
+        elif rt <= max(2, n * 0.5):
+            a["tier"] = "silver"
+        elif rt <= max(3, n * 0.75):
+            a["tier"] = "bronze"
+        else:
+            a["tier"] = "standard"
+
+    # 本月最佳經紀人
+    top_agent_month = agent_stats_by_month[0] if agent_stats_by_month and agent_stats_by_month[0]["current_month_count"] > 0 else None
+
+    # Chart.js 資料
+    agent_chart_data = [{"name": a["name"], "count": a["total_count"], "tier": a["tier"]} for a in agent_stats[:10]]
+
+    recruitment = {
+        "total_pr": total_pr,
+        "current_month_count": current_month_count,
+        "last_month_count": last_month_count,
+        "month_delta": month_delta,
+        "contract_count": contract_count,
+        "white_paper_count": white_paper_count,
+        "contract_rate": contract_rate,
+        "monthly_trend_json": json_lib.dumps(monthly_trend, ensure_ascii=False),
+        "agent_chart_json": json_lib.dumps(agent_chart_data, ensure_ascii=False),
+        "top_agent": top_agent_month,
+    }
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -161,8 +271,9 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_messages": recent_messages,
         "push_stats": push_stats,
         "unresponded_pushes": unresponded_pushes,
+        "recruitment": recruitment,
         "agent_stats": agent_stats,
-        "total_pr": len(pr_submissions)
+        "current_month_label": now.strftime("%Y 年 %m 月"),
     })
 
 

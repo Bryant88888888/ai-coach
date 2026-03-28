@@ -1,373 +1,594 @@
 {% extends "base.html" %}
 
-{% block title %}儀表板 - 寶格教育訓練{% endblock %}
+{% block title %}招募績效儀表板 - 寶格教育訓練{% endblock %}
 
 {% block content %}
+<style>
+    @keyframes fireGlow {
+        0%, 100% { box-shadow: 0 0 12px rgba(239,68,68,0.25), 0 0 24px rgba(249,115,22,0.1); }
+        50% { box-shadow: 0 0 20px rgba(239,68,68,0.45), 0 0 40px rgba(249,115,22,0.2); }
+    }
+    .fire-card { animation: fireGlow 2s ease-in-out infinite; }
+    .fire-border {
+        border: 2px solid transparent;
+        background-image: linear-gradient(var(--card-bg), var(--card-bg)), linear-gradient(135deg, #ef4444, #f97316, #eab308);
+        background-origin: border-box;
+        background-clip: padding-box, border-box;
+    }
+    :root { --card-bg: #fff; }
+    .dark { --card-bg: #1f2937; }
+</style>
+
+<!-- 頁面標題 -->
 <div class="mb-6">
-    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">儀表板</h1>
-    <p class="text-gray-600 dark:text-gray-400 mt-1">系統總覽與統計</p>
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+        <i class="fas fa-chart-line text-indigo-600 dark:text-indigo-400"></i>招募績效儀表板
+    </h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">
+        <i class="fas fa-calendar-alt mr-1"></i>{{ current_month_label }} 經紀人招募數據總覽
+    </p>
 </div>
 
-<!-- 統計卡片 -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
+<!-- ===== KPI 統計卡片 ===== -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- 總招募人數 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">總用戶數</p>
-                <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">{{ stats.total_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-xs lg:text-sm">總招募人數</p>
+                <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white mt-1">{{ recruitment.total_pr }}</p>
             </div>
             <div class="bg-indigo-100 dark:bg-indigo-900/50 p-3 rounded-full">
-                <i class="fas fa-users text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                <i class="fas fa-users text-indigo-600 dark:text-indigo-400 text-lg"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
+    <!-- 本月招募 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">活躍用戶</p>
-                <p class="text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.active_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-xs lg:text-sm">本月招募</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">{{ recruitment.current_month_count }}</p>
+                    {% if recruitment.month_delta > 0 %}
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
+                        <i class="fas fa-arrow-up text-[9px]"></i>{{ recruitment.month_delta }}%
+                    </span>
+                    {% elif recruitment.month_delta < 0 %}
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">
+                        <i class="fas fa-arrow-down text-[9px]"></i>{{ recruitment.month_delta }}%
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">上月 {{ recruitment.last_month_count }} 人</p>
             </div>
-            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-full">
-                <i class="fas fa-user-check text-green-600 dark:text-green-400 text-xl"></i>
+            <div class="bg-emerald-100 dark:bg-emerald-900/50 p-3 rounded-full">
+                <i class="fas fa-user-plus text-emerald-600 dark:text-emerald-400 text-lg"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
+    <!-- 合約率 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-5">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">已完成訓練</p>
-                <p class="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.completed_users }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-xs lg:text-sm">合約率</p>
+                <p class="text-2xl lg:text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1">{{ recruitment.contract_rate }}%</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ recruitment.contract_count }} 合約 / {{ recruitment.white_paper_count }} 白紙</p>
             </div>
-            <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full">
-                <i class="fas fa-graduation-cap text-blue-600 dark:text-blue-400 text-xl"></i>
+            <div class="bg-teal-100 dark:bg-teal-900/50 p-3 rounded-full">
+                <i class="fas fa-file-contract text-teal-600 dark:text-teal-400 text-lg"></i>
             </div>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6">
+    <!-- 本月最佳 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-5 {% if recruitment.top_agent %}border-l-4 border-amber-400{% endif %}">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">完成率</p>
-                <p class="text-2xl lg:text-3xl font-bold text-purple-600 dark:text-purple-400">{{ stats.completion_rate }}%</p>
+                <p class="text-gray-500 dark:text-gray-400 text-xs lg:text-sm">本月最佳</p>
+                {% if recruitment.top_agent %}
+                <p class="text-xl lg:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{{ recruitment.top_agent.name }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">本月 {{ recruitment.top_agent.current_month_count }} 人</p>
+                {% else %}
+                <p class="text-lg font-medium text-gray-400 dark:text-gray-500 mt-1">尚無資料</p>
+                {% endif %}
             </div>
-            <div class="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-full">
-                <i class="fas fa-percentage text-purple-600 dark:text-purple-400 text-xl"></i>
+            <div class="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-full">
+                <i class="fas fa-crown text-amber-500 text-lg"></i>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 推送統計卡片 -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-orange-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">今日推送</p>
-                <p class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">{{ push_stats.today.total }}</p>
-            </div>
-            <div class="bg-orange-100 dark:bg-orange-900/50 p-3 rounded-full">
-                <i class="fas fa-paper-plane text-orange-600 dark:text-orange-400 text-xl"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-green-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">今日已回覆</p>
-                <p class="text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">{{ push_stats.today.responded }}</p>
-            </div>
-            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-full">
-                <i class="fas fa-reply text-green-600 dark:text-green-400 text-xl"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-red-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">今日未回覆</p>
-                <p class="text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-400">{{ push_stats.today.unresponded }}</p>
-            </div>
-            <div class="bg-red-100 dark:bg-red-900/50 p-3 rounded-full">
-                <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-xl"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 lg:p-6 border-l-4 border-blue-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm">本週回覆率</p>
-                <p class="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400">{{ push_stats.week.response_rate }}%</p>
-            </div>
-            <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full">
-                <i class="fas fa-chart-line text-blue-600 dark:text-blue-400 text-xl"></i>
-            </div>
-        </div>
+{% if recruitment.total_pr > 0 %}
+<!-- ===== 月趨勢線圖 ===== -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6 mb-6">
+    <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+        <i class="fas fa-chart-line mr-2 text-indigo-500"></i>近 12 個月招募趨勢
+    </h3>
+    <div class="relative" style="height: 280px;">
+        <canvas id="monthlyTrendChart"></canvas>
     </div>
 </div>
 
-<!-- 經紀人招募績效 -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8">
-    <div class="flex justify-between items-center mb-5">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
-            <i class="fas fa-trophy mr-2 text-amber-500"></i>經紀人招募績效
+<!-- ===== 雙欄圖表 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- 經紀人排名橫條圖 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-ranking-star mr-2 text-amber-500"></i>經紀人排名 TOP 10
         </h3>
-        <span class="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-full text-sm font-medium">
-            共 {{ total_pr }} 位公關
-        </span>
+        <div class="relative" style="height: 300px;">
+            <canvas id="agentBarChart"></canvas>
+        </div>
     </div>
 
-    {% if agent_stats %}
-    <div class="space-y-3">
-        {% for agent in agent_stats %}
-        <div class="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
-            <!-- 經紀人摘要列 -->
-            <button type="button" onclick="toggleAgent(this)" class="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition text-left">
+    <!-- 狀態分佈甜甜圈圖 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 lg:p-6">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-chart-pie mr-2 text-teal-500"></i>簽約狀態分佈
+        </h3>
+        <div class="relative flex items-center justify-center" style="height: 300px;">
+            <canvas id="statusDoughnut"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 排名切換 Tab ===== -->
+<div class="flex items-center gap-3 mb-4">
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+        <i class="fas fa-trophy mr-2 text-amber-500"></i>經紀人績效
+    </h3>
+    <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 ml-auto">
+        <button type="button" id="tab-total" onclick="switchRankTab('total')"
+            class="rank-tab px-4 py-1.5 rounded-md text-sm font-medium transition bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm">
+            總排名
+        </button>
+        <button type="button" id="tab-month" onclick="switchRankTab('month')"
+            class="rank-tab px-4 py-1.5 rounded-md text-sm font-medium transition text-gray-500 dark:text-gray-400">
+            本月排名
+        </button>
+    </div>
+</div>
+
+<!-- ===== 經紀人圖卡 ===== -->
+<div id="agent-cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+    {% for agent in agent_stats %}
+    <div class="agent-card rounded-xl shadow overflow-hidden
+        {% if agent.tier == 'fire' %}fire-card fire-border
+        {% elif agent.tier == 'gold' %}border-2 border-amber-400 bg-white dark:bg-gray-800
+        {% elif agent.tier == 'silver' %}border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800
+        {% elif agent.tier == 'bronze' %}border border-orange-300 dark:border-orange-700 bg-white dark:bg-gray-800
+        {% else %}border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %}"
+        data-rank-total="{{ agent.rank_total }}"
+        data-rank-current="{{ agent.rank_current }}"
+        data-total="{{ agent.total_count }}"
+        data-month="{{ agent.current_month_count }}">
+
+        <!-- 頭部 -->
+        <div class="p-4 {% if agent.tier == 'fire' %}bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30
+            {% elif agent.tier == 'gold' %}bg-amber-50/50 dark:bg-amber-950/20
+            {% else %}bg-white dark:bg-gray-800{% endif %}">
+            <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
-                    <!-- 排名 -->
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0
-                        {% if loop.index == 1 %}bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400
-                        {% elif loop.index == 2 %}bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300
-                        {% elif loop.index == 3 %}bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400
-                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
-                        {{ loop.index }}
+                    <!-- 排名徽章 -->
+                    <div class="rank-badge w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0
+                        {% if agent.rank_total == 1 %}bg-gradient-to-br from-amber-400 to-yellow-500 text-white
+                        {% elif agent.rank_total == 2 %}bg-gradient-to-br from-gray-300 to-gray-400 text-white
+                        {% elif agent.rank_total == 3 %}bg-gradient-to-br from-orange-400 to-orange-600 text-white
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}"
+                        data-rank-total="{{ agent.rank_total }}" data-rank-current="{{ agent.rank_current }}">
+                        <span class="rank-number">{{ agent.rank_total }}</span>
                     </div>
                     <div>
-                        <p class="font-semibold text-gray-800 dark:text-white">{{ agent.name }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            最近進人：{{ agent.latest_date.strftime('%m/%d') if agent.latest_date else '-' }}
-                        </p>
+                        <p class="font-bold text-gray-800 dark:text-white text-base">{{ agent.name }}</p>
+                        {% if agent.tier == 'fire' %}
+                        <span class="text-xs text-red-500 font-medium"><i class="fas fa-fire mr-0.5"></i>本月之星</span>
+                        {% elif agent.tier == 'gold' %}
+                        <span class="text-xs text-amber-600 dark:text-amber-400 font-medium"><i class="fas fa-medal mr-0.5"></i>Top Performer</span>
+                        {% endif %}
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="text-right">
-                        <p class="text-2xl font-bold {% if loop.index == 1 %}text-amber-500{% else %}text-gray-800 dark:text-white{% endif %}">
-                            {{ agent.count }}
-                        </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">位公關</p>
+                {% if agent.tier == 'fire' %}
+                <div class="flex gap-0.5">
+                    <i class="fas fa-fire text-red-500 animate-pulse"></i>
+                    <i class="fas fa-fire text-orange-500 animate-pulse" style="animation-delay:0.15s"></i>
+                    <i class="fas fa-fire text-yellow-500 animate-pulse" style="animation-delay:0.3s"></i>
+                </div>
+                {% elif agent.tier == 'gold' %}
+                <i class="fas fa-crown text-amber-400 text-lg"></i>
+                {% endif %}
+            </div>
+
+            <!-- 數據列 -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-white/60 dark:bg-gray-900/30 rounded-lg py-2 px-1">
+                    <p class="text-lg font-bold text-gray-800 dark:text-white">{{ agent.total_count }}</p>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400">總人數</p>
+                </div>
+                <div class="bg-white/60 dark:bg-gray-900/30 rounded-lg py-2 px-1">
+                    <div class="flex items-center justify-center gap-1">
+                        <p class="text-lg font-bold text-gray-800 dark:text-white">{{ agent.current_month_count }}</p>
+                        {% if agent.monthly_delta > 0 %}
+                        <i class="fas fa-caret-up text-green-500 text-xs"></i>
+                        {% elif agent.monthly_delta < 0 %}
+                        <i class="fas fa-caret-down text-red-500 text-xs"></i>
+                        {% endif %}
                     </div>
-                    <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200"></i>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400">本月</p>
                 </div>
-            </button>
-            <!-- 展開：公關名單 -->
-            <div class="hidden border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <div class="p-3">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-xs text-gray-500 dark:text-gray-400">
-                                <th class="text-left py-1 px-2">藝名</th>
-                                <th class="text-left py-1 px-2">店家</th>
-                                <th class="text-left py-1 px-2">狀況</th>
-                                <th class="text-right py-1 px-2">日期</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for r in agent.recruits %}
-                            <tr class="border-t border-gray-100 dark:border-gray-700/50">
-                                <td class="py-2 px-2 text-gray-800 dark:text-white font-medium">{{ r.name }}</td>
-                                <td class="py-2 px-2 text-gray-600 dark:text-gray-400">{{ r.store or '-' }}</td>
-                                <td class="py-2 px-2">
-                                    {% if r.status == '合約' %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">合約</span>
-                                    {% elif r.status == '白紙' %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">白紙</span>
-                                    {% else %}
-                                    <span class="text-gray-500 dark:text-gray-400">{{ r.status or '-' }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-2 px-2 text-right text-gray-500 dark:text-gray-400">{{ r.date }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="bg-white/60 dark:bg-gray-900/30 rounded-lg py-2 px-1">
+                    <p class="text-lg font-bold {% if agent.contract_rate >= 70 %}text-teal-600 dark:text-teal-400{% elif agent.contract_rate >= 40 %}text-amber-600 dark:text-amber-400{% else %}text-gray-600 dark:text-gray-400{% endif %}">{{ agent.contract_rate }}%</p>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400">合約率</p>
                 </div>
             </div>
         </div>
-        {% endfor %}
+
+        <!-- 展開明細 -->
+        <button type="button" onclick="toggleDetail(this)"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-t border-gray-100 dark:border-gray-700">
+            <span><i class="fas fa-list mr-1"></i>查看公關名單 ({{ agent.total_count }})</span>
+            <i class="fas fa-chevron-down text-[10px] transition-transform duration-200"></i>
+        </button>
+        <div class="detail-panel hidden border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 max-h-60 overflow-y-auto">
+            <table class="w-full text-xs">
+                <thead class="sticky top-0 bg-gray-100 dark:bg-gray-800">
+                    <tr class="text-gray-500 dark:text-gray-400">
+                        <th class="text-left py-2 px-3">藝名</th>
+                        <th class="text-left py-2 px-3">店家</th>
+                        <th class="text-left py-2 px-3">狀況</th>
+                        <th class="text-right py-2 px-3">日期</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in agent.recruits %}
+                    <tr class="border-t border-gray-100 dark:border-gray-700/50">
+                        <td class="py-1.5 px-3 text-gray-800 dark:text-white font-medium">{{ r.name }}</td>
+                        <td class="py-1.5 px-3 text-gray-600 dark:text-gray-400">{{ r.store or '-' }}</td>
+                        <td class="py-1.5 px-3">
+                            {% if r.status == '合約' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">合約</span>
+                            {% elif r.status == '白紙' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">白紙</span>
+                            {% else %}
+                            <span class="text-gray-400">{{ r.status or '-' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-1.5 px-3 text-right text-gray-500 dark:text-gray-400">{{ r.date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    {% else %}
-    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-        <i class="fas fa-chart-bar text-4xl mb-3"></i>
-        <p>尚無公關進人資料</p>
-        <p class="text-sm mt-1">公關版本表單送出後，資料會自動顯示在這裡</p>
-    </div>
-    {% endif %}
+    {% endfor %}
 </div>
 
-<!-- 圖表區 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    <!-- 訓練批次統計 -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i class="fas fa-layer-group mr-2 text-indigo-600 dark:text-indigo-400"></i>訓練批次統計
-        </h3>
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.batch_stats.active }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">進行中批次</p>
-            </div>
-            <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.batch_stats.in_training }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">訓練中</p>
-            </div>
-            <div class="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.batch_stats.pending }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">待開始</p>
-            </div>
-            <div class="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4 text-center">
-                <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ stats.batch_stats.completed }}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">已完成</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 各天進度分佈 -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i class="fas fa-chart-bar mr-2 text-indigo-600 dark:text-indigo-400"></i>訓練進度分佈
-        </h3>
-        <div class="space-y-2 max-h-64 overflow-y-auto">
-            {% for day in range(15) %}
-            {% set count = stats.day_distribution.get(day, 0) %}
-            <div class="flex items-center">
-                <span class="w-16 text-sm text-gray-600 dark:text-gray-400">Day {{ day }}</span>
-                <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-4 mx-2">
-                    {% set percentage = (count / stats.total_users * 100) if stats.total_users > 0 else 0 %}
-                    <div class="h-4 rounded-full bg-indigo-500" style="width: {{ percentage }}%"></div>
-                </div>
-                <span class="w-12 text-right text-sm font-medium text-gray-800 dark:text-white">{{ count }}</span>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- 未回覆推送 -->
-{% if unresponded_pushes %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8 border-l-4 border-red-500">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
-            <i class="fas fa-exclamation-triangle mr-2 text-red-600 dark:text-red-400"></i>未回覆推送
-            <span class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">(最近 7 天)</span>
-        </h3>
-        <span class="bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 px-3 py-1 rounded-full text-sm font-medium">
-            {{ unresponded_pushes|length }} 則
-        </span>
-    </div>
-
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead class="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">日期</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Day</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">推送內容</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for push in unresponded_pushes[:10] %}
-                <tr class="hover:bg-red-50 dark:hover:bg-red-900/20">
-                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                        {{ push.push_date }}
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                        <a href="/dashboard/users/{{ push.line_user_id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
-                            {{ push.user_name or push.line_user_id[:8] + '...' }}
-                        </a>
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Day {{ push.training_day }}</span>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell max-w-xs truncate">
-                        {{ push.push_message[:50] }}...
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+{% else %}
+<!-- 空資料狀態 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center mb-8">
+    <i class="fas fa-chart-bar text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+    <p class="text-gray-500 dark:text-gray-400 text-lg font-medium">尚無招募資料</p>
+    <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">公關版本表單送出後，績效數據會自動顯示在這裡</p>
 </div>
 {% endif %}
 
-<!-- 最近對話 -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
-            <i class="fas fa-clock mr-2 text-indigo-600 dark:text-indigo-400"></i>最近對話
-        </h3>
-        <a href="/dashboard/messages" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">
-            查看全部 <i class="fas fa-arrow-right ml-1"></i>
-        </a>
-    </div>
+<!-- ===== 其他系統統計（收合） ===== -->
+<details class="mb-8">
+    <summary class="cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow px-5 py-4 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition font-medium text-sm">
+        <i class="fas fa-caret-right mr-2"></i>其他系統統計（訓練 / 推送 / 對話）
+    </summary>
+    <div class="mt-4 space-y-6">
 
-    {% if recent_messages %}
-    <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead class="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">時間</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">用戶</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">Day</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">狀態</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300 hidden lg:table-cell">分數</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for msg in recent_messages[:10] %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                        {{ msg.created_at.strftime('%m/%d %H:%M') }}
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                        <a href="/dashboard/users/{{ msg.user.line_user_id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
-                            {{ msg.user.line_user_id[:8] }}...
-                        </a>
-                    </td>
-                    <td class="px-4 py-3 text-sm hidden md:table-cell">
-                        <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Day {{ msg.training_day }}</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        {% if msg.passed %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">
-                            <i class="fas fa-check mr-1"></i>通過
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300">
-                            <i class="fas fa-times mr-1"></i>未通過
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm hidden lg:table-cell">
-                        <span class="font-medium {% if msg.score >= 80 %}text-green-600 dark:text-green-400{% elif msg.score >= 60 %}text-yellow-600 dark:text-yellow-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-                            {{ msg.score }}
-                        </span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- 訓練與用戶統計 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">總用戶數</p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ stats.total_users }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">活躍用戶</p>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.active_users }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">已完成訓練</p>
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.completed_users }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">完成率</p>
+                <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ stats.completion_rate }}%</p>
+            </div>
+        </div>
+
+        <!-- 推送統計 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-orange-500">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日推送</p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ push_stats.today.total }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-green-500">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日已回覆</p>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ push_stats.today.responded }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-red-500">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">今日未回覆</p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ push_stats.today.unresponded }}</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-blue-500">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">本週回覆率</p>
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ push_stats.week.response_rate }}%</p>
+            </div>
+        </div>
+
+        <!-- 訓練批次 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-layer-group mr-2 text-indigo-500"></i>訓練批次
+            </h3>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.batch_stats.active }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">進行中</p>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.batch_stats.in_training }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">訓練中</p>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.batch_stats.pending }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">待開始</p>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ stats.batch_stats.completed }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">已完成</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近對話 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h3 class="text-base font-semibold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-clock mr-2 text-indigo-500"></i>最近對話
+                <a href="/dashboard/messages" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm font-normal ml-2">查看全部</a>
+            </h3>
+            {% if recent_messages %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300">時間</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300">用戶</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300">狀態</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 hidden lg:table-cell">分數</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        {% for msg in recent_messages[:10] %}
+                        <tr>
+                            <td class="px-4 py-2 text-gray-600 dark:text-gray-300">{{ msg.created_at.strftime('%m/%d %H:%M') }}</td>
+                            <td class="px-4 py-2"><a href="/dashboard/users/{{ msg.user.line_user_id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ msg.user.line_user_id[:8] }}...</a></td>
+                            <td class="px-4 py-2">
+                                {% if msg.passed %}
+                                <span class="px-2 py-0.5 rounded-full text-xs bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">通過</span>
+                                {% else %}
+                                <span class="px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">未通過</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 hidden lg:table-cell font-medium {% if msg.score >= 80 %}text-green-600{% elif msg.score >= 60 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ msg.score }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-center text-gray-500 dark:text-gray-400 py-6"><i class="fas fa-inbox text-3xl mb-2"></i><br>尚無對話記錄</p>
+            {% endif %}
+        </div>
+
     </div>
-    {% else %}
-    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-        <i class="fas fa-inbox text-4xl mb-3"></i>
-        <p>尚無對話記錄</p>
-    </div>
-    {% endif %}
-</div>
+</details>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-function toggleAgent(btn) {
-    const detail = btn.nextElementSibling;
+(function() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(156,163,175,0.15)' : 'rgba(209,213,219,0.5)';
+    const textColor = isDark ? '#9ca3af' : '#6b7280';
+
+    {% if recruitment.total_pr > 0 %}
+
+    // ===== 月趨勢線圖 =====
+    const monthlyData = JSON.parse('{{ recruitment.monthly_trend_json | safe }}');
+    const trendCtx = document.getElementById('monthlyTrendChart').getContext('2d');
+    const gradient = trendCtx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, isDark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.15)');
+    gradient.addColorStop(1, 'rgba(99,102,241,0)');
+
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(d => d.label),
+            datasets: [{
+                label: '招募人數',
+                data: monthlyData.map(d => d.count),
+                borderColor: '#6366f1',
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#6366f1',
+                pointBorderColor: isDark ? '#1f2937' : '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 7,
+                borderWidth: 2.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: isDark ? '#374151' : '#1f2937',
+                    titleColor: '#f9fafb',
+                    bodyColor: '#f9fafb',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: { label: ctx => ctx.parsed.y + ' 人' }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, color: textColor, font: { size: 11 } },
+                    grid: { color: gridColor }
+                },
+                x: {
+                    ticks: { color: textColor, font: { size: 11 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+
+    // ===== 經紀人排名橫條圖 =====
+    const agentData = JSON.parse('{{ recruitment.agent_chart_json | safe }}');
+    const tierColors = {
+        fire: '#ef4444',
+        gold: '#f59e0b',
+        silver: '#9ca3af',
+        bronze: '#c2703e',
+        standard: isDark ? '#6b7280' : '#a1a1aa'
+    };
+
+    new Chart(document.getElementById('agentBarChart'), {
+        type: 'bar',
+        data: {
+            labels: agentData.map(d => d.name),
+            datasets: [{
+                data: agentData.map(d => d.count),
+                backgroundColor: agentData.map(d => tierColors[d.tier] || tierColors.standard),
+                borderRadius: 6,
+                barThickness: 22,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: isDark ? '#374151' : '#1f2937',
+                    titleColor: '#f9fafb',
+                    bodyColor: '#f9fafb',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: { label: ctx => ctx.parsed.x + ' 人' }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, color: textColor, font: { size: 11 } },
+                    grid: { color: gridColor }
+                },
+                y: {
+                    ticks: { color: textColor, font: { size: 12 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+
+    // ===== 狀態甜甜圈圖 =====
+    new Chart(document.getElementById('statusDoughnut'), {
+        type: 'doughnut',
+        data: {
+            labels: ['合約', '白紙'],
+            datasets: [{
+                data: [{{ recruitment.contract_count }}, {{ recruitment.white_paper_count }}],
+                backgroundColor: ['#10b981', isDark ? '#4b5563' : '#d1d5db'],
+                borderWidth: 0,
+                spacing: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: textColor, padding: 16, font: { size: 13 } }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#374151' : '#1f2937',
+                    titleColor: '#f9fafb',
+                    bodyColor: '#f9fafb',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: { label: ctx => ctx.label + '：' + ctx.parsed + ' 人' }
+                }
+            }
+        }
+    });
+
+    {% endif %}
+})();
+
+// ===== 排名 Tab 切換 =====
+function switchRankTab(mode) {
+    document.querySelectorAll('.rank-tab').forEach(t => {
+        t.classList.remove('bg-white', 'dark:bg-gray-600', 'text-gray-800', 'dark:text-white', 'shadow-sm');
+        t.classList.add('text-gray-500', 'dark:text-gray-400');
+    });
+    const activeTab = document.getElementById('tab-' + mode);
+    activeTab.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-800', 'dark:text-white', 'shadow-sm');
+    activeTab.classList.remove('text-gray-500', 'dark:text-gray-400');
+
+    const container = document.getElementById('agent-cards');
+    if (!container) return;
+    const cards = Array.from(container.querySelectorAll('.agent-card'));
+
+    // 排序
+    cards.sort((a, b) => {
+        if (mode === 'month') {
+            const diff = parseInt(b.dataset.month) - parseInt(a.dataset.month);
+            return diff !== 0 ? diff : parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
+        }
+        return parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
+    });
+
+    // 更新排名徽章數字
+    cards.forEach((card, i) => {
+        const badge = card.querySelector('.rank-badge');
+        const numEl = badge.querySelector('.rank-number');
+        const rank = mode === 'month' ? parseInt(card.dataset.rankCurrent) : parseInt(card.dataset.rankTotal);
+        numEl.textContent = rank;
+
+        // 更新徽章顏色
+        badge.className = 'rank-badge w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ';
+        if (rank === 1) badge.className += 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white';
+        else if (rank === 2) badge.className += 'bg-gradient-to-br from-gray-300 to-gray-400 text-white';
+        else if (rank === 3) badge.className += 'bg-gradient-to-br from-orange-400 to-orange-600 text-white';
+        else badge.className += 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
+    });
+
+    // 重新排列 DOM
+    cards.forEach(card => container.appendChild(card));
+}
+
+// ===== 展開明細 =====
+function toggleDetail(btn) {
+    const panel = btn.nextElementSibling;
     const icon = btn.querySelector('.fa-chevron-down');
-    detail.classList.toggle('hidden');
-    icon.classList.toggle('rotate-180');
+    panel.classList.toggle('hidden');
+    if (icon) icon.classList.toggle('rotate-180');
 }
 </script>
 {% endblock %}
