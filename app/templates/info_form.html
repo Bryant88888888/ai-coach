@@ -295,10 +295,11 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">經紀人 <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="manager" required maxlength="20" placeholder="請輸入經紀人姓名"
-                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
-                    <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
+                    <label class="field-label block mb-1.5">經紀人</label>
+                    <input type="text" name="manager" readonly
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" style="opacity: 0.7; cursor: not-allowed;"
+                        id="pr-manager-field">
+                    <p class="hint-text mt-1">自動帶入您的暱稱，無法手動修改</p>
                 </div>
 
                 <div class="divider"></div>
@@ -563,6 +564,35 @@
                 avatar.classList.remove('hidden');
             }
             name.textContent = profile.displayName;
+
+            // 檢查是否已註冊員工
+            try {
+                const profileResp = await fetch('/api/profile?line_user_id=' + profile.userId);
+                const profileData = await profileResp.json();
+
+                if (!profileData.success || !profileData.registered) {
+                    // 未註冊員工，不允許填寫
+                    document.getElementById('loading-section').innerHTML = `
+                        <div class="text-center">
+                            <div class="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);">
+                                <i class="fas fa-user-slash text-xl text-red-400"></i>
+                            </div>
+                            <h2 class="text-lg font-light text-white mb-2" style="letter-spacing: 0.1em;">無法填寫</h2>
+                            <p style="color: rgba(255,255,255,0.35);" class="text-sm mb-2">您尚未完成員工資料註冊</p>
+                            <p style="color: rgba(255,255,255,0.25);" class="text-xs">請先完成員工資料填寫後再使用此表單</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 已註冊 → 自動帶入暱稱到公關版本的經紀人欄位
+                const managerField = document.getElementById('pr-manager-field');
+                if (managerField && profileData.nickname) {
+                    managerField.value = profileData.nickname;
+                }
+            } catch (profileErr) {
+                console.error('檢查員工資料失敗:', profileErr);
+            }
 
             // 隱藏載入、顯示主內容
             document.getElementById('loading-section').classList.add('hidden');
