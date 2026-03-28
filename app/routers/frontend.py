@@ -131,7 +131,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
                 y -= 1
         return datetime(y, m, 1)
 
-    now = datetime.now()
+    now = datetime.utcnow()
     current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     last_month_start = months_ago(now, 1)
 
@@ -147,12 +147,16 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
             manager = data.get("manager", "").strip()
             if not manager:
                 continue
+            # 統一為 naive datetime 處理
+            cat = sub.created_at
+            if cat and cat.tzinfo is not None:
+                cat = cat.replace(tzinfo=None)
             parsed_recruits.append({
                 "manager": manager,
                 "stage_name": data.get("stage_name") or data.get("real_name") or "未知",
                 "store": data.get("store", ""),
                 "status": data.get("status", ""),
-                "created_at": sub.created_at,
+                "created_at": cat,
             })
         except Exception:
             continue
