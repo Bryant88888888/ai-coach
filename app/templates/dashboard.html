@@ -110,6 +110,94 @@
     </div>
 </div>
 
+<!-- 經紀人招募績效 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8">
+    <div class="flex justify-between items-center mb-5">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-trophy mr-2 text-amber-500"></i>經紀人招募績效
+        </h3>
+        <span class="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-full text-sm font-medium">
+            共 {{ total_pr }} 位公關
+        </span>
+    </div>
+
+    {% if agent_stats %}
+    <div class="space-y-3">
+        {% for agent in agent_stats %}
+        <div class="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
+            <!-- 經紀人摘要列 -->
+            <button type="button" onclick="toggleAgent(this)" class="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition text-left">
+                <div class="flex items-center gap-3">
+                    <!-- 排名 -->
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0
+                        {% if loop.index == 1 %}bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400
+                        {% elif loop.index == 2 %}bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300
+                        {% elif loop.index == 3 %}bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+                        {{ loop.index }}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 dark:text-white">{{ agent.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            最近進人：{{ agent.latest_date.strftime('%m/%d') if agent.latest_date else '-' }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <p class="text-2xl font-bold {% if loop.index == 1 %}text-amber-500{% else %}text-gray-800 dark:text-white{% endif %}">
+                            {{ agent.count }}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">位公關</p>
+                    </div>
+                    <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200"></i>
+                </div>
+            </button>
+            <!-- 展開：公關名單 -->
+            <div class="hidden border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                <div class="p-3">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-xs text-gray-500 dark:text-gray-400">
+                                <th class="text-left py-1 px-2">藝名</th>
+                                <th class="text-left py-1 px-2">店家</th>
+                                <th class="text-left py-1 px-2">狀況</th>
+                                <th class="text-right py-1 px-2">日期</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in agent.recruits %}
+                            <tr class="border-t border-gray-100 dark:border-gray-700/50">
+                                <td class="py-2 px-2 text-gray-800 dark:text-white font-medium">{{ r.name }}</td>
+                                <td class="py-2 px-2 text-gray-600 dark:text-gray-400">{{ r.store or '-' }}</td>
+                                <td class="py-2 px-2">
+                                    {% if r.status == '合約' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">合約</span>
+                                    {% elif r.status == '白紙' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">白紙</span>
+                                    {% else %}
+                                    <span class="text-gray-500 dark:text-gray-400">{{ r.status or '-' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-2 px-2 text-right text-gray-500 dark:text-gray-400">{{ r.date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+        <i class="fas fa-chart-bar text-4xl mb-3"></i>
+        <p>尚無公關進人資料</p>
+        <p class="text-sm mt-1">公關版本表單送出後，資料會自動顯示在這裡</p>
+    </div>
+    {% endif %}
+</div>
+
 <!-- 圖表區 -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- 訓練批次統計 -->
@@ -271,4 +359,15 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAgent(btn) {
+    const detail = btn.nextElementSibling;
+    const icon = btn.querySelector('.fa-chevron-down');
+    detail.classList.toggle('hidden');
+    icon.classList.toggle('rotate-180');
+}
+</script>
 {% endblock %}

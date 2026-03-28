@@ -117,13 +117,52 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     # 取得未回覆的推送
     unresponded_pushes = push_service.get_unresponded_pushes(days=7)
 
+    # 經紀人招募績效統計（從公關版本表單的 manager 欄位統計）
+    import json as json_lib
+    agent_stats = []
+    pr_submissions = db.query(InfoFormSubmission).filter(
+        InfoFormSubmission.form_type == "公關版本"
+    ).order_by(InfoFormSubmission.created_at.desc()).all()
+
+    agent_counts = {}  # { 經紀人名: { count, latest_date, recruits: [...] } }
+    for sub in pr_submissions:
+        try:
+            data = json_lib.loads(sub.form_data)
+            manager_name = data.get("manager", "").strip()
+            if not manager_name:
+                continue
+            if manager_name not in agent_counts:
+                agent_counts[manager_name] = {
+                    "count": 0,
+                    "latest_date": sub.created_at,
+                    "recruits": []
+                }
+            agent_counts[manager_name]["count"] += 1
+            recruit_name = data.get("stage_name") or data.get("real_name") or "未知"
+            agent_counts[manager_name]["recruits"].append({
+                "name": recruit_name,
+                "store": data.get("store", ""),
+                "status": data.get("status", ""),
+                "date": sub.created_at.strftime("%m/%d") if sub.created_at else ""
+            })
+        except Exception:
+            continue
+
+    # 按人數排序
+    agent_stats = [
+        {"name": name, **info}
+        for name, info in sorted(agent_counts.items(), key=lambda x: x[1]["count"], reverse=True)
+    ]
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "active_page": "dashboard",
         "stats": stats,
         "recent_messages": recent_messages,
         "push_stats": push_stats,
-        "unresponded_pushes": unresponded_pushes
+        "unresponded_pushes": unresponded_pushes,
+        "agent_stats": agent_stats,
+        "total_pr": len(pr_submissions)
     })
 
 
