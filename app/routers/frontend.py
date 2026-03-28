@@ -230,15 +230,45 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         cm = a["current_month_count"]
         a["monthly_delta"] = round((cm - lm) / lm * 100, 1) if lm > 0 else (100.0 if cm > 0 else 0)
 
+        # 趨勢判斷：以前好現在差 / 穩定成長 / 持平 / 下滑
+        if lm > 0 and cm == 0:
+            a["trend"] = "declining"      # 上月有進人，本月掛零
+            a["trend_label"] = "本月掛零"
+        elif lm > 0 and cm < lm:
+            a["trend"] = "slowing"        # 有在進但比上月少
+            a["trend_label"] = "較上月減少"
+        elif cm > lm:
+            a["trend"] = "growing"        # 成長中
+            a["trend_label"] = "成長中"
+        elif cm == lm and cm > 0:
+            a["trend"] = "stable"         # 持平
+            a["trend_label"] = "持平"
+        elif a["total_count"] > 0 and cm == 0 and lm == 0:
+            a["trend"] = "inactive"       # 連續兩月無進人
+            a["trend_label"] = "已停滯"
+        else:
+            a["trend"] = "new"
+            a["trend_label"] = "新進"
+
+    # 合約率排名
+    agent_stats_by_contract = sorted(agent_map.values(), key=lambda x: x.get("contract_rate", 0), reverse=True)
+    for i, a in enumerate(agent_stats_by_contract):
+        agent_map[a["name"]]["rank_contract"] = i + 1
+
     for i, a in enumerate(agent_stats_by_month):
         agent_map[a["name"]]["rank_current"] = i + 1
 
-    # Tier 分級
+    # Tier 分級（含警示）
     n = len(agent_stats)
     for a in agent_stats:
         rc = a.get("rank_current", 999)
         rt = a["rank_total"]
-        if rc == 1 and a["current_month_count"] >= 1:
+        trend = a.get("trend", "")
+
+        # 優先判斷警示狀態
+        if trend in ("declining", "inactive") and a["current_month_count"] == 0:
+            a["tier"] = "warning"  # 需要關注
+        elif rc == 1 and a["current_month_count"] >= 1:
             a["tier"] = "fire"
         elif rt <= max(1, n * 0.25):
             a["tier"] = "gold"

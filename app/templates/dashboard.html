@@ -137,18 +137,26 @@
 </div>
 
 <!-- ===== 排名切換 Tab ===== -->
-<div class="flex items-center gap-3 mb-4">
+<div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
     <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
         <i class="fas fa-trophy mr-2 text-amber-500"></i>經紀人績效
     </h3>
-    <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 ml-auto">
+    <div class="flex flex-wrap bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 sm:ml-auto gap-0.5">
         <button type="button" id="tab-total" onclick="switchRankTab('total')"
-            class="rank-tab px-4 py-1.5 rounded-md text-sm font-medium transition bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm">
+            class="rank-tab px-3 py-1.5 rounded-md text-xs font-medium transition bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm">
             總排名
         </button>
         <button type="button" id="tab-month" onclick="switchRankTab('month')"
-            class="rank-tab px-4 py-1.5 rounded-md text-sm font-medium transition text-gray-500 dark:text-gray-400">
+            class="rank-tab px-3 py-1.5 rounded-md text-xs font-medium transition text-gray-500 dark:text-gray-400">
             本月排名
+        </button>
+        <button type="button" id="tab-contract" onclick="switchRankTab('contract')"
+            class="rank-tab px-3 py-1.5 rounded-md text-xs font-medium transition text-gray-500 dark:text-gray-400">
+            合約率
+        </button>
+        <button type="button" id="tab-trend" onclick="switchRankTab('trend')"
+            class="rank-tab px-3 py-1.5 rounded-md text-xs font-medium transition text-gray-500 dark:text-gray-400">
+            趨勢警示
         </button>
     </div>
 </div>
@@ -158,17 +166,23 @@
     {% for agent in agent_stats %}
     <div class="agent-card rounded-xl shadow overflow-hidden
         {% if agent.tier == 'fire' %}fire-card fire-border
+        {% elif agent.tier == 'warning' %}border-2 border-red-400 dark:border-red-600 bg-white dark:bg-gray-800
         {% elif agent.tier == 'gold' %}border-2 border-amber-400 bg-white dark:bg-gray-800
         {% elif agent.tier == 'silver' %}border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800
         {% elif agent.tier == 'bronze' %}border border-orange-300 dark:border-orange-700 bg-white dark:bg-gray-800
         {% else %}border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %}"
         data-rank-total="{{ agent.rank_total }}"
         data-rank-current="{{ agent.rank_current }}"
+        data-rank-contract="{{ agent.rank_contract }}"
         data-total="{{ agent.total_count }}"
-        data-month="{{ agent.current_month_count }}">
+        data-month="{{ agent.current_month_count }}"
+        data-contract="{{ agent.contract_rate }}"
+        data-trend="{{ agent.trend }}"
+        data-tier="{{ agent.tier }}">
 
         <!-- 頭部 -->
         <div class="p-4 {% if agent.tier == 'fire' %}bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30
+            {% elif agent.tier == 'warning' %}bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20
             {% elif agent.tier == 'gold' %}bg-amber-50/50 dark:bg-amber-950/20
             {% else %}bg-white dark:bg-gray-800{% endif %}">
             <div class="flex items-center justify-between mb-3">
@@ -186,8 +200,23 @@
                         <p class="font-bold text-gray-800 dark:text-white text-base">{{ agent.name }}</p>
                         {% if agent.tier == 'fire' %}
                         <span class="text-xs text-red-500 font-medium"><i class="fas fa-fire mr-0.5"></i>本月之星</span>
+                        {% elif agent.tier == 'warning' %}
+                        <span class="text-xs text-red-500 font-medium"><i class="fas fa-triangle-exclamation mr-0.5"></i>需關注</span>
                         {% elif agent.tier == 'gold' %}
                         <span class="text-xs text-amber-600 dark:text-amber-400 font-medium"><i class="fas fa-medal mr-0.5"></i>Top Performer</span>
+                        {% endif %}
+                        {% if agent.trend_label %}
+                        <span class="trend-tag text-[10px] ml-1 px-1.5 py-0.5 rounded
+                            {% if agent.trend == 'growing' %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400
+                            {% elif agent.trend == 'stable' %}bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400
+                            {% elif agent.trend == 'slowing' %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400
+                            {% elif agent.trend in ['declining', 'inactive'] %}bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500{% endif %}">
+                            {% if agent.trend == 'growing' %}<i class="fas fa-arrow-trend-up mr-0.5"></i>
+                            {% elif agent.trend == 'slowing' %}<i class="fas fa-arrow-trend-down mr-0.5"></i>
+                            {% elif agent.trend in ['declining', 'inactive'] %}<i class="fas fa-circle-exclamation mr-0.5"></i>
+                            {% endif %}{{ agent.trend_label }}
+                        </span>
                         {% endif %}
                     </div>
                 </div>
@@ -197,6 +226,8 @@
                     <i class="fas fa-fire text-orange-500 animate-pulse" style="animation-delay:0.15s"></i>
                     <i class="fas fa-fire text-yellow-500 animate-pulse" style="animation-delay:0.3s"></i>
                 </div>
+                {% elif agent.tier == 'warning' %}
+                <i class="fas fa-triangle-exclamation text-red-400 text-lg animate-pulse"></i>
                 {% elif agent.tier == 'gold' %}
                 <i class="fas fa-crown text-amber-400 text-lg"></i>
                 {% endif %}
@@ -555,28 +586,53 @@ function switchRankTab(mode) {
     if (!container) return;
     const cards = Array.from(container.querySelectorAll('.agent-card'));
 
-    // 排序
+    // 排序依據
     cards.sort((a, b) => {
         if (mode === 'month') {
             const diff = parseInt(b.dataset.month) - parseInt(a.dataset.month);
             return diff !== 0 ? diff : parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
+        } else if (mode === 'contract') {
+            const diff = parseFloat(b.dataset.contract) - parseFloat(a.dataset.contract);
+            return diff !== 0 ? diff : parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
+        } else if (mode === 'trend') {
+            // 警示優先（warning tier + declining/inactive 排前面）
+            const trendOrder = { declining: 0, inactive: 1, slowing: 2, stable: 3, new: 4, growing: 5 };
+            const ta = trendOrder[a.dataset.trend] ?? 3;
+            const tb = trendOrder[b.dataset.trend] ?? 3;
+            return ta !== tb ? ta - tb : parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
         }
         return parseInt(a.dataset.rankTotal) - parseInt(b.dataset.rankTotal);
     });
 
-    // 更新排名徽章數字
+    // 更新排名徽章
     cards.forEach((card, i) => {
         const badge = card.querySelector('.rank-badge');
         const numEl = badge.querySelector('.rank-number');
-        const rank = mode === 'month' ? parseInt(card.dataset.rankCurrent) : parseInt(card.dataset.rankTotal);
+        let rank;
+        if (mode === 'month') rank = parseInt(card.dataset.rankCurrent);
+        else if (mode === 'contract') rank = parseInt(card.dataset.rankContract);
+        else if (mode === 'trend') rank = i + 1;
+        else rank = parseInt(card.dataset.rankTotal);
         numEl.textContent = rank;
 
-        // 更新徽章顏色
         badge.className = 'rank-badge w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ';
-        if (rank === 1) badge.className += 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white';
-        else if (rank === 2) badge.className += 'bg-gradient-to-br from-gray-300 to-gray-400 text-white';
-        else if (rank === 3) badge.className += 'bg-gradient-to-br from-orange-400 to-orange-600 text-white';
-        else badge.className += 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
+        if (mode === 'trend') {
+            // 趨勢模式：用趨勢配色
+            const trend = card.dataset.trend;
+            if (trend === 'declining' || trend === 'inactive')
+                badge.className += 'bg-gradient-to-br from-red-400 to-red-600 text-white';
+            else if (trend === 'slowing')
+                badge.className += 'bg-gradient-to-br from-amber-400 to-amber-600 text-white';
+            else if (trend === 'growing')
+                badge.className += 'bg-gradient-to-br from-green-400 to-green-600 text-white';
+            else
+                badge.className += 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
+        } else {
+            if (rank === 1) badge.className += 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white';
+            else if (rank === 2) badge.className += 'bg-gradient-to-br from-gray-300 to-gray-400 text-white';
+            else if (rank === 3) badge.className += 'bg-gradient-to-br from-orange-400 to-orange-600 text-white';
+            else badge.className += 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
+        }
     });
 
     // 重新排列 DOM
