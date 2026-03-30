@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}權限管理 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    <!-- 標題 -->
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">
+            <i class="fas fa-shield-halved text-indigo-500 mr-2"></i>權限管理
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-1">管理管理員帳號、角色與權限設定</p>
+    </div>
+
+    <!-- 訊息提示 -->
+    {% if success_message %}
+    <div class="p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 flex items-center">
+        <i class="fas fa-check-circle mr-3 text-xl"></i><span>{{ success_message }}</span>
+    </div>
+    {% endif %}
+    {% if error_message %}
+    <div class="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 flex items-center">
+        <i class="fas fa-exclamation-circle mr-3 text-xl"></i><span>{{ error_message }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Tab 切換 -->
+    <div class="border-b dark:border-gray-700">
+        <nav class="flex gap-1" id="admin-tabs">
+            <button onclick="switchTab('accounts')" data-tab="accounts"
+                class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition min-h-[44px]
+                       border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 bg-white dark:bg-gray-800">
+                <i class="fas fa-users-cog mr-2"></i>帳號管理
+            </button>
+            <button onclick="switchTab('roles')" data-tab="roles"
+                class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition min-h-[44px]
+                       border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                <i class="fas fa-user-tag mr-2"></i>角色管理
+            </button>
+            <button onclick="switchTab('reference')" data-tab="reference"
+                class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition min-h-[44px]
+                       border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                <i class="fas fa-book mr-2"></i>權限說明
+            </button>
+        </nav>
+    </div>
+
+    <!-- ===== Tab 1: 帳號管理 ===== -->
+    <div id="tab-accounts" class="tab-content">
+        {% if "admin:edit" in admin_permissions %}
+        <div class="mb-6">
+            <button onclick="openAccountModal()" class="inline-flex items-center px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition min-h-[44px]">
+                <i class="fas fa-user-plus mr-2"></i>新增帳號
+            </button>
+        </div>
+        {% endif %}
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">帳號</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">顯示名稱</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">角色</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">狀態</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">最後登入</th>
+                            {% if "admin:edit" in admin_permissions %}
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">操作</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for acc in all_admins %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                            <td class="px-4 py-4">
+                                <span class="font-medium text-gray-800 dark:text-white">{{ acc.username }}</span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span class="text-gray-700 dark:text-gray-300">{{ acc.display_name }}</span>
+                                {% if acc.id == admin.id %}
+                                <span class="ml-1 text-xs text-indigo-500">(you)</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4">
+                                {% if acc.is_super_admin %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">
+                                    <i class="fas fa-crown mr-1"></i>超級管理員
+                                </span>
+                                {% elif acc.role %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400">
+                                    {{ acc.role.name }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400 text-sm">未指定角色</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 text-center">
+                                {% if acc.is_active %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
+                                    <i class="fas fa-circle text-[6px] mr-1"></i>啟用
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-circle text-[6px] mr-1"></i>停用
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                {{ acc.last_login_at.strftime('%Y-%m-%d %H:%M') if acc.last_login_at else '-' }}
+                            </td>
+                            {% if "admin:edit" in admin_permissions %}
+                            <td class="px-4 py-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="openEditAccountModal({{ acc.id }}, '{{ acc.username }}', '{{ acc.display_name }}', {{ acc.role_id or 0 }}, {{ 'true' if acc.is_super_admin else 'false' }})"
+                                        class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition p-1" title="編輯">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    {% if acc.id != admin.id %}
+                                    <form method="POST" action="/dashboard/admin/accounts/{{ acc.id }}/toggle" class="inline">
+                                        <button type="submit" class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 transition p-1"
+                                            title="{{ '停用' if acc.is_active else '啟用' }}">
+                                            <i class="fas {{ 'fa-toggle-on' if acc.is_active else 'fa-toggle-off' }}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="/dashboard/admin/accounts/{{ acc.id }}/delete"
+                                          onsubmit="return confirm('確定要刪除帳號「{{ acc.display_name }}」嗎？')">
+                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 transition p-1" title="刪除">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Tab 2: 角色管理 ===== -->
+    <div id="tab-roles" class="tab-content hidden">
+        {% if "admin:edit" in admin_permissions %}
+        <div class="mb-6">
+            <button onclick="openRoleModal()" class="inline-flex items-center px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition min-h-[44px]">
+                <i class="fas fa-plus mr-2"></i>新增角色
+            </button>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4">
+            {% for role in all_roles %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">{{ role.name }}</h3>
+                            {% if role.is_system %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400">
+                                <i class="fas fa-lock mr-1"></i>系統角色
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">{{ role.description or '無描述' }}</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for perm in role.get_permissions() %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                {{ permission_registry.get(perm, {}).get('label', perm) }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-center px-4">
+                            <div class="text-2xl font-bold text-gray-800 dark:text-white">{{ role_account_counts.get(role.id, 0) }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">使用帳號</div>
+                        </div>
+                        {% if "admin:edit" in admin_permissions %}
+                        <div class="flex gap-2">
+                            <button onclick="openEditRoleModal({{ role.id }}, '{{ role.name }}', '{{ role.description or '' }}', {{ role.permissions }})"
+                                class="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-200 transition min-h-[44px]">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            {% if not role.is_system %}
+                            <form method="POST" action="/dashboard/admin/roles/{{ role.id }}/delete"
+                                  onsubmit="return confirm('確定要刪除角色「{{ role.name }}」嗎？')">
+                                <button type="submit" class="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 transition min-h-[44px]">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if not all_roles %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center">
+                <i class="fas fa-user-tag text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                <p class="text-gray-500 dark:text-gray-400 text-lg">尚未建立任何角色</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== Tab 3: 權限說明 ===== -->
+    <div id="tab-reference" class="tab-content hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+            <div class="p-4 border-b dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+                    <i class="fas fa-book text-indigo-500 mr-2"></i>所有可用權限
+                </h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">以下為系統中所有可分配的權限及其說明</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">分組</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">權限代碼</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">說明</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">擁有此權限的角色</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for perm_key, perm_info in permission_registry.items() %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ perm_info.group }}</td>
+                            <td class="px-4 py-3">
+                                <code class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">{{ perm_key }}</code>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ perm_info.label }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for role in all_roles %}
+                                        {% if perm_key in role.get_permissions() %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400">
+                                            {{ role.name }}
+                                        </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if "admin:edit" in admin_permissions %}
+<!-- 新增/編輯帳號 Modal -->
+<div id="account-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+            <h3 id="account-modal-title" class="text-lg font-bold text-gray-800 dark:text-white">新增帳號</h3>
+            <button onclick="closeAccountModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="account-form" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">使用者名稱 <span class="text-red-500">*</span></label>
+                <input type="text" name="username" id="acc-username" required autocomplete="off"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    密碼 <span id="pwd-required" class="text-red-500">*</span>
+                    <span id="pwd-hint" class="text-gray-400 text-xs hidden">（空白表示不更改）</span>
+                </label>
+                <input type="password" name="password" id="acc-password" autocomplete="new-password"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">顯示名稱 <span class="text-red-500">*</span></label>
+                <input type="text" name="display_name" id="acc-display-name" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">角色</label>
+                <select name="role_id" id="acc-role-id"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                    <option value="0">-- 不指定角色 --</option>
+                    {% for role in all_roles %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" name="is_super_admin" id="acc-super-admin" value="true"
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="acc-super-admin" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    設為超級管理員 <span class="text-xs text-gray-400">（擁有所有權限，不受角色限制）</span>
+                </label>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeAccountModal()"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                    取消
+                </button>
+                <button type="submit"
+                    class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition min-h-[44px]">
+                    <i class="fas fa-save mr-2"></i>儲存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 新增/編輯角色 Modal -->
+<div id="role-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+            <h3 id="role-modal-title" class="text-lg font-bold text-gray-800 dark:text-white">新增角色</h3>
+            <button onclick="closeRoleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="role-form" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">角色名稱 <span class="text-red-500">*</span></label>
+                <input type="text" name="name" id="role-name" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">描述</label>
+                <input type="text" name="description" id="role-description"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">權限設定</label>
+                <div class="space-y-4">
+                    {% for group_name, perms in permission_groups.items() %}
+                    <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-folder mr-1 text-indigo-400"></i>{{ group_name }}
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            {% for perm in perms %}
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="permissions" value="{{ perm.key }}"
+                                    class="perm-checkbox w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    data-perm="{{ perm.key }}">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ perm.label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3 flex gap-2">
+                    <button type="button" onclick="selectAllPerms()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">全選</button>
+                    <span class="text-gray-300">|</span>
+                    <button type="button" onclick="selectViewPerms()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">僅檢視</button>
+                    <span class="text-gray-300">|</span>
+                    <button type="button" onclick="clearAllPerms()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">清除</button>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeRoleModal()"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                    取消
+                </button>
+                <button type="submit"
+                    class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition min-h-[44px]">
+                    <i class="fas fa-save mr-2"></i>儲存
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ===== Tab 切換 =====
+    function switchTab(tabName) {
+        // 隱藏所有 tab 內容
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        // 重設所有 tab 按鈕
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400', 'dark:border-indigo-400', 'bg-white', 'dark:bg-gray-800');
+            btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        });
+        // 顯示目標 tab
+        document.getElementById('tab-' + tabName).classList.remove('hidden');
+        // 啟動目標按鈕
+        const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        activeBtn.classList.add('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400', 'dark:border-indigo-400', 'bg-white', 'dark:bg-gray-800');
+    }
+
+    // URL 參數控制初始 tab
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTab = urlParams.get('tab') || 'accounts';
+    switchTab(initialTab);
+
+    // ===== 帳號 Modal =====
+    function openAccountModal() {
+        document.getElementById('account-modal-title').textContent = '新增帳號';
+        document.getElementById('account-form').action = '/dashboard/admin/accounts/create';
+        document.getElementById('acc-username').value = '';
+        document.getElementById('acc-username').readOnly = false;
+        document.getElementById('acc-password').value = '';
+        document.getElementById('acc-password').required = true;
+        document.getElementById('pwd-required').classList.remove('hidden');
+        document.getElementById('pwd-hint').classList.add('hidden');
+        document.getElementById('acc-display-name').value = '';
+        document.getElementById('acc-role-id').value = '0';
+        document.getElementById('acc-super-admin').checked = false;
+        document.getElementById('account-modal').classList.remove('hidden');
+    }
+
+    function openEditAccountModal(id, username, displayName, roleId, isSuperAdmin) {
+        document.getElementById('account-modal-title').textContent = '編輯帳號';
+        document.getElementById('account-form').action = '/dashboard/admin/accounts/' + id + '/edit';
+        document.getElementById('acc-username').value = username;
+        document.getElementById('acc-username').readOnly = true;
+        document.getElementById('acc-password').value = '';
+        document.getElementById('acc-password').required = false;
+        document.getElementById('pwd-required').classList.add('hidden');
+        document.getElementById('pwd-hint').classList.remove('hidden');
+        document.getElementById('acc-display-name').value = displayName;
+        document.getElementById('acc-role-id').value = roleId || '0';
+        document.getElementById('acc-super-admin').checked = isSuperAdmin;
+        document.getElementById('account-modal').classList.remove('hidden');
+    }
+
+    function closeAccountModal() {
+        document.getElementById('account-modal').classList.add('hidden');
+    }
+
+    // ===== 角色 Modal =====
+    function openRoleModal() {
+        document.getElementById('role-modal-title').textContent = '新增角色';
+        document.getElementById('role-form').action = '/dashboard/admin/roles/create';
+        document.getElementById('role-name').value = '';
+        document.getElementById('role-description').value = '';
+        clearAllPerms();
+        document.getElementById('role-modal').classList.remove('hidden');
+    }
+
+    function openEditRoleModal(id, name, description, permissions) {
+        document.getElementById('role-modal-title').textContent = '編輯角色';
+        document.getElementById('role-form').action = '/dashboard/admin/roles/' + id + '/edit';
+        document.getElementById('role-name').value = name;
+        document.getElementById('role-description').value = description;
+        // 設定勾選狀態
+        clearAllPerms();
+        if (Array.isArray(permissions)) {
+            permissions.forEach(p => {
+                const cb = document.querySelector(`.perm-checkbox[data-perm="${p}"]`);
+                if (cb) cb.checked = true;
+            });
+        }
+        document.getElementById('role-modal').classList.remove('hidden');
+    }
+
+    function closeRoleModal() {
+        document.getElementById('role-modal').classList.add('hidden');
+    }
+
+    // ===== 權限快速選擇 =====
+    function selectAllPerms() {
+        document.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = true);
+    }
+
+    function selectViewPerms() {
+        document.querySelectorAll('.perm-checkbox').forEach(cb => {
+            cb.checked = cb.dataset.perm.endsWith(':view');
+        });
+    }
+
+    function clearAllPerms() {
+        document.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = false);
+    }
+
+    // 點擊背景關閉 Modal
+    document.getElementById('account-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'account-modal') closeAccountModal();
+    });
+    document.getElementById('role-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'role-modal') closeRoleModal();
+    });
+</script>
+{% endblock %}
