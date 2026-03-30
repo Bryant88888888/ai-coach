@@ -57,14 +57,14 @@
             </a>
         </div>
 
-        <!-- 無��換班排班 -->
+        <!-- 無可換班排班 -->
         <div id="empty-section" class="hidden glass rounded-2xl p-10 text-center">
             <i class="fas fa-exchange-alt text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
-            <p class="mb-2" style="color: rgba(255,255,255,0.5);">目前���有可換的排班</p>
+            <p class="mb-2" style="color: rgba(255,255,255,0.5);">目前沒有可換的排班</p>
             <p class="text-sm" style="color: rgba(255,255,255,0.25);">只有未來的「已排班」狀態可以換班</p>
         </div>
 
-        <!-- 換���表單 -->
+        <!-- 換班表單 -->
         <div id="swap-form-section" class="hidden space-y-4">
             <!-- 選擇我的排班 -->
             <div class="glass rounded-2xl p-5">
@@ -215,7 +215,7 @@
                 } else {
                     alert(result.error || '換班失敗，請重試');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i>確��換班';
+                    btn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i>確認換班';
                 }
             } catch (error) {
                 alert('網路錯誤，請重試');
