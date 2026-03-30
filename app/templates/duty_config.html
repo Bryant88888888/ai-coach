@@ -9,8 +9,19 @@
         <i class="fas fa-chevron-right text-xs"></i>
         <span>排班設定</span>
     </div>
-    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">排班設定</h1>
-    <p class="text-gray-600 dark:text-gray-400 mt-1">設定值日生排班規則與任務</p>
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">排班設定</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">設定各店家值日生排班規則與任務</p>
+        </div>
+        {% if "duty:edit" in admin_permissions %}
+        <button onclick="document.getElementById('add-store-modal').classList.remove('hidden')"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-5 rounded-lg transition min-h-[44px] flex items-center gap-2">
+            <i class="fas fa-plus"></i>
+            <span>新增店家</span>
+        </button>
+        {% endif %}
+    </div>
 </div>
 
 {% if success_message %}
@@ -27,157 +38,89 @@
 </div>
 {% endif %}
 
-{# 清潔值日設定區塊暫時隱藏
-<!-- 新增設定 -->
-{% if not config %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-        <i class="fas fa-plus-circle text-indigo-500 mr-2"></i>建立排班設定
-    </h2>
-    <form method="POST" action="/dashboard/duty/config" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    設定名稱 <span class="text-red-500">*</span>
-                </label>
-                <input type="text" name="name" required value="清潔值日"
-                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    每日值日人數
-                </label>
-                <input type="number" name="members_per_day" value="1" min="1" max="10"
-                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-            </div>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                提醒時間
-            </label>
-            <input type="time" name="notify_time" value="08:00"
-                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                任務清單（每行一項）
-            </label>
-            <textarea name="tasks" rows="5" placeholder="掃地拖地&#10;倒垃圾&#10;整理桌面&#10;擦拭玻璃"
-                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
-        </div>
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
-            <i class="fas fa-save mr-2"></i>建立設定
-        </button>
-    </form>
-</div>
-{% else %}
-<!-- 編輯設定 -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
-            <i class="fas fa-cog text-indigo-500 mr-2"></i>{{ config.name }}
-        </h2>
-        <span class="px-3 py-1 rounded-full text-sm font-medium
-            {% if config.is_active %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400
-            {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400{% endif %}">
-            {% if config.is_active %}啟用中{% else %}已停用{% endif %}
-        </span>
-    </div>
-    <form method="POST" action="/dashboard/duty/config/{{ config.id }}" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    設定名稱 <span class="text-red-500">*</span>
-                </label>
-                <input type="text" name="name" required value="{{ config.name }}"
-                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    每日值日人數
-                </label>
-                <input type="number" name="members_per_day" value="{{ config.members_per_day }}" min="1" max="10"
-                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-            </div>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                提醒時間
-            </label>
-            <input type="time" name="notify_time" value="{{ config.notify_time }}"
-                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                任務清單（每行一項）
-            </label>
-            <textarea name="tasks" rows="5"
-                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{% for task in config.get_tasks() %}{{ task }}{% if not loop.last %}
-{% endif %}{% endfor %}</textarea>
-        </div>
-        <div class="flex items-center gap-4">
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" name="is_active" {% if config.is_active %}checked{% endif %}
-                       class="w-4 h-4 text-indigo-600 rounded">
-                <span class="ml-2 text-gray-700 dark:text-gray-300">啟用此設定</span>
-            </label>
-        </div>
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
-            <i class="fas fa-save mr-2"></i>儲存設定
-        </button>
-    </form>
-</div>
-{% endif %}
-#}
-
 {% set weekday_names = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'] %}
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-<!-- 值日生排班規則 -->
+<!-- 無店家提示 -->
+{% if store_configs|length == 0 %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-8 text-center mb-6">
+    <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-store text-2xl text-blue-600 dark:text-blue-400"></i>
+    </div>
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">尚未建立店家</h3>
+    <p class="text-gray-500 dark:text-gray-400 mb-4">請先新增店家，再設定各店的值日生排班規則</p>
+    {% if "duty:edit" in admin_permissions %}
+    <button onclick="document.getElementById('add-store-modal').classList.remove('hidden')"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-5 rounded-lg transition">
+        <i class="fas fa-plus mr-2"></i>新增第一個店家
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- 各店家值日生排班規則 -->
+<div class="space-y-6 mb-6">
+{% for sc in store_configs %}
+{% set cid = sc.id %}
+{% set rules = store_rules.get(cid, {}) %}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-blue-500">
-    <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
-        <i class="fas fa-calendar-check text-blue-500 mr-2"></i>值日生排班規則
-    </h2>
+    <div class="flex items-center justify-between mb-1">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-store text-blue-500 mr-2"></i>{{ sc.name }}
+        </h2>
+        <div class="flex items-center gap-2">
+            <span class="px-2 py-1 rounded-full text-xs font-medium
+                {% if sc.is_active %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400
+                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                {% if sc.is_active %}啟用中{% else %}已停用{% endif %}
+            </span>
+            {% if "duty:edit" in admin_permissions %}
+            <button onclick="confirmDeleteStore({{ cid }}, '{{ sc.name }}')"
+                class="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30" title="刪除店家">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">每個星期幾指定值日生（可多人），生成排班時將按此規則指派</p>
-    <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3" id="duty_form">
+
+    {% if "duty:edit" in admin_permissions %}
+    <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3" id="duty_{{ cid }}_form">
         <input type="hidden" name="rule_type" value="duty">
+        <input type="hidden" name="config_id" value="{{ cid }}">
         {% for i in range(7) %}
         <div class="flex items-start gap-2">
             <span class="w-14 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-1">{{ weekday_names[i] }}</span>
             <div class="flex-1">
-                <input type="hidden" name="weekday_{{ i }}" id="duty_uid_{{ i }}"
-                       value="{% if duty_rules.get(i) %}{{ duty_rules[i]|map(attribute='id')|join(',') }}{% endif %}">
+                <input type="hidden" name="weekday_{{ i }}" id="duty_{{ cid }}_uid_{{ i }}"
+                       value="{% if rules.get(i) %}{{ rules[i]|map(attribute='id')|join(',') }}{% endif %}">
                 <div class="flex items-center gap-1 flex-wrap">
-                    <!-- 已選人員標籤 -->
-                    <div id="duty_tags_{{ i }}" class="flex flex-wrap gap-1">
-                        {% if duty_rules.get(i) %}
-                        {% for u in duty_rules[i] %}
+                    <div id="duty_{{ cid }}_tags_{{ i }}" class="flex flex-wrap gap-1">
+                        {% if rules.get(i) %}
+                        {% for u in rules[i] %}
                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" data-uid="{{ u.id }}">
                             {{ u.nickname or u.real_name }}
-                            <button type="button" onclick="removeTag('duty', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
+                            <button type="button" onclick="removeTag('duty_{{ cid }}', {{ i }}, {{ u.id }})" class="hover:text-red-500 ml-0.5">&times;</button>
                         </span>
                         {% endfor %}
                         {% endif %}
                     </div>
-                    <!-- + 按鈕 -->
-                    <button type="button" onclick="toggleSearch('duty', {{ i }})"
+                    <button type="button" onclick="toggleSearch('duty_{{ cid }}', {{ i }})"
                         class="w-7 h-7 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition text-sm">
                         <i class="fas fa-plus text-xs"></i>
                     </button>
                 </div>
-                <!-- 搜尋區（預設隱藏） -->
-                <div id="duty_picker_{{ i }}" class="hidden mt-1">
-                    <div class="relative" data-picker="duty_{{ i }}">
-                        <input type="text" id="duty_search_{{ i }}" placeholder="搜尋並新增人員..."
+                <div id="duty_{{ cid }}_picker_{{ i }}" class="hidden mt-1">
+                    <div class="relative" data-picker="duty_{{ cid }}_{{ i }}">
+                        <input type="text" id="duty_{{ cid }}_search_{{ i }}" placeholder="搜尋並新增人員..."
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500"
-                               onfocus="openPicker('duty', {{ i }})" oninput="filterOptions('duty', {{ i }})">
-                        <div id="duty_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                               onfocus="openPicker('duty_{{ cid }}', {{ i }})" oninput="filterOptions('duty_{{ cid }}', {{ i }})">
+                        <div id="duty_{{ cid }}_dropdown_{{ i }}" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                             {% for user in duty_eligible %}
                             <div class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-sm text-gray-800 dark:text-gray-200 transition"
                                 data-uid="{{ user.id }}"
                                 data-name="{{ user.nickname or user.real_name }}"
                                 data-search="{{ (user.nickname or '')|lower }}{{ user.real_name|lower }}"
-                                onclick="addTag('duty', {{ i }}, this)">
+                                onclick="addTag('duty_{{ cid }}', {{ i }}, this)">
                                 {{ user.nickname or user.real_name }}（{{ user.real_name }}）
                             </div>
                             {% endfor %}
@@ -189,18 +132,42 @@
         {% endfor %}
         <div class="pt-2">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
-                <i class="fas fa-save mr-2"></i>儲存值日生規則
+                <i class="fas fa-save mr-2"></i>儲存「{{ sc.name }}」規則
             </button>
         </div>
     </form>
+    {% else %}
+    <div class="space-y-3">
+        {% for i in range(7) %}
+        <div class="flex items-start gap-2">
+            <span class="w-14 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-1">{{ weekday_names[i] }}</span>
+            <div class="flex flex-wrap gap-1">
+                {% if rules.get(i) %}
+                {% for u in rules[i] %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                    {{ u.nickname or u.real_name }}
+                </span>
+                {% endfor %}
+                {% else %}
+                <span class="text-sm text-gray-400 dark:text-gray-500">未設定</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
 </div>
 
+<div class="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
 <!-- 組長排班規則 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-purple-500">
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">
         <i class="fas fa-user-tie text-purple-500 mr-2"></i>組長排班規則
     </h2>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">每個星期幾指定駐店組長（可多人），僅顯示職位為「組長」的員工</p>
+    {% if "duty:edit" in admin_permissions %}
     <form method="POST" action="/dashboard/duty/rules/save" class="space-y-3" id="leader_form">
         <input type="hidden" name="rule_type" value="leader">
         {% for i in range(7) %}
@@ -255,6 +222,26 @@
             </button>
         </div>
     </form>
+    {% else %}
+    <div class="space-y-3">
+        {% for i in range(7) %}
+        <div class="flex items-start gap-2">
+            <span class="w-14 text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 pt-1">{{ weekday_names[i] }}</span>
+            <div class="flex flex-wrap gap-1">
+                {% if leader_rules.get(i) %}
+                {% for u in leader_rules[i] %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
+                    {{ u.nickname or u.real_name }}
+                </span>
+                {% endfor %}
+                {% else %}
+                <span class="text-sm text-gray-400 dark:text-gray-500">未設定</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 </div>
 
@@ -264,14 +251,77 @@
         <i class="fas fa-lightbulb mr-2"></i>排班設定說明
     </h3>
     <ul class="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
+        <li>每個店家可獨立設定自己的排班規則（星期幾由誰值日）</li>
         <li>排班規則：每個星期幾可指定多位人員，自動排班時按規則指派（未設定的日期不排班）</li>
-        <li>提醒時間：系統在此時間透過 LINE 提醒當日值日生</li>
-        <li>任務清單：值日生回報時需要勾選的任務項目</li>
+        <li>組長排班規則為全域設定，適用所有店家</li>
     </ul>
+</div>
+
+<!-- 新增店家 Modal -->
+<div id="add-store-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-store text-indigo-500 mr-2"></i>新增店家
+            </h3>
+            <form method="POST" action="/dashboard/duty/store/create">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        店家名稱 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="store_name" required placeholder="例：台北旗艦店"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                </div>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="document.getElementById('add-store-modal').classList.add('hidden')"
+                        class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                        取消
+                    </button>
+                    <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2.5 rounded-lg transition min-h-[44px]">
+                        <i class="fas fa-plus mr-1"></i>新增
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 刪除店家確認 Modal -->
+<div id="delete-store-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="p-6">
+            <div class="w-12 h-12 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-exclamation-triangle text-xl text-red-600 dark:text-red-400"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white text-center mb-2">確定刪除店家？</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-center mb-4">
+                將刪除「<span id="delete-store-name" class="font-medium text-gray-800 dark:text-white"></span>」及其所有排班規則，此操作無法復原。
+            </p>
+            <form id="delete-store-form" method="POST">
+                <div class="flex gap-3 justify-center">
+                    <button type="button" onclick="document.getElementById('delete-store-modal').classList.add('hidden')"
+                        class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                        取消
+                    </button>
+                    <button type="submit"
+                        class="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2.5 rounded-lg transition min-h-[44px]">
+                        <i class="fas fa-trash-alt mr-1"></i>確認刪除
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script>
 let activeDropdown = null;
+
+// 收集所有 picker 類型前綴（包含店家和組長）
+const allTypes = [
+    'leader',
+    {% for sc in store_configs %}'duty_{{ sc.id }}',{% endfor %}
+];
 
 function getSelectedIds(type, idx) {
     var val = document.getElementById(type + '_uid_' + idx).value;
@@ -284,7 +334,7 @@ function setSelectedIds(type, idx, ids) {
 }
 
 function closeAllPickers() {
-    ['duty', 'leader'].forEach(function(t) {
+    allTypes.forEach(function(t) {
         for (var i = 0; i < 7; i++) {
             var p = document.getElementById(t + '_picker_' + i);
             if (p) p.classList.add('hidden');
@@ -350,9 +400,10 @@ function addTag(type, idx, el) {
     ids.push(uid);
     setSelectedIds(type, idx, ids);
 
-    var colorClass = type === 'duty'
-        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300';
+    var isLeader = type === 'leader';
+    var colorClass = isLeader
+        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
 
     var tag = document.createElement('span');
     tag.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ' + colorClass;
@@ -361,11 +412,8 @@ function addTag(type, idx, el) {
 
     document.getElementById(type + '_tags_' + idx).appendChild(tag);
 
-    // 清空搜尋、重新過濾（隱藏已選）
     document.getElementById(type + '_search_' + idx).value = '';
     filterOptions(type, idx);
-
-    // 選人後自動收起搜尋框
     closeAllPickers();
 }
 
@@ -378,17 +426,21 @@ function removeTag(type, idx, uid) {
     var tag = tagsContainer.querySelector('[data-uid="' + uid + '"]');
     if (tag) tag.remove();
 
-    // 重新過濾以顯示移除的人
     filterOptions(type, idx);
+}
+
+function confirmDeleteStore(configId, storeName) {
+    document.getElementById('delete-store-name').textContent = storeName;
+    document.getElementById('delete-store-form').action = '/dashboard/duty/store/' + configId + '/delete';
+    document.getElementById('delete-store-modal').classList.remove('hidden');
 }
 
 // 點擊外部關閉 dropdown 和 picker
 document.addEventListener('click', function(e) {
-    // 檢查是否點擊了 + 按鈕（由 onclick 處理）
     if (e.target.closest('button[onclick^="toggleSearch"]')) return;
 
     var clickedInsidePicker = false;
-    ['duty', 'leader'].forEach(function(t) {
+    allTypes.forEach(function(t) {
         for (var i = 0; i < 7; i++) {
             var p = document.getElementById(t + '_picker_' + i);
             if (p && !p.classList.contains('hidden') && p.contains(e.target)) {
@@ -400,6 +452,15 @@ document.addEventListener('click', function(e) {
     if (!clickedInsidePicker) {
         closeAllPickers();
     }
+});
+
+// 點擊 modal 背景關閉
+document.querySelectorAll('[id$="-modal"]').forEach(function(modal) {
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+        }
+    });
 });
 </script>
 {% endblock %}

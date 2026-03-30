@@ -191,23 +191,70 @@ class DutyService:
         self.db.commit()
         return schedules
 
+    # ===== 店家管理 =====
+
+    def get_store_configs(self) -> list[DutyConfig]:
+        """取得所有店家設定（排除「駐店組長」）"""
+        return self.db.query(DutyConfig).filter(
+            DutyConfig.name != '駐店組長'
+        ).order_by(DutyConfig.created_at).all()
+
+    def create_store_config(self, name: str) -> DutyConfig:
+        """建立新店家"""
+        config = DutyConfig(
+            name=name,
+            members_per_day=1,
+            notify_time='08:00',
+            is_active=True
+        )
+        self.db.add(config)
+        self.db.commit()
+        self.db.refresh(config)
+        return config
+
+    def delete_store_config(self, config_id: int) -> bool:
+        """刪除店家及其排班規則"""
+        config = self.db.query(DutyConfig).filter(
+            DutyConfig.id == config_id,
+            DutyConfig.name != '駐店組長'
+        ).first()
+        if not config:
+            return False
+        # 刪除該店家的規則
+        self.db.query(DutyRule).filter(
+            DutyRule.config_id == config_id
+        ).delete(synchronize_session=False)
+        self.db.delete(config)
+        self.db.commit()
+        return True
+
     # ===== 排班規則管理 =====
 
-    def get_rules(self, rule_type: str) -> dict:
+    def get_rules(self, rule_type: str, config_id: int = None) -> dict:
         """取得指定類型所有規則，回傳 {weekday: [user, ...]} 的 dict"""
-        rules = self.db.query(DutyRule).filter(
+        query = self.db.query(DutyRule).filter(
             DutyRule.rule_type == rule_type
-        ).all()
+        )
+        if config_id is not None:
+            query = query.filter(DutyRule.config_id == config_id)
+        else:
+            query = query.filter(DutyRule.config_id.is_(None))
+        rules = query.all()
         result = {}
         for rule in rules:
             result.setdefault(rule.weekday, []).append(rule.user)
         return result
 
-    def save_rules(self, rule_type: str, weekday_user_map: dict) -> None:
+    def save_rules(self, rule_type: str, weekday_user_map: dict, config_id: int = None) -> None:
         """整批儲存規則（刪除舊規則 + 新增），每個 weekday 對應一個 user_id 列表"""
-        self.db.query(DutyRule).filter(
+        query = self.db.query(DutyRule).filter(
             DutyRule.rule_type == rule_type
-        ).delete(synchronize_session=False)
+        )
+        if config_id is not None:
+            query = query.filter(DutyRule.config_id == config_id)
+        else:
+            query = query.filter(DutyRule.config_id.is_(None))
+        query.delete(synchronize_session=False)
 
         for weekday, user_ids in weekday_user_map.items():
             if not user_ids:
@@ -219,7 +266,8 @@ class DutyService:
                     rule = DutyRule(
                         rule_type=rule_type,
                         weekday=int(weekday),
-                        user_id=int(uid)
+                        user_id=int(uid),
+                        config_id=config_id
                     )
                     self.db.add(rule)
 
@@ -259,10 +307,15 @@ class DutyService:
         if not config:
             raise ValueError("找不到排班設定")
 
-        # 取得值日生排班規則 {weekday: [user_id, ...]}
-        rules = self.db.query(DutyRule).filter(
+        # 取得值日生排班規則 {weekday: [user_id, ...]}（按 config_id 篩選）
+        rule_query = self.db.query(DutyRule).filter(
             DutyRule.rule_type == 'duty'
-        ).all()
+        )
+        if config_id:
+            rule_query = rule_query.filter(DutyRule.config_id == config_id)
+        else:
+            rule_query = rule_query.filter(DutyRule.config_id.is_(None))
+        rules = rule_query.all()
         rule_map = {}
         for rule in rules:
             rule_map.setdefault(rule.weekday, []).append(rule.user_id)

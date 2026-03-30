@@ -16,8 +16,10 @@ from app.services.push_service import PushService
 from app.services.auth_service import AuthService
 from app.services.line_service import LineService
 from app.services.course_service import CourseService
+from app.services.permission_service import PermissionService
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.user import User, UserRole
+from app.models.admin import AdminAccount
 from app.models.training_batch import TrainingBatch
 from app.models.user_training import UserTraining, TrainingStatus
 from app.models.info_form import InfoFormSubmission
@@ -30,29 +32,86 @@ templates = Jinja2Templates(directory=str(templates_dir))
 router = APIRouter(tags=["前端頁面"])
 
 
-def require_auth(request: Request):
-    """檢查是否已登入"""
-    if not request.session.get("authenticated"):
-        return False
-    return True
+def get_current_admin(request: Request, db: Session) -> AdminAccount | None:
+    """從 session 取得目前登入的管理員，未登入返回 None"""
+    admin_id = request.session.get("admin_id")
+    if admin_id:
+        perm_service = PermissionService(db)
+        admin = perm_service.get_admin_by_id(admin_id)
+        if admin and admin.is_active:
+            return admin
+        # 帳號不存在或已停用，清除 session
+        request.session.clear()
+        return None
+
+    # 向下相容：舊 session 只有 authenticated=True
+    if request.session.get("authenticated"):
+        perm_service = PermissionService(db)
+        username = request.session.get("username", "admin")
+        admin = perm_service.get_admin_by_username(username)
+        if admin and admin.is_active:
+            # 遷移 session 到新格式
+            request.session["admin_id"] = admin.id
+            request.session["display_name"] = admin.display_name
+            request.session["is_super_admin"] = admin.is_super_admin
+            return admin
+        request.session.clear()
+
+    return None
+
+
+def require_permission(request: Request, db: Session, permission: str) -> AdminAccount | RedirectResponse:
+    """檢查登入 + 指定權限。成功返回 AdminAccount，失敗返回 RedirectResponse"""
+    admin = get_current_admin(request, db)
+    if not admin:
+        return RedirectResponse(url="/login", status_code=303)
+    if not admin.has_permission(permission):
+        # 如果連儀表板都沒有權限，導回登入頁避免無限重導向
+        if permission == "dashboard:view":
+            request.session.clear()
+            return RedirectResponse(url="/login?error=您的帳號沒有任何頁面存取權限", status_code=303)
+        return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
+    return admin
+
+
+def build_template_context(request: Request, admin: AdminAccount, db: Session,
+                           active_page: str, **extra) -> dict:
+    """建立模板上下文，包含側邊欄和權限資料"""
+    perm_service = PermissionService(db)
+    return {
+        "request": request,
+        "active_page": active_page,
+        "sidebar_items": perm_service.get_visible_sidebar(admin),
+        "admin": admin,
+        "admin_permissions": perm_service.get_permissions(admin),
+        "success_message": request.query_params.get("success"),
+        "error_message": request.query_params.get("error"),
+        **extra,
+    }
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request, db: Session = Depends(get_db)):
     """登入頁面"""
-    # 如果已登入，直接跳轉到儀表板
-    if request.session.get("authenticated"):
+    if get_current_admin(request, db):
         return RedirectResponse(url="/dashboard", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request})
 
 
 @router.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def login(request: Request, db: Session = Depends(get_db),
+                username: str = Form(...), password: str = Form(...)):
     """處理登入"""
-    auth_service = AuthService()
-    if auth_service.verify_credentials(username, password):
+    perm_service = PermissionService(db)
+    admin = perm_service.get_admin_by_username(username)
+    if admin and admin.is_active and perm_service.verify_password(password, admin.password_hash):
         request.session["authenticated"] = True
-        request.session["username"] = username
+        request.session["admin_id"] = admin.id
+        request.session["username"] = admin.username
+        request.session["display_name"] = admin.display_name
+        request.session["is_super_admin"] = admin.is_super_admin
+        admin.last_login_at = datetime.now(timezone.utc)
+        db.commit()
         return RedirectResponse(url="/dashboard", status_code=303)
     else:
         return templates.TemplateResponse("login.html", {
@@ -71,8 +130,10 @@ async def logout(request: Request):
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
     """儀表板首頁"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "dashboard:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_service = UserService(db)
     message_service = MessageService(db)
@@ -373,9 +434,8 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "top_agent": top_agent_month,
     }
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "active_page": "dashboard",
+    ctx = build_template_context(request, admin, db, "dashboard")
+    ctx.update({
         "stats": stats,
         "recent_messages": recent_messages,
         "push_stats": push_stats,
@@ -387,22 +447,24 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_activities": recent_activities,
         "current_month_label": now.strftime("%Y 年 %m 月"),
     })
+    return templates.TemplateResponse("dashboard.html", ctx)
 
 
 @router.get("/dashboard/users", response_class=HTMLResponse)
 async def users_list(request: Request, db: Session = Depends(get_db)):
     """用戶列表頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_service = UserService(db)
     users = user_service.get_all_users()
 
-    return templates.TemplateResponse("users.html", {
-        "request": request,
-        "active_page": "users",
-        "users": users
-    })
+    return templates.TemplateResponse("users.html", build_template_context(
+        request, admin, db, "users",
+        users=users,
+    ))
 
 
 @router.get("/dashboard/users/{line_user_id}", response_class=HTMLResponse)
@@ -414,8 +476,10 @@ async def user_detail(
     error: str = None
 ):
     """用戶詳情頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_service = UserService(db)
     message_service = MessageService(db)
@@ -423,10 +487,10 @@ async def user_detail(
 
     user = user_service.get_user_by_line_id(line_user_id)
     if not user:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": "用戶不存在"
-        }, status_code=404)
+        return templates.TemplateResponse("error.html", build_template_context(
+            request, admin, db, "users",
+            error="用戶不存在",
+        ), status_code=404)
 
     messages = message_service.get_user_messages(user.id)
     stats = message_service.get_user_stats(user.id)
@@ -459,34 +523,32 @@ async def user_detail(
         else:
             version_days[version] = list(range(0, 15))  # 預設 Day 0 到 Day 14
 
-    return templates.TemplateResponse("user_detail.html", {
-        "request": request,
-        "active_page": "users",
-        "user": user,
-        "messages": messages,
-        "stats": stats,
-        "user_trainings": user_trainings,
-        "course_versions": all_versions,
-        "version_days": version_days,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("user_detail.html", build_template_context(
+        request, admin, db, "users",
+        user=user,
+        messages=messages,
+        stats=stats,
+        user_trainings=user_trainings,
+        course_versions=all_versions,
+        version_days=version_days,
+    ))
 
 
 @router.get("/dashboard/messages", response_class=HTMLResponse)
 async def messages_list(request: Request, db: Session = Depends(get_db)):
     """對話記錄頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "messages:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     message_service = MessageService(db)
     messages = message_service.get_all_messages(limit=200)
 
-    return templates.TemplateResponse("messages.html", {
-        "request": request,
-        "active_page": "messages",
-        "messages": messages
-    })
+    return templates.TemplateResponse("messages.html", build_template_context(
+        request, admin, db, "messages",
+        messages=messages,
+    ))
 
 
 @router.get("/dashboard/days", response_class=HTMLResponse)
@@ -498,8 +560,10 @@ async def days_list(
     error: str = None
 ):
     """課程管理頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
 
@@ -518,16 +582,13 @@ async def days_list(
     # 取得版本統計
     version_stats = course_service.get_version_stats()
 
-    return templates.TemplateResponse("days.html", {
-        "request": request,
-        "active_page": "days",
-        "days": days,
-        "versions": versions,
-        "current_version": current_version,
-        "version_stats": version_stats,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("days.html", build_template_context(
+        request, admin, db, "days",
+        days=days,
+        versions=versions,
+        current_version=current_version,
+        version_stats=version_stats,
+    ))
 
 
 @router.get("/dashboard/days/create", response_class=HTMLResponse)
@@ -537,8 +598,10 @@ async def day_create_page(
     version: str = "v1"
 ):
     """新增課程頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
     versions = course_service.get_course_versions()
@@ -549,10 +612,9 @@ async def day_create_page(
     courses = course_service.get_courses_by_version(version)
     next_day = max([c.day for c in courses], default=-1) + 1
 
-    return templates.TemplateResponse("day_edit.html", {
-        "request": request,
-        "active_page": "days",
-        "day": {
+    return templates.TemplateResponse("day_edit.html", build_template_context(
+        request, admin, db, "days",
+        day={
             "day": next_day,
             "title": "",
             "goal": "",
@@ -564,10 +626,10 @@ async def day_create_page(
             "max_rounds": 5,
             "teaching_content": ""
         },
-        "is_new": True,
-        "current_version": version,
-        "versions": versions
-    })
+        is_new=True,
+        current_version=version,
+        versions=versions,
+    ))
 
 
 @router.post("/dashboard/days/create")
@@ -588,8 +650,10 @@ async def day_create_save(
     course_version: str = Form("v1")
 ):
     """儲存新課程"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
 
@@ -644,29 +708,30 @@ async def day_edit_page(
     version: str = "v1"
 ):
     """課程編輯頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
     course = course_service.get_course_by_day(day, version)
 
     if not course:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": f"Day {day} 在版本 {version} 中不存在"
-        }, status_code=404)
+        return templates.TemplateResponse("error.html", build_template_context(
+            request, admin, db, "days",
+            error=f"Day {day} 在版本 {version} 中不存在",
+        ), status_code=404)
 
     versions = course_service.get_course_versions()
 
-    return templates.TemplateResponse("day_edit.html", {
-        "request": request,
-        "active_page": "days",
-        "day": course.to_dict(),
-        "course_id": course.id,
-        "is_new": False,
-        "current_version": version,
-        "versions": versions
-    })
+    return templates.TemplateResponse("day_edit.html", build_template_context(
+        request, admin, db, "days",
+        day=course.to_dict(),
+        course_id=course.id,
+        is_new=False,
+        current_version=version,
+        versions=versions,
+    ))
 
 
 @router.post("/dashboard/days/{day}/edit")
@@ -688,17 +753,19 @@ async def day_edit_save(
     course_version: str = Form("v1")
 ):
     """儲存課程編輯"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
     course = course_service.get_course(course_id)
 
     if not course:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": f"課程不存在"
-        }, status_code=404)
+        return templates.TemplateResponse("error.html", build_template_context(
+            request, admin, db, "days",
+            error="課程不存在",
+        ), status_code=404)
 
     try:
         # 根據填寫的欄位自動決定課程類型
@@ -727,28 +794,26 @@ async def day_edit_save(
         course = course_service.get_course(course_id)
         versions = course_service.get_course_versions()
 
-        return templates.TemplateResponse("day_edit.html", {
-            "request": request,
-            "active_page": "days",
-            "day": course.to_dict(),
-            "course_id": course.id,
-            "is_new": False,
-            "current_version": course_version,
-            "versions": versions,
-            "success": True
-        })
+        return templates.TemplateResponse("day_edit.html", build_template_context(
+            request, admin, db, "days",
+            day=course.to_dict(),
+            course_id=course.id,
+            is_new=False,
+            current_version=course_version,
+            versions=versions,
+            success=True,
+        ))
     except Exception as e:
         versions = course_service.get_course_versions()
-        return templates.TemplateResponse("day_edit.html", {
-            "request": request,
-            "active_page": "days",
-            "day": course.to_dict(),
-            "course_id": course.id,
-            "is_new": False,
-            "current_version": course_version,
-            "versions": versions,
-            "error": f"儲存失敗：{str(e)}"
-        })
+        return templates.TemplateResponse("day_edit.html", build_template_context(
+            request, admin, db, "days",
+            day=course.to_dict(),
+            course_id=course.id,
+            is_new=False,
+            current_version=course_version,
+            versions=versions,
+            error=f"儲存失敗：{str(e)}",
+        ))
 
 
 @router.post("/dashboard/days/{course_id}/delete")
@@ -758,8 +823,10 @@ async def day_delete(
     db: Session = Depends(get_db)
 ):
     """刪除課程"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
     course = course_service.get_course(course_id)
@@ -793,8 +860,10 @@ async def version_create(
     version_name: str = Form(...)
 ):
     """建立新的空白課程版本"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
 
@@ -835,8 +904,10 @@ async def version_duplicate(
     to_version: str = Form(...)
 ):
     """複製課程版本"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     course_service = CourseService(db)
 
@@ -866,8 +937,10 @@ async def seed_courses_route(
     force: bool = Form(False)
 ):
     """從靜態資料匯入課程到資料庫"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     try:
         from app.data.days_data import DAYS_DATA
@@ -923,8 +996,10 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 @router.get("/dashboard/leave", response_class=HTMLResponse)
 async def leave_manage(request: Request, db: Session = Depends(get_db)):
     """請假管理頁面（管理員）"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "leave:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     # 取得所有請假申請
     leave_requests = db.query(LeaveRequest).order_by(LeaveRequest.created_at.desc()).all()
@@ -934,14 +1009,13 @@ async def leave_manage(request: Request, db: Session = Depends(get_db)):
     approved_count = db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.APPROVED.value).count()
     rejected_count = db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.REJECTED.value).count()
 
-    return templates.TemplateResponse("leave_manage.html", {
-        "request": request,
-        "active_page": "leave",
-        "leave_requests": leave_requests,
-        "pending_count": pending_count,
-        "approved_count": approved_count,
-        "rejected_count": rejected_count
-    })
+    return templates.TemplateResponse("leave_manage.html", build_template_context(
+        request, admin, db, "leave",
+        leave_requests=leave_requests,
+        pending_count=pending_count,
+        approved_count=approved_count,
+        rejected_count=rejected_count,
+    ))
 
 
 @router.get("/leave", response_class=HTMLResponse)
@@ -1162,8 +1236,10 @@ async def leave_review(
     reviewer_note: str = Form(None)
 ):
     """審核請假申請"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "leave:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     leave_request = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
     if not leave_request:
@@ -1199,8 +1275,10 @@ async def managers_list(
     error: str = None
 ):
     """主管管理頁面 - 使用統一用戶系統"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "managers:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     # 從 users 表查詢有 manager 角色的用戶
     managers = db.query(User).filter(
@@ -1212,14 +1290,11 @@ async def managers_list(
         ~User.roles.contains('"manager"')
     ).order_by(User.line_display_name).all()
 
-    return templates.TemplateResponse("managers.html", {
-        "request": request,
-        "active_page": "managers",
-        "managers": managers,
-        "all_users": all_users,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("managers.html", build_template_context(
+        request, admin, db, "managers",
+        managers=managers,
+        all_users=all_users,
+    ))
 
 
 @router.post("/dashboard/managers/add")
@@ -1231,8 +1306,10 @@ async def manager_add(
     line_user_id: str = Form(None)
 ):
     """新增主管 - 可從現有用戶選擇或輸入新的 LINE ID"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "managers:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     if user_id:
         # 從現有用戶添加主管角色
@@ -1314,8 +1391,10 @@ async def manager_toggle(
     db: Session = Depends(get_db)
 ):
     """切換主管通知狀態"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "managers:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.has_role(UserRole.MANAGER.value):
@@ -1337,8 +1416,10 @@ async def manager_delete(
     db: Session = Depends(get_db)
 ):
     """移除主管角色（不刪除用戶）"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "managers:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.has_role(UserRole.MANAGER.value):
@@ -1363,8 +1444,10 @@ async def training_manage(
     error: str = None
 ):
     """訓練批次管理頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     batches = batch_service.get_all_batches()
@@ -1374,14 +1457,11 @@ async def training_manage(
     for batch in batches:
         batch_stats[batch.id] = batch_service.get_batch_stats(batch.id)
 
-    return templates.TemplateResponse("training.html", {
-        "request": request,
-        "active_page": "training",
-        "batches": batches,
-        "batch_stats": batch_stats,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("training.html", build_template_context(
+        request, admin, db, "training",
+        batches=batches,
+        batch_stats=batch_stats,
+    ))
 
 
 @router.post("/dashboard/training/batch/create")
@@ -1393,8 +1473,10 @@ async def training_batch_create(
     course_version: str = Form("v1")
 ):
     """建立新的訓練批次"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
 
@@ -1424,17 +1506,19 @@ async def training_batch_detail(
     error: str = None
 ):
     """訓練批次詳情頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     batch = batch_service.get_batch(batch_id)
 
     if not batch:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": "找不到此訓練批次"
-        }, status_code=404)
+        return templates.TemplateResponse("error.html", build_template_context(
+            request, admin, db, "training",
+            error="找不到此訓練批次",
+        ), status_code=404)
 
     # 取得批次中的用戶訓練
     user_trainings = batch_service.get_batch_users(batch_id)
@@ -1446,16 +1530,13 @@ async def training_batch_detail(
     batch_user_ids = {ut.user_id for ut in user_trainings}
     available_users = [u for u in all_users if u.id not in batch_user_ids]
 
-    return templates.TemplateResponse("training_batch.html", {
-        "request": request,
-        "active_page": "training",
-        "batch": batch,
-        "user_trainings": user_trainings,
-        "stats": stats,
-        "available_users": available_users,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("training_batch.html", build_template_context(
+        request, admin, db, "training",
+        batch=batch,
+        user_trainings=user_trainings,
+        stats=stats,
+        available_users=available_users,
+    ))
 
 
 @router.post("/dashboard/training/batch/{batch_id}/toggle")
@@ -1465,8 +1546,10 @@ async def training_batch_toggle(
     db: Session = Depends(get_db)
 ):
     """切換批次啟用狀態"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     batch = batch_service.get_batch(batch_id)
@@ -1491,8 +1574,10 @@ async def training_batch_add_user(
     auto_start: bool = Form(False)
 ):
     """將用戶加入訓練批次"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     user_service = UserService(db)
@@ -1534,8 +1619,10 @@ async def training_batch_add_all_users(
     auto_start_all: bool = Form(False)
 ):
     """將所有未加入的用戶加入訓練批次"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     user_service = UserService(db)
@@ -1588,8 +1675,10 @@ async def training_batch_remove_user(
     db: Session = Depends(get_db)
 ):
     """將用戶從批次中移除"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     result = batch_service.remove_user_from_batch(user_id, batch_id)
@@ -1613,8 +1702,10 @@ async def training_user_start(
     db: Session = Depends(get_db)
 ):
     """開始用戶訓練"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1640,8 +1731,10 @@ async def training_user_pause(
     db: Session = Depends(get_db)
 ):
     """暫停用戶訓練"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1663,8 +1756,10 @@ async def training_user_resume(
     db: Session = Depends(get_db)
 ):
     """恢復用戶訓練"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1690,8 +1785,10 @@ async def training_user_restart(
     db: Session = Depends(get_db)
 ):
     """重新開始用戶訓練"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1717,8 +1814,10 @@ async def training_batch_start_all(
     db: Session = Depends(get_db)
 ):
     """開始批次中所有待開始的訓練"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "training:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     batch_service = TrainingBatchService(db)
     push_service = PushService(db)
@@ -1747,8 +1846,10 @@ async def user_toggle_notification(
     db: Session = Depends(get_db)
 ):
     """切換用戶課程通知狀態"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_service = UserService(db)
     user = user_service.get_user_by_line_id(line_user_id)
@@ -1779,8 +1880,10 @@ async def user_update_training(
     new_day: int = Form(...)
 ):
     """更新用戶訓練進度"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1810,8 +1913,10 @@ async def user_send_training(
     send_day: int = Form(...)
 ):
     """發送指定訓練的指定天數內容（使用圖卡格式）"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_training = db.query(UserTraining).filter(UserTraining.id == training_id).first()
     if not user_training:
@@ -1852,8 +1957,10 @@ async def user_send_any_training(
     persona: str = Form("A")
 ):
     """發送任意版本/天數的訓練內容（使用圖卡格式）"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "users:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     user_service = UserService(db)
     push_service = PushService(db)
@@ -1935,8 +2042,10 @@ async def duty_dashboard(
     error: str = None
 ):
     """值日生管理首頁"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -1954,14 +2063,11 @@ async def duty_dashboard(
     # 今日值日
     today_duty = duty_service.get_today_duty()
 
-    return templates.TemplateResponse("duty.html", {
-        "request": request,
-        "active_page": "duty",
-        "stats": stats,
-        "today_duty": today_duty,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("duty.html", build_template_context(
+        request, admin, db, "duty",
+        stats=stats,
+        today_duty=today_duty,
+    ))
 
 
 @router.get("/dashboard/duty/members", response_class=HTMLResponse)
@@ -1972,8 +2078,10 @@ async def duty_members_page(
     error: str = None
 ):
     """值日生名單頁面 - 只列出已填寫員工資料的用戶"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     # 只取得已填寫員工資料的用戶（有 real_name 的用戶）
     registered_users = db.query(User).filter(
@@ -1987,14 +2095,11 @@ async def duty_members_page(
         if user.has_role(UserRole.DUTY_MEMBER.value):
             duty_member_ids.add(user.id)
 
-    return templates.TemplateResponse("duty_members.html", {
-        "request": request,
-        "active_page": "duty",
-        "all_users": registered_users,
-        "duty_member_ids": duty_member_ids,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("duty_members.html", build_template_context(
+        request, admin, db, "duty",
+        all_users=registered_users,
+        duty_member_ids=duty_member_ids,
+    ))
 
 
 @router.post("/dashboard/duty/members/update")
@@ -2003,8 +2108,10 @@ async def duty_members_update(
     db: Session = Depends(get_db)
 ):
     """批次更新值日生名單"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     # 取得表單資料
     form_data = await request.form()
@@ -2054,31 +2161,38 @@ async def duty_config_page(
     error: str = None
 ):
     """排班設定頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
     config = duty_service.get_config()
 
-    # 載入排班規則
-    duty_rules = duty_service.get_rules('duty')
+    # 載入所有店家設定及其排班規則
+    store_configs = duty_service.get_store_configs()
+    store_rules = {}
+    for sc in store_configs:
+        store_rules[sc.id] = duty_service.get_rules('duty', config_id=sc.id)
+
+    # 載入無 config_id 的舊規則（向後兼容）
+    legacy_duty_rules = duty_service.get_rules('duty', config_id=None)
     leader_rules = duty_service.get_rules('leader')
 
     # 載入可選人員
     duty_eligible = duty_service.get_eligible_users('duty')
     leader_eligible = duty_service.get_eligible_users('leader')
 
-    return templates.TemplateResponse("duty_config.html", {
-        "request": request,
-        "active_page": "duty",
-        "config": config,
-        "duty_rules": duty_rules,
-        "leader_rules": leader_rules,
-        "duty_eligible": duty_eligible,
-        "leader_eligible": leader_eligible,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("duty_config.html", build_template_context(
+        request, admin, db, "duty",
+        config=config,
+        store_configs=store_configs,
+        store_rules=store_rules,
+        legacy_duty_rules=legacy_duty_rules,
+        leader_rules=leader_rules,
+        duty_eligible=duty_eligible,
+        leader_eligible=leader_eligible,
+    ))
 
 
 @router.post("/dashboard/duty/config")
@@ -2091,8 +2205,10 @@ async def duty_config_create(
     tasks: str = Form(None)
 ):
     """建立排班設定"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2125,8 +2241,10 @@ async def duty_config_update(
     is_active: bool = Form(False)
 ):
     """更新排班設定"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2155,11 +2273,15 @@ async def duty_rules_save(
     db: Session = Depends(get_db)
 ):
     """儲存排班規則"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     form_data = await request.form()
     rule_type = form_data.get("rule_type", "duty")
+    config_id_raw = form_data.get("config_id", "")
+    config_id = int(config_id_raw) if config_id_raw else None
 
     weekday_user_map = {}
     for i in range(7):
@@ -2170,11 +2292,61 @@ async def duty_rules_save(
             weekday_user_map[i] = []
 
     duty_service = DutyService(db)
-    duty_service.save_rules(rule_type, weekday_user_map)
+    duty_service.save_rules(rule_type, weekday_user_map, config_id=config_id)
 
     type_label = "值日生" if rule_type == "duty" else "組長"
+    store_name = ""
+    if config_id:
+        sc = duty_service.get_config(config_id)
+        if sc:
+            store_name = f"（{sc.name}）"
     return RedirectResponse(
-        url=f"/dashboard/duty/config?success={type_label}排班規則已儲存",
+        url=f"/dashboard/duty/config?success={type_label}{store_name}排班規則已儲存",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/duty/store/create")
+async def duty_store_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    store_name: str = Form(...)
+):
+    """新增店家"""
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    duty_service = DutyService(db)
+    duty_service.create_store_config(store_name.strip())
+
+    return RedirectResponse(
+        url=f"/dashboard/duty/config?success=已新增店家「{store_name.strip()}」",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/duty/store/{config_id}/delete")
+async def duty_store_delete(
+    request: Request,
+    config_id: int,
+    db: Session = Depends(get_db)
+):
+    """刪除店家"""
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    duty_service = DutyService(db)
+    deleted = duty_service.delete_store_config(config_id)
+
+    if deleted:
+        return RedirectResponse(
+            url="/dashboard/duty/config?success=店家已刪除",
+            status_code=303
+        )
+    return RedirectResponse(
+        url="/dashboard/duty/config?error=刪除失敗",
         status_code=303
     )
 
@@ -2189,8 +2361,10 @@ async def duty_schedule_page(
     error: str = None
 ):
     """排班表頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
     config = duty_service.get_config()
@@ -2224,9 +2398,8 @@ async def duty_schedule_page(
     # 取得值日生名單（for 換班選單）
     duty_members = duty_service.get_duty_members()
 
-    return templates.TemplateResponse("duty_schedule.html", {
-        "request": request,
-        "active_page": "duty",
+    ctx = build_template_context(request, admin, db, "duty")
+    ctx.update({
         "config": config,
         "calendar_data": calendar_data,
         "today": today.isoformat(),
@@ -2239,9 +2412,8 @@ async def duty_schedule_page(
         "next_year": next_year,
         "next_month": next_month,
         "duty_members": duty_members,
-        "success_message": success,
-        "error_message": error
     })
+    return templates.TemplateResponse("duty_schedule.html", ctx)
 
 
 @router.post("/dashboard/duty/schedule/generate")
@@ -2252,22 +2424,29 @@ async def duty_schedule_generate(
     end_date: date = Form(...)
 ):
     """自動生成排班"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
-    config = duty_service.get_config()
 
-    if not config:
+    # 對所有店家各自生成排班
+    store_configs = duty_service.get_store_configs()
+    if not store_configs:
         return RedirectResponse(
-            url="/dashboard/duty/schedule?error=請先建立排班設定",
+            url="/dashboard/duty/schedule?error=請先建立店家排班設定",
             status_code=303
         )
 
     try:
-        schedules = duty_service.auto_generate_schedule(config.id, start_date, end_date)
+        total = 0
+        for sc in store_configs:
+            if sc.is_active:
+                schedules = duty_service.auto_generate_schedule(sc.id, start_date, end_date)
+                total += len(schedules)
         return RedirectResponse(
-            url=f"/dashboard/duty/schedule?success=已生成 {len(schedules)} 筆排班",
+            url=f"/dashboard/duty/schedule?success=已生成 {total} 筆排班（{len([s for s in store_configs if s.is_active])} 間店家）",
             status_code=303
         )
     except ValueError as e:
@@ -2285,8 +2464,10 @@ async def duty_schedule_generate_leader(
     end_date: date = Form(...)
 ):
     """自動生成駐店組長排班"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2311,8 +2492,10 @@ async def duty_schedule_swap(
     new_user_id: int = Form(...)
 ):
     """換班"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2342,8 +2525,10 @@ async def duty_schedule_delete(
     schedule_id: int = Form(...)
 ):
     """刪除排班"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2374,8 +2559,10 @@ async def duty_schedule_clear(
     end_date: date = Form(...)
 ):
     """清除指定日期範圍的排班"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2406,8 +2593,10 @@ async def duty_reports_page(
     error: str = None
 ):
     """回報審核頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2418,14 +2607,11 @@ async def duty_reports_page(
         DutyReport.status != DutyReportStatus.PENDING.value
     ).order_by(DutyReport.reviewed_at.desc()).limit(20).all()
 
-    return templates.TemplateResponse("duty_reports.html", {
-        "request": request,
-        "active_page": "duty",
-        "pending_reports": pending_reports,
-        "reviewed_reports": reviewed_reports,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("duty_reports.html", build_template_context(
+        request, admin, db, "duty",
+        pending_reports=pending_reports,
+        reviewed_reports=reviewed_reports,
+    ))
 
 
 @router.post("/dashboard/duty/reports/{report_id}/review")
@@ -2437,8 +2623,10 @@ async def duty_report_review(
     note: str = Form(None)
 ):
     """審核回報"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2473,8 +2661,10 @@ async def duty_complaints_page(
     error: str = None
 ):
     """檢舉處理頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2485,14 +2675,11 @@ async def duty_complaints_page(
         DutyComplaint.status != DutyComplaintStatus.PENDING.value
     ).order_by(DutyComplaint.handled_at.desc()).limit(20).all()
 
-    return templates.TemplateResponse("duty_complaints.html", {
-        "request": request,
-        "active_page": "duty",
-        "pending_complaints": pending_complaints,
-        "handled_complaints": handled_complaints,
-        "success_message": success,
-        "error_message": error
-    })
+    return templates.TemplateResponse("duty_complaints.html", build_template_context(
+        request, admin, db, "duty",
+        pending_complaints=pending_complaints,
+        handled_complaints=handled_complaints,
+    ))
 
 
 @router.post("/dashboard/duty/complaints/{complaint_id}/handle")
@@ -2504,8 +2691,10 @@ async def duty_complaint_handle(
     note: str = Form(None)
 ):
     """處理檢舉"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     duty_service = DutyService(db)
 
@@ -2621,8 +2810,10 @@ async def profiles_page(
     db: Session = Depends(get_db)
 ):
     """人事資料列表頁面"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "profiles:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     # 取得已填寫員工資料的用戶
     registered_users = db.query(User).filter(
@@ -2630,11 +2821,10 @@ async def profiles_page(
         User.real_name != ""
     ).order_by(User.real_name).all()
 
-    return templates.TemplateResponse("profiles.html", {
-        "request": request,
-        "active_page": "profiles",
-        "users": registered_users
-    })
+    return templates.TemplateResponse("profiles.html", build_template_context(
+        request, admin, db, "profiles",
+        users=registered_users,
+    ))
 
 
 @router.post("/dashboard/profiles/{user_id}/edit")
@@ -2644,8 +2834,10 @@ async def profiles_edit(
     db: Session = Depends(get_db)
 ):
     """編輯員工人事資料"""
-    if not require_auth(request):
-        return RedirectResponse(url="/login", status_code=303)
+    result = require_permission(request, db, "profiles:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
 
     form_data = await request.form()
     user = db.query(User).filter(User.id == user_id).first()
@@ -2748,3 +2940,257 @@ async def save_profile(
     db.commit()
 
     return {"success": True}
+
+
+# ========== 權限管理 ==========
+
+@router.get("/dashboard/admin", response_class=HTMLResponse)
+async def admin_page(request: Request, db: Session = Depends(get_db)):
+    """權限管理頁面"""
+    result = require_permission(request, db, "admin:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    perm_service = PermissionService(db)
+    from app.models.admin import PERMISSION_REGISTRY
+
+    all_admins = perm_service.get_all_admins()
+    all_roles = perm_service.get_all_roles()
+
+    # 計算每個角色使用的帳號數
+    role_account_counts = {}
+    for role in all_roles:
+        role_account_counts[role.id] = len([a for a in all_admins if a.role_id == role.id])
+
+    # 按分組整理權限
+    permission_groups = {}
+    for perm_key, perm_info in PERMISSION_REGISTRY.items():
+        group = perm_info["group"]
+        if group not in permission_groups:
+            permission_groups[group] = []
+        permission_groups[group].append({"key": perm_key, "label": perm_info["label"]})
+
+    return templates.TemplateResponse("admin.html", build_template_context(
+        request, admin, db, "admin",
+        all_admins=all_admins,
+        all_roles=all_roles,
+        role_account_counts=role_account_counts,
+        permission_groups=permission_groups,
+        permission_registry=PERMISSION_REGISTRY,
+    ))
+
+
+@router.post("/dashboard/admin/accounts/create")
+async def admin_account_create(
+    request: Request, db: Session = Depends(get_db),
+    username: str = Form(...), password: str = Form(...),
+    display_name: str = Form(...), role_id: int = Form(None),
+    is_super_admin: bool = Form(False),
+):
+    """建立管理員帳號"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    perm_service = PermissionService(db)
+
+    # 檢查使用者名稱是否已存在
+    if perm_service.get_admin_by_username(username):
+        return RedirectResponse(
+            url="/dashboard/admin?error=使用者名稱已存在&tab=accounts",
+            status_code=303
+        )
+
+    try:
+        actual_role_id = role_id if role_id and role_id > 0 else None
+        perm_service.create_admin(
+            username=username,
+            password=password,
+            display_name=display_name,
+            role_id=actual_role_id,
+            is_super_admin=is_super_admin,
+        )
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已建立帳號「{display_name}」&tab=accounts",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=accounts",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/accounts/{admin_id}/edit")
+async def admin_account_edit(
+    admin_id: int, request: Request, db: Session = Depends(get_db),
+    display_name: str = Form(...), role_id: int = Form(None),
+    password: str = Form(""), is_super_admin: bool = Form(False),
+):
+    """編輯管理員帳號"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    perm_service = PermissionService(db)
+    try:
+        actual_role_id = role_id if role_id and role_id > 0 else None
+        perm_service.update_admin(
+            admin_id,
+            display_name=display_name,
+            role_id=actual_role_id,
+            password=password,
+            is_super_admin=is_super_admin,
+        )
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已更新帳號設定&tab=accounts",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=accounts",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/accounts/{admin_id}/delete")
+async def admin_account_delete(admin_id: int, request: Request, db: Session = Depends(get_db)):
+    """刪除管理員帳號"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    # 不能刪除自己
+    if admin.id == admin_id:
+        return RedirectResponse(
+            url="/dashboard/admin?error=無法刪除自己的帳號&tab=accounts",
+            status_code=303
+        )
+
+    perm_service = PermissionService(db)
+    try:
+        target = perm_service.get_admin_by_id(admin_id)
+        name = target.display_name if target else "未知"
+        perm_service.delete_admin(admin_id)
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已刪除帳號「{name}」&tab=accounts",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=accounts",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/accounts/{admin_id}/toggle")
+async def admin_account_toggle(admin_id: int, request: Request, db: Session = Depends(get_db)):
+    """切換管理員啟用狀態"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    # 不能停用自己
+    if admin.id == admin_id:
+        return RedirectResponse(
+            url="/dashboard/admin?error=無法停用自己的帳號&tab=accounts",
+            status_code=303
+        )
+
+    perm_service = PermissionService(db)
+    try:
+        target = perm_service.toggle_admin_active(admin_id)
+        status = "啟用" if target.is_active else "停用"
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已{status}帳號「{target.display_name}」&tab=accounts",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=accounts",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/roles/create")
+async def admin_role_create(request: Request, db: Session = Depends(get_db)):
+    """建立角色"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    form = await request.form()
+    name = form.get("name", "").strip()
+    description = form.get("description", "").strip()
+    permissions = form.getlist("permissions")
+
+    if not name:
+        return RedirectResponse(
+            url="/dashboard/admin?error=角色名稱不能為空&tab=roles",
+            status_code=303
+        )
+
+    perm_service = PermissionService(db)
+    try:
+        perm_service.create_role(name=name, description=description, permissions=permissions)
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已建立角色「{name}」&tab=roles",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=roles",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/roles/{role_id}/edit")
+async def admin_role_edit(role_id: int, request: Request, db: Session = Depends(get_db)):
+    """編輯角色"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    form = await request.form()
+    name = form.get("name", "").strip()
+    description = form.get("description", "").strip()
+    permissions = form.getlist("permissions")
+
+    perm_service = PermissionService(db)
+    try:
+        perm_service.update_role(role_id, name=name, description=description, permissions=permissions)
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已更新角色「{name}」&tab=roles",
+            status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=roles",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/admin/roles/{role_id}/delete")
+async def admin_role_delete(role_id: int, request: Request, db: Session = Depends(get_db)):
+    """刪除角色"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    perm_service = PermissionService(db)
+    try:
+        role = perm_service.get_role_by_id(role_id)
+        name = role.name if role else "未知"
+        perm_service.delete_role(role_id)
+        return RedirectResponse(
+            url=f"/dashboard/admin?success=已刪除角色「{name}」&tab=roles",
+            status_code=303
+        )
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error={str(e)}&tab=roles",
+            status_code=303
+        )

@@ -38,6 +38,7 @@ def init_db():
     from app.models import training_batch, user_training, course  # noqa: F401
     from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule  # noqa: F401
     from app.models import info_form  # noqa: F401
+    from app.models import admin  # noqa: F401
 
     # 使用 try-except 處理多 worker 同時啟動時的競爭條件
     try:
@@ -48,6 +49,15 @@ def init_db():
         error_msg = str(e).lower()
         if "already exists" in error_msg or "duplicate" in error_msg:
             print(f"資料庫表已存在，跳過建立: {e}")
+            # 嘗試單獨建立新表（避免舊表錯誤阻擋新表建立）
+            try:
+                from app.models.admin import AdminRole, AdminAccount
+                Base.metadata.create_all(
+                    bind=engine, checkfirst=True,
+                    tables=[AdminRole.__table__, AdminAccount.__table__]
+                )
+            except Exception:
+                pass
         else:
             raise e
 
@@ -245,6 +255,35 @@ def run_migrations():
 
                 conn.commit()
 
+        # 檢查並加入 duty_rules 新欄位（多店家支援）
+        if 'duty_rules' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('duty_rules')]
+
+            with engine.connect() as conn:
+                if 'config_id' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE duty_rules ADD COLUMN IF NOT EXISTS config_id INTEGER REFERENCES duty_configs(id)"
+                        ))
+                        print("Migration: Added 'config_id' column to duty_rules table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                conn.commit()
+
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動
         print(f"Migration warning: {e}")
+
+    # 種子資料：建立預設角色與超級管理員
+    try:
+        seed_db = SessionLocal()
+        try:
+            from app.services.permission_service import PermissionService
+            perm_service = PermissionService(seed_db)
+            perm_service.seed_default_roles()
+            perm_service.seed_super_admin_from_env()
+        finally:
+            seed_db.close()
+    except Exception as e:
+        print(f"Seed warning: {e}")
