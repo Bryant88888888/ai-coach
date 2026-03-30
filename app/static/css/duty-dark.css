@@ -1,0 +1,326 @@
+/* ===== 值日專區 - 暗色奢華主題 (與人事資料表單一致) ===== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background-color: #08080e;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* iOS 防縮放 */
+input, textarea, select {
+    font-size: 16px !important;
+}
+
+/* Radio / Checkbox 金色 */
+input[type="radio"],
+input[type="checkbox"] {
+    accent-color: #d4a853;
+}
+
+/* ===== 背景光暈 ===== */
+.bg-glow {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+}
+.bg-glow-1 {
+    width: 400px; height: 400px;
+    top: -80px; left: -100px;
+    background: radial-gradient(circle, #4c1d95, transparent 70%);
+}
+.bg-glow-2 {
+    width: 350px; height: 350px;
+    bottom: -60px; right: -80px;
+    background: radial-gradient(circle, #1e3a5f, transparent 70%);
+}
+.bg-glow-3 {
+    width: 200px; height: 200px;
+    top: 40%; left: 60%;
+    background: radial-gradient(circle, #c9952e, transparent 70%);
+    opacity: 0.08;
+}
+
+/* ===== 毛玻璃卡片 ===== */
+.glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== 頂部導航 (毛玻璃) ===== */
+.nav-glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== 表單輸入框 ===== */
+.form-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    max-width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.form-input:focus {
+    outline: none;
+    border-color: #d4a853;
+    box-shadow: 0 0 0 2px rgba(212, 168, 83, 0.15);
+}
+.form-input::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+/* ===== 分隔線 ===== */
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+/* ===== 文字樣式 ===== */
+.page-title {
+    letter-spacing: 0.25em;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.9);
+}
+.page-subtitle {
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.75rem;
+}
+.field-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+}
+.section-label {
+    color: rgba(212, 168, 83, 0.6);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+.hint-text {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 0.75rem;
+}
+.text-primary {
+    color: rgba(255, 255, 255, 0.9);
+}
+.text-secondary {
+    color: rgba(255, 255, 255, 0.5);
+}
+.text-tertiary {
+    color: rgba(255, 255, 255, 0.35);
+}
+.text-gold {
+    color: #d4a853;
+}
+
+/* ===== 金色漸層按鈕 ===== */
+.btn-submit {
+    background: linear-gradient(135deg, #c9952e, #d4a853);
+    color: #08080e;
+    font-weight: 700;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+.btn-submit::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.6s;
+}
+.btn-submit:hover::after {
+    left: 120%;
+}
+.btn-submit:hover {
+    box-shadow: 0 4px 24px rgba(201, 149, 46, 0.25);
+}
+.btn-submit:active {
+    transform: scale(0.95);
+}
+.btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===== 返回按鈕 ===== */
+.btn-back {
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s, background 0.2s;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+}
+.btn-back:hover {
+    color: #d4a853;
+    background: rgba(212, 168, 83, 0.1);
+}
+
+/* ===== 照片上傳區 ===== */
+.upload-area {
+    border: 2px dashed rgba(212, 168, 83, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+    transition: border-color 0.3s, background 0.3s;
+    cursor: pointer;
+}
+.upload-area:hover {
+    border-color: rgba(212, 168, 83, 0.5);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* ===== 選項卡片 (radio 選項) ===== */
+.option-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.option-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ===== 成員選擇卡 (選中狀態) ===== */
+.member-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.member-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.member-card.selected {
+    border-color: #d4a853;
+    background: rgba(212, 168, 83, 0.08);
+    box-shadow: 0 0 0 1px rgba(212, 168, 83, 0.2);
+}
+
+/* ===== 狀態標籤 (暗色背景版) ===== */
+.badge-scheduled {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+}
+.badge-reported {
+    background: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+}
+.badge-approved {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+.badge-missed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+.badge-default {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ===== 統計卡片 ===== */
+.stat-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.stat-number {
+    color: #d4a853;
+    font-weight: 700;
+}
+
+/* ===== 進度條 ===== */
+.progress-bar-track {
+    background: rgba(255, 255, 255, 0.08);
+}
+.progress-bar-fill {
+    background: linear-gradient(90deg, #b8841a, #d4a853);
+    transition: width 0.5s ease;
+}
+.progress-bar-fill.rate-good {
+    background: linear-gradient(90deg, #b8841a, #d4a853);
+}
+.progress-bar-fill.rate-warning {
+    background: linear-gradient(90deg, #ca8a04, #facc15);
+}
+.progress-bar-fill.rate-danger {
+    background: linear-gradient(90deg, #dc2626, #f87171);
+}
+
+/* ===== 提示框 ===== */
+.alert-info {
+    background: rgba(212, 168, 83, 0.08);
+    border: 1px solid rgba(212, 168, 83, 0.2);
+    color: rgba(212, 168, 83, 0.85);
+}
+
+/* ===== 今日值日提醒 ===== */
+.duty-alert {
+    background: rgba(212, 168, 83, 0.1);
+    border: 1px solid rgba(212, 168, 83, 0.25);
+}
+.duty-alert-icon {
+    background: rgba(212, 168, 83, 0.15);
+}
+
+/* ===== 功能卡片 icon 背景 ===== */
+.icon-circle {
+    background: rgba(212, 168, 83, 0.12);
+}
+.icon-circle i {
+    color: #d4a853;
+}
+
+/* ===== 列表項目 ===== */
+.list-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 0.75rem;
+    transition: background 0.2s;
+}
+.list-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ===== 日期方塊 ===== */
+.date-box {
+    background: rgba(212, 168, 83, 0.12);
+    color: #d4a853;
+}
+.date-box.past {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== 今天指示環 ===== */
+.ring-today {
+    box-shadow: 0 0 0 2px #d4a853, 0 0 12px rgba(212, 168, 83, 0.2);
+}
+
+/* ===== 成功圖示 ===== */
+.success-icon {
+    background: rgba(212, 168, 83, 0.15);
+}
+.success-icon i {
+    color: #d4a853;
+}
+
+/* ===== 版權文字 ===== */
+.copyright {
+    color: rgba(255, 255, 255, 0.15);
+}

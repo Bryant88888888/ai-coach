@@ -4,32 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的排班 - 值日專區</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark')
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: { 400: '#d4a853', 500: '#c9952e', 600: '#b8841a' }
+                    }
+                }
+            }
         }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/duty-dark.css">
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
+<body class="min-h-screen">
+    <!-- 背景光暈 -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
     <!-- 頂部導航 -->
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-4 sticky top-0 z-10">
+    <div class="nav-glass px-4 py-4 sticky top-0 z-10">
         <div class="flex items-center gap-3 max-w-lg mx-auto">
-            <a href="/duty/my" class="p-2 hover:bg-white/20 rounded-lg transition">
+            <a href="/duty/my" class="btn-back">
                 <i class="fas fa-arrow-left"></i>
             </a>
-            <h1 class="text-xl font-bold">我的排班</h1>
+            <h1 class="text-lg font-light text-white" style="letter-spacing: 0.15em;">我 的 排 班</h1>
         </div>
     </div>
 
-    <div class="max-w-lg mx-auto p-4">
+    <div class="max-w-lg mx-auto p-4 relative z-10">
         <!-- 載入中 -->
-        <div id="loading-section" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
-            <p class="text-gray-600 dark:text-gray-400">載入中...</p>
+        <div id="loading-section" class="glass rounded-2xl p-10 text-center">
+            <div class="inline-flex items-center justify-center w-14 h-14 mb-5">
+                <i class="fas fa-spinner fa-spin text-2xl" style="color: #d4a853;"></i>
+            </div>
+            <p style="color: rgba(255,255,255,0.35); letter-spacing: 0.08em;" class="text-sm">正在載入...</p>
         </div>
 
         <!-- 排班列表 -->
@@ -37,9 +50,9 @@
             <!-- 動態載入 -->
         </div>
 
-        <div id="empty-state" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
-            <i class="fas fa-calendar-times text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-            <p class="text-gray-500 dark:text-gray-400">目前沒有排班</p>
+        <div id="empty-state" class="hidden glass rounded-2xl p-10 text-center">
+            <i class="fas fa-calendar-times text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
+            <p style="color: rgba(255,255,255,0.35);">目前沒有排班</p>
         </div>
     </div>
 
@@ -60,9 +73,9 @@
             } catch (error) {
                 document.getElementById('loading-section').innerHTML = `
                     <div class="text-center">
-                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                        <p class="text-gray-600 dark:text-gray-400">載入失敗，請重試</p>
-                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg">重新載入</button>
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4" style="color: #f87171;"></i>
+                        <p style="color: rgba(255,255,255,0.35);">載入失敗，請重試</p>
+                        <button onclick="location.reload()" class="btn-submit mt-4 px-4 py-2 rounded-lg">重新載入</button>
                     </div>
                 `;
             }
@@ -78,19 +91,19 @@
                 if (data.schedules && data.schedules.length > 0) {
                     const list = document.getElementById('schedule-list');
                     list.innerHTML = data.schedules.map(s => `
-                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 flex items-center justify-between ${s.is_today ? 'ring-2 ring-blue-500' : ''}">
+                        <div class="glass rounded-xl p-4 flex items-center justify-between ${s.is_today ? 'ring-today' : ''}">
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-xl flex flex-col items-center justify-center ${s.is_past ? 'bg-gray-100 dark:bg-gray-700' : 'bg-blue-100 dark:bg-blue-900/50'}">
-                                    <span class="text-lg font-bold ${s.is_past ? 'text-gray-500' : 'text-blue-600 dark:text-blue-400'}">${new Date(s.duty_date).getDate()}</span>
-                                    <span class="text-xs ${s.is_past ? 'text-gray-400' : 'text-blue-500'}">${s.weekday.replace('星期', '')}</span>
+                                <div class="w-12 h-12 rounded-xl flex flex-col items-center justify-center ${s.is_past ? 'date-box past' : 'date-box'}">
+                                    <span class="text-lg font-bold">${new Date(s.duty_date).getDate()}</span>
+                                    <span class="text-xs" style="opacity: 0.7;">${s.weekday.replace('星期', '')}</span>
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-800 dark:text-white">${s.duty_date}</p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">${s.weekday}</p>
+                                    <p class="font-light text-white">${s.duty_date}</p>
+                                    <p class="text-sm" style="color: rgba(255,255,255,0.4);">${s.weekday}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                ${s.is_today ? '<span class="px-2 py-1 bg-blue-500 text-white text-xs rounded-full">今天</span>' : ''}
+                                ${s.is_today ? '<span class="px-2 py-1 text-xs rounded-full" style="background: rgba(212,168,83,0.15); color: #d4a853;">今天</span>' : ''}
                                 <span class="px-3 py-1 text-sm rounded-full ${getStatusClass(s.status)}">${s.status_display}</span>
                             </div>
                         </div>
@@ -106,11 +119,11 @@
 
         function getStatusClass(status) {
             switch(status) {
-                case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400';
-                case 'reported': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400';
-                case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400';
-                case 'missed': return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400';
-                default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400';
+                case 'scheduled': return 'badge-scheduled';
+                case 'reported': return 'badge-reported';
+                case 'approved': return 'badge-approved';
+                case 'missed': return 'badge-missed';
+                default: return 'badge-default';
             }
         }
 
