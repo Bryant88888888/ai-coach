@@ -60,8 +60,8 @@
                 <table class="w-full">
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">帳號</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">顯示名稱</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">管理員</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">LINE 綁定</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">角色</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">狀態</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">最後登入</th>
@@ -74,12 +74,18 @@
                         {% for acc in all_admins %}
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                             <td class="px-4 py-4">
-                                <span class="font-medium text-gray-800 dark:text-white">{{ acc.username }}</span>
-                            </td>
-                            <td class="px-4 py-4">
-                                <span class="text-gray-700 dark:text-gray-300">{{ acc.display_name }}</span>
+                                <span class="font-medium text-gray-800 dark:text-white">{{ acc.display_name }}</span>
                                 {% if acc.id == admin.id %}
                                 <span class="ml-1 text-xs text-indigo-500">(you)</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4">
+                                {% if acc.line_user_id %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
+                                    <i class="fab fa-line mr-1"></i>已綁定
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400 text-xs">未綁定</span>
                                 {% endif %}
                             </td>
                             <td class="px-4 py-4">
@@ -256,32 +262,35 @@
 </div>
 
 {% if "admin:edit" in admin_permissions %}
-<!-- 新增/編輯帳號 Modal -->
+<!-- 新增帳號 Modal（從員工列表選擇） -->
 <div id="account-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
-            <h3 id="account-modal-title" class="text-lg font-bold text-gray-800 dark:text-white">新增帳號</h3>
+            <h3 id="account-modal-title" class="text-lg font-bold text-gray-800 dark:text-white">新增管理員</h3>
             <button onclick="closeAccountModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        <form id="account-form" method="POST" class="p-6 space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">使用者名稱 <span class="text-red-500">*</span></label>
-                <input type="text" name="username" id="acc-username" required autocomplete="off"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-            </div>
+        <form id="account-form" method="POST" action="/dashboard/admin/accounts/create" class="p-6 space-y-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    密碼 <span id="pwd-required" class="text-red-500">*</span>
-                    <span id="pwd-hint" class="text-gray-400 text-xs hidden">（空白表示不更改）</span>
+                    <i class="fas fa-user mr-1 text-indigo-400"></i>選擇員工 <span class="text-red-500">*</span>
                 </label>
-                <input type="password" name="password" id="acc-password" autocomplete="new-password"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                <select name="employee_line_id" id="acc-employee" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+                    onchange="onEmployeeSelect(this)">
+                    <option value="">-- 請選擇員工 --</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.line_user_id }}" data-name="{{ emp.real_name or emp.nickname }}">
+                        {{ emp.real_name or emp.nickname }}{% if emp.position %} ({{ emp.position }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">僅顯示已填寫員工資料且有 LINE 帳號的人員</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">顯示名稱 <span class="text-red-500">*</span></label>
-                <input type="text" name="display_name" id="acc-display-name" required
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">顯示名稱</label>
+                <input type="text" name="display_name" id="acc-display-name" placeholder="留空則自動使用員工姓名"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
             </div>
             <div>
@@ -295,7 +304,7 @@
                 </select>
             </div>
             <div class="flex items-center">
-                <input type="checkbox" name="is_super_admin" id="acc-super-admin" value="true"
+                <input type="checkbox" name="is_super_admin" id="acc-super-admin"
                     class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                 <label for="acc-super-admin" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                     設為超級管理員 <span class="text-xs text-gray-400">（擁有所有權限，不受角色限制）</span>
@@ -303,6 +312,52 @@
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeAccountModal()"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                    取消
+                </button>
+                <button type="submit"
+                    class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition min-h-[44px]">
+                    <i class="fas fa-user-plus mr-2"></i>新增管理員
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 編輯帳號 Modal -->
+<div id="edit-account-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white">編輯帳號</h3>
+            <button onclick="document.getElementById('edit-account-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="edit-account-form" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">顯示名稱 <span class="text-red-500">*</span></label>
+                <input type="text" name="display_name" id="edit-acc-display-name" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">角色</label>
+                <select name="role_id" id="edit-acc-role-id"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                    <option value="0">-- 不指定角色 --</option>
+                    {% for role in all_roles %}
+                    <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" name="is_super_admin" id="edit-acc-super-admin" value="true"
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="edit-acc-super-admin" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    設為超級管理員
+                </label>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('edit-account-modal').classList.add('hidden')"
                     class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
                     取消
                 </button>
@@ -407,33 +462,25 @@
 
     // ===== 帳號 Modal =====
     function openAccountModal() {
-        document.getElementById('account-modal-title').textContent = '新增帳號';
-        document.getElementById('account-form').action = '/dashboard/admin/accounts/create';
-        document.getElementById('acc-username').value = '';
-        document.getElementById('acc-username').readOnly = false;
-        document.getElementById('acc-password').value = '';
-        document.getElementById('acc-password').required = true;
-        document.getElementById('pwd-required').classList.remove('hidden');
-        document.getElementById('pwd-hint').classList.add('hidden');
+        document.getElementById('acc-employee').value = '';
         document.getElementById('acc-display-name').value = '';
         document.getElementById('acc-role-id').value = '0';
         document.getElementById('acc-super-admin').checked = false;
         document.getElementById('account-modal').classList.remove('hidden');
     }
 
+    function onEmployeeSelect(select) {
+        const option = select.options[select.selectedIndex];
+        const name = option.getAttribute('data-name') || '';
+        document.getElementById('acc-display-name').placeholder = name ? `預設：${name}` : '留空則自動使用員工姓名';
+    }
+
     function openEditAccountModal(id, username, displayName, roleId, isSuperAdmin) {
-        document.getElementById('account-modal-title').textContent = '編輯帳號';
-        document.getElementById('account-form').action = '/dashboard/admin/accounts/' + id + '/edit';
-        document.getElementById('acc-username').value = username;
-        document.getElementById('acc-username').readOnly = true;
-        document.getElementById('acc-password').value = '';
-        document.getElementById('acc-password').required = false;
-        document.getElementById('pwd-required').classList.add('hidden');
-        document.getElementById('pwd-hint').classList.remove('hidden');
-        document.getElementById('acc-display-name').value = displayName;
-        document.getElementById('acc-role-id').value = roleId || '0';
-        document.getElementById('acc-super-admin').checked = isSuperAdmin;
-        document.getElementById('account-modal').classList.remove('hidden');
+        document.getElementById('edit-account-form').action = '/dashboard/admin/accounts/' + id + '/edit';
+        document.getElementById('edit-acc-display-name').value = displayName;
+        document.getElementById('edit-acc-role-id').value = roleId || '0';
+        document.getElementById('edit-acc-super-admin').checked = isSuperAdmin;
+        document.getElementById('edit-account-modal').classList.remove('hidden');
     }
 
     function closeAccountModal() {
@@ -486,11 +533,10 @@
     }
 
     // 點擊背景關閉 Modal
-    document.getElementById('account-modal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'account-modal') closeAccountModal();
-    });
-    document.getElementById('role-modal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'role-modal') closeRoleModal();
+    ['account-modal', 'edit-account-modal', 'role-modal'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', (e) => {
+            if (e.target.id === id) e.target.classList.add('hidden');
+        });
     });
 </script>
 {% endblock %}

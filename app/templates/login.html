@@ -4,109 +4,165 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登入 - 寶格教育訓練</title>
-    <script>
-        // 載入主題設定（防止閃爍）
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark')
-        }
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: { 400: '#d4a853', 500: '#c9952e', 600: '#b8841a' }
+                    }
+                }
+            }
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if liff_id %}
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    {% endif %}
+    <style>
+        body { background-color: #08080e; }
+        .bg-glow {
+            position: fixed; border-radius: 50%; filter: blur(120px);
+            opacity: 0.25; pointer-events: none; z-index: 0;
+        }
+        .bg-glow-1 { width: 400px; height: 400px; top: -80px; left: -100px; background: radial-gradient(circle, #4c1d95, transparent 70%); }
+        .bg-glow-2 { width: 350px; height: 350px; bottom: -60px; right: -80px; background: radial-gradient(circle, #1e3a5f, transparent 70%); }
+        .bg-glow-3 { width: 200px; height: 200px; top: 40%; left: 60%; background: radial-gradient(circle, #c9952e, transparent 70%); opacity: 0.08; }
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, #c9952e, #d4a853);
+            color: #08080e; font-weight: 700; transition: all 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .btn-gold::after {
+            content: ''; position: absolute; top: -50%; left: -60%;
+            width: 40%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transform: skewX(-20deg); transition: left 0.6s;
+        }
+        .btn-gold:hover::after { left: 120%; }
+        .btn-gold:hover { box-shadow: 0 4px 24px rgba(201, 149, 46, 0.25); }
+        .btn-gold:active { transform: scale(0.95); }
+        .btn-gold:disabled { opacity: 0.6; cursor: not-allowed; }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
+<body class="min-h-screen flex items-center justify-center p-4">
+    <!-- 背景光暈 -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <div class="w-full max-w-md relative z-10">
         <!-- Logo 區塊 -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-24 h-24 bg-white dark:bg-gray-800 rounded-full shadow-lg mb-4 overflow-hidden">
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full shadow-lg mb-4 overflow-hidden" style="border: 1px solid rgba(255,255,255,0.1);">
                 <img src="/static/logo.jpg" alt="Logo" class="w-full h-full object-cover">
             </div>
-            <h1 class="text-3xl font-bold text-white">寶格教育訓練</h1>
-            <p class="text-indigo-100 dark:text-gray-400 mt-2">管理後台登入</p>
+            <h1 class="text-2xl font-light text-white" style="letter-spacing: 0.25em;">寶 格 教 育 訓 練</h1>
+            <p class="mt-2 text-sm" style="color: rgba(255,255,255,0.35); letter-spacing: 0.12em;">MANAGEMENT SYSTEM</p>
         </div>
 
-        <!-- 登入表單 -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
-            {% if error %}
-            <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center">
-                <i class="fas fa-exclamation-circle mr-2"></i>
-                {{ error }}
-            </div>
-            {% endif %}
+        <!-- 錯誤訊息 -->
+        {% set error_msg = error or request.query_params.get('error') %}
+        {% if error_msg %}
+        <div class="glass rounded-xl px-4 py-3 mb-6 flex items-center" style="border-color: rgba(239,68,68,0.3);">
+            <i class="fas fa-exclamation-circle mr-2" style="color: #f87171;"></i>
+            <span style="color: rgba(255,255,255,0.8);">{{ error_msg }}</span>
+        </div>
+        {% endif %}
 
+        {% if liff_id %}
+        <!-- LINE 自動登入 -->
+        <div id="liff-login-section" class="glass rounded-2xl p-8 text-center">
+            <div id="liff-loading">
+                <div class="inline-flex items-center justify-center w-14 h-14 mb-5">
+                    <i class="fas fa-spinner fa-spin text-2xl" style="color: #d4a853;"></i>
+                </div>
+                <p class="text-sm" style="color: rgba(255,255,255,0.5); letter-spacing: 0.08em;">正在透過 LINE 驗證身份...</p>
+            </div>
+            <div id="liff-error" class="hidden">
+                <div class="inline-flex items-center justify-center w-14 h-14 mb-5 rounded-full" style="background: rgba(239,68,68,0.12);">
+                    <i class="fas fa-exclamation-triangle text-xl" style="color: #f87171;"></i>
+                </div>
+                <p class="mb-4" style="color: rgba(255,255,255,0.5);" id="liff-error-msg">LINE 驗證失敗</p>
+                <button onclick="location.reload()" class="btn-gold px-6 py-3 rounded-xl">
+                    <i class="fas fa-redo mr-2"></i>重新驗證
+                </button>
+            </div>
+        </div>
+
+        <!-- 隱藏的表單，由 JS 自動提交 -->
+        <form id="line-login-form" method="POST" action="/login" class="hidden">
+            <input type="hidden" name="line_user_id" id="line_user_id">
+        </form>
+
+        <script>
+            const LIFF_ID = "{{ liff_id }}";
+
+            async function initLiffLogin() {
+                try {
+                    await liff.init({ liffId: LIFF_ID });
+
+                    if (!liff.isLoggedIn()) {
+                        liff.login({ redirectUri: window.location.href });
+                        return;
+                    }
+
+                    const profile = await liff.getProfile();
+                    document.getElementById('line_user_id').value = profile.userId;
+                    document.getElementById('line-login-form').submit();
+
+                } catch (error) {
+                    console.error('LIFF 初始化失敗:', error);
+                    document.getElementById('liff-loading').classList.add('hidden');
+                    document.getElementById('liff-error').classList.remove('hidden');
+                    document.getElementById('liff-error-msg').textContent = error.message || 'LINE 驗證失敗，請重試';
+                }
+            }
+
+            if (LIFF_ID) {
+                initLiffLogin();
+            }
+        </script>
+
+        {% else %}
+        <!-- 傳統帳密登入（未設定 LIFF ID 時） -->
+        <div class="glass rounded-2xl p-8">
             <form method="POST" action="/login" class="space-y-6">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-user mr-2"></i>帳號
+                    <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
+                        <i class="fas fa-user mr-2" style="color: #d4a853;"></i>帳號
                     </label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        required
-                        autocomplete="username"
-                        class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-h-[48px]"
-                        placeholder="請輸入帳號"
-                    >
+                    <input type="text" name="username" required autocomplete="username"
+                        class="w-full px-4 py-3 rounded-xl min-h-[48px]"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                        placeholder="請輸入帳號">
                 </div>
-
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <i class="fas fa-lock mr-2"></i>密碼
+                    <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
+                        <i class="fas fa-lock mr-2" style="color: #d4a853;"></i>密碼
                     </label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        autocomplete="current-password"
-                        class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-h-[48px]"
-                        placeholder="請輸入密碼"
-                    >
+                    <input type="password" name="password" required autocomplete="current-password"
+                        class="w-full px-4 py-3 rounded-xl min-h-[48px]"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                        placeholder="請輸入密碼">
                 </div>
-
-                <button
-                    type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-semibold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center min-h-[48px] shadow-lg hover:shadow-xl"
-                >
-                    <i class="fas fa-sign-in-alt mr-2"></i>
-                    登入
+                <button type="submit" class="btn-gold w-full py-3 px-4 rounded-xl min-h-[48px] flex items-center justify-center text-lg">
+                    <i class="fas fa-sign-in-alt mr-2"></i>登入
                 </button>
             </form>
         </div>
+        {% endif %}
 
         <!-- 版權 -->
-        <p class="text-center text-indigo-100 dark:text-gray-500 text-sm mt-8">
-            &copy; <script>document.write(new Date().getFullYear())</script> AI Coach System
+        <p class="text-center text-sm mt-8" style="color: rgba(255,255,255,0.15);">
+            &copy; <script>document.write(new Date().getFullYear())</script> 寶格教育訓練
         </p>
     </div>
-
-    <!-- 主題切換按鈕 -->
-    <button
-        id="theme-toggle"
-        class="fixed bottom-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg min-w-[48px] min-h-[48px] transition-transform duration-100 active:scale-90"
-        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
-        title="切換深淺色模式"
-    >
-        <i class="fas fa-sun text-yellow-500 dark:hidden"></i>
-        <i class="fas fa-moon text-indigo-400 hidden dark:block"></i>
-    </button>
-
-    <script>
-        // 主題切換
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
-            }
-        });
-    </script>
 </body>
 </html>

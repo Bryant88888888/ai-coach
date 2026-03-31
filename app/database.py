@@ -255,6 +255,22 @@ def run_migrations():
 
                 conn.commit()
 
+        # 檢查並加入 admin_accounts 新欄位（LINE 登入）
+        if 'admin_accounts' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('admin_accounts')]
+
+            with engine.connect() as conn:
+                if 'line_user_id' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS line_user_id VARCHAR(100) UNIQUE"
+                        ))
+                        print("Migration: Added 'line_user_id' column to admin_accounts table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                conn.commit()
+
         # 檢查並加入 duty_rules 新欄位（多店家支援）
         if 'duty_rules' in table_names:
             columns = [col['name'] for col in inspector.get_columns('duty_rules')]

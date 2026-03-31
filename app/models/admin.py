@@ -43,8 +43,9 @@ class AdminAccount(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)  # 格式: salt_hex:hash_hex
+    password_hash = Column(String(255), nullable=True)  # 格式: salt_hex:hash_hex（LINE 登入可免密碼）
     display_name = Column(String(100), nullable=False)
+    line_user_id = Column(String(100), nullable=True, unique=True, index=True)  # LINE User ID（用於免密碼登入）
     role_id = Column(Integer, ForeignKey("admin_roles.id"), nullable=True)
     is_super_admin = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)

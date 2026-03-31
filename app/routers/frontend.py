@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime, date, timezone
 import uuid
 import os
+import secrets
 
 from app.database import get_db
 from app.config import get_settings
@@ -95,29 +96,65 @@ async def login_page(request: Request, db: Session = Depends(get_db)):
     """登入頁面"""
     if get_current_admin(request, db):
         return RedirectResponse(url="/dashboard", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request})
+    settings = get_settings()
+    liff_id = settings.liff_id_admin or settings.liff_id
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "liff_id": liff_id,
+    })
 
 
 @router.post("/login")
-async def login(request: Request, db: Session = Depends(get_db),
-                username: str = Form(...), password: str = Form(...)):
-    """處理登入"""
+async def login(request: Request, db: Session = Depends(get_db)):
+    """處理登入（支援 LINE ID 或帳密）"""
+    form_data = await request.form()
+    line_user_id = form_data.get("line_user_id", "")
+    username = form_data.get("username", "")
+    password = form_data.get("password", "")
+
     perm_service = PermissionService(db)
-    admin = perm_service.get_admin_by_username(username)
-    if admin and admin.is_active and perm_service.verify_password(password, admin.password_hash):
-        request.session["authenticated"] = True
-        request.session["admin_id"] = admin.id
-        request.session["username"] = admin.username
-        request.session["display_name"] = admin.display_name
-        request.session["is_super_admin"] = admin.is_super_admin
-        admin.last_login_at = datetime.now(timezone.utc)
-        db.commit()
-        return RedirectResponse(url="/dashboard", status_code=303)
+    settings = get_settings()
+    liff_id = settings.liff_id_admin or settings.liff_id
+    admin = None
+
+    if line_user_id:
+        # LINE 登入模式
+        admin = perm_service.get_admin_by_line_user_id(line_user_id)
+        if not admin:
+            # 檢查是否為員工
+            user = db.query(User).filter(User.line_user_id == line_user_id).first()
+            if user:
+                error_msg = "您尚未被設定為管理員，請聯繫管理者開通權限"
+            else:
+                error_msg = "您不是本公司員工，無法登入後台"
+            return templates.TemplateResponse("login.html", {
+                "request": request, "error": error_msg, "liff_id": liff_id,
+            })
+        if not admin.is_active:
+            return templates.TemplateResponse("login.html", {
+                "request": request, "error": "您的帳號已停用，請聯繫管理者", "liff_id": liff_id,
+            })
+    elif username and password:
+        # 傳統帳密登入（向後兼容）
+        admin = perm_service.get_admin_by_username(username)
+        if not admin or not admin.is_active or not perm_service.verify_password(password, admin.password_hash):
+            return templates.TemplateResponse("login.html", {
+                "request": request, "error": "帳號或密碼錯誤", "liff_id": liff_id,
+            })
     else:
         return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "帳號或密碼錯誤"
+            "request": request, "error": "登入資訊不完整", "liff_id": liff_id,
         })
+
+    # 設定 session
+    request.session["authenticated"] = True
+    request.session["admin_id"] = admin.id
+    request.session["username"] = admin.username
+    request.session["display_name"] = admin.display_name
+    request.session["is_super_admin"] = admin.is_super_admin
+    admin.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 
 @router.get("/logout")
@@ -2971,6 +3008,13 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
             permission_groups[group] = []
         permission_groups[group].append({"key": perm_key, "label": perm_info["label"]})
 
+    # 取得所有已註冊員工（用於新增管理員時選擇）
+    employees = db.query(User).filter(
+        User.real_name.isnot(None),
+        User.real_name != "",
+        User.line_user_id.isnot(None),
+    ).order_by(User.real_name).all()
+
     return templates.TemplateResponse("admin.html", build_template_context(
         request, admin, db, "admin",
         all_admins=all_admins,
@@ -2978,41 +3022,64 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         role_account_counts=role_account_counts,
         permission_groups=permission_groups,
         permission_registry=PERMISSION_REGISTRY,
+        employees=employees,
     ))
 
 
 @router.post("/dashboard/admin/accounts/create")
-async def admin_account_create(
-    request: Request, db: Session = Depends(get_db),
-    username: str = Form(...), password: str = Form(...),
-    display_name: str = Form(...), role_id: int = Form(None),
-    is_super_admin: bool = Form(False),
-):
-    """建立管理員帳號"""
+async def admin_account_create(request: Request, db: Session = Depends(get_db)):
+    """建立管理員帳號（從員工列表選擇）"""
     result = require_permission(request, db, "admin:edit")
     if isinstance(result, RedirectResponse):
         return result
 
+    form_data = await request.form()
+    employee_line_id = form_data.get("employee_line_id", "")
+    display_name = form_data.get("display_name", "")
+    role_id_raw = form_data.get("role_id", "")
+    is_super_admin = form_data.get("is_super_admin") == "on"
+
     perm_service = PermissionService(db)
 
-    # 檢查使用者名稱是否已存在
-    if perm_service.get_admin_by_username(username):
+    if not employee_line_id:
         return RedirectResponse(
-            url="/dashboard/admin?error=使用者名稱已存在&tab=accounts",
+            url="/dashboard/admin?error=請選擇員工&tab=accounts",
             status_code=303
         )
 
+    # 檢查 LINE ID 是否已綁定
+    if perm_service.get_admin_by_line_user_id(employee_line_id):
+        return RedirectResponse(
+            url="/dashboard/admin?error=此員工已有管理員帳號&tab=accounts",
+            status_code=303
+        )
+
+    # 從 User 表取得員工資訊
+    user = db.query(User).filter(User.line_user_id == employee_line_id).first()
+    if not user:
+        return RedirectResponse(
+            url="/dashboard/admin?error=找不到該員工&tab=accounts",
+            status_code=303
+        )
+
+    final_display_name = display_name.strip() or user.real_name or user.nickname or "管理員"
+    username = f"line_{employee_line_id[:16]}"  # 自動生成 username
+
     try:
-        actual_role_id = role_id if role_id and role_id > 0 else None
-        perm_service.create_admin(
+        actual_role_id = int(role_id_raw) if role_id_raw and int(role_id_raw) > 0 else None
+        admin = perm_service.create_admin(
             username=username,
-            password=password,
-            display_name=display_name,
+            password=secrets.token_hex(16),  # 隨機密碼（LINE 登入不需要）
+            display_name=final_display_name,
             role_id=actual_role_id,
             is_super_admin=is_super_admin,
         )
+        # 綁定 LINE User ID
+        admin.line_user_id = employee_line_id
+        db.commit()
+
         return RedirectResponse(
-            url=f"/dashboard/admin?success=已建立帳號「{display_name}」&tab=accounts",
+            url=f"/dashboard/admin?success=已建立管理員「{final_display_name}」&tab=accounts",
             status_code=303
         )
     except Exception as e:

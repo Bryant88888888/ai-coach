@@ -45,6 +45,10 @@ class PermissionService:
     def get_admin_by_id(self, admin_id: int) -> AdminAccount | None:
         return self.db.query(AdminAccount).filter(AdminAccount.id == admin_id).first()
 
+    def get_admin_by_line_user_id(self, line_user_id: str) -> AdminAccount | None:
+        """用 LINE User ID 查詢管理員帳號"""
+        return self.db.query(AdminAccount).filter(AdminAccount.line_user_id == line_user_id).first()
+
     def get_all_admins(self) -> list[AdminAccount]:
         return self.db.query(AdminAccount).order_by(AdminAccount.created_at).all()
 
