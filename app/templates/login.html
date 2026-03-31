@@ -139,6 +139,54 @@
             }
         </script>
 
+        <!-- 帳密登入切換（LIFF 模式下也可切換） -->
+        <div class="text-center mt-4">
+            <button onclick="togglePasswordLogin()" id="toggle-pwd-btn" class="text-sm transition" style="color: rgba(255,255,255,0.3);">
+                <i class="fas fa-key mr-1"></i>使用帳號密碼登入
+            </button>
+        </div>
+        <div id="password-login-section" class="hidden mt-4">
+            <div class="glass rounded-2xl p-8">
+                <form method="POST" action="/login" class="space-y-6">
+                    <div>
+                        <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
+                            <i class="fas fa-user mr-2" style="color: #d4a853;"></i>帳號
+                        </label>
+                        <input type="text" name="username" required autocomplete="username"
+                            class="w-full px-4 py-3 rounded-xl min-h-[48px]"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                            placeholder="請輸入帳號">
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
+                            <i class="fas fa-lock mr-2" style="color: #d4a853;"></i>密碼
+                        </label>
+                        <input type="password" name="password" required autocomplete="current-password"
+                            class="w-full px-4 py-3 rounded-xl min-h-[48px]"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                            placeholder="請輸入密碼">
+                    </div>
+                    <button type="submit" class="btn-gold w-full py-3 px-4 rounded-xl min-h-[48px] flex items-center justify-center text-lg">
+                        <i class="fas fa-sign-in-alt mr-2"></i>登入
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function togglePasswordLogin() {
+                const section = document.getElementById('password-login-section');
+                const btn = document.getElementById('toggle-pwd-btn');
+                if (section.classList.contains('hidden')) {
+                    section.classList.remove('hidden');
+                    btn.innerHTML = '<i class="fas fa-times mr-1"></i>收起帳密登入';
+                } else {
+                    section.classList.add('hidden');
+                    btn.innerHTML = '<i class="fas fa-key mr-1"></i>使用帳號密碼登入';
+                }
+            }
+        </script>
+
         {% else %}
         <!-- 傳統帳密登入（未設定 LIFF ID 時） -->
         <div class="glass rounded-2xl p-8">
