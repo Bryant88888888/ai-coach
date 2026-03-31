@@ -124,15 +124,44 @@ async def login(request: Request, db: Session = Depends(get_db)):
         # LINE 登入模式
         admin = perm_service.get_admin_by_line_user_id(line_user_id)
         if not admin:
-            # 檢查是否為員工
+            # 檢查是否為員工 → 自動建立帳號（僅早會日報權限）
             user = db.query(User).filter(User.line_user_id == line_user_id).first()
-            if user:
-                error_msg = "您尚未被設定為管理員，請聯繫管理者開通權限"
+            if user and user.real_name:
+                # 找到或建立「員工」角色（只有早會日報權限）
+                from app.models.admin import AdminRole
+                import json as json_module
+                employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
+                if not employee_role:
+                    employee_role = AdminRole(
+                        name="員工",
+                        description="一般員工，僅可填寫早會日報",
+                        permissions=json_module.dumps(["dashboard:view", "morning:view", "morning:edit"]),
+                        is_system=True,
+                    )
+                    db.add(employee_role)
+                    db.commit()
+                    db.refresh(employee_role)
+
+                # 自動建立 AdminAccount
+                admin = perm_service.create_admin(
+                    username=f"line_{line_user_id[:16]}",
+                    password=secrets.token_hex(16),
+                    display_name=user.real_name or user.nickname or "員工",
+                    role_id=employee_role.id,
+                    is_super_admin=False,
+                )
+                admin.line_user_id = line_user_id
+                db.commit()
+            elif user:
+                error_msg = "請先填寫員工資料（真實姓名）後再登入"
+                return templates.TemplateResponse("login.html", {
+                    "request": request, "error": error_msg, "liff_id": liff_id,
+                })
             else:
-                error_msg = "您不是本公司員工，無法登入後台"
-            return templates.TemplateResponse("login.html", {
-                "request": request, "error": error_msg, "liff_id": liff_id,
-            })
+                error_msg = "您不是本公司員工，無法登入"
+                return templates.TemplateResponse("login.html", {
+                    "request": request, "error": error_msg, "liff_id": liff_id,
+                })
         if not admin.is_active:
             return templates.TemplateResponse("login.html", {
                 "request": request, "error": "您的帳號已停用，請聯繫管理者", "liff_id": liff_id,
@@ -3308,6 +3337,14 @@ async def morning_report_page(
     # 報表 map（user_id → report）
     report_map = {r.user_id: r for r in reports}
 
+    # 取得當前登入者對應的 User（用 line_user_id 關聯）
+    current_user = None
+    my_report = None
+    if admin.line_user_id:
+        current_user = db.query(User).filter(User.line_user_id == admin.line_user_id).first()
+        if current_user:
+            my_report = service.get_report(current_user.id, selected_date)
+
     ctx = build_template_context(request, admin, db, "morning")
     ctx.update({
         "selected_date": selected_date.isoformat(),
@@ -3319,6 +3356,8 @@ async def morning_report_page(
         "report_map": report_map,
         "filled_members": filled_members,
         "unfilled_members": unfilled_members,
+        "current_user": current_user,
+        "my_report": my_report,
     })
     return templates.TemplateResponse("morning_report.html", ctx)
 
@@ -3330,9 +3369,17 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
     if isinstance(result, RedirectResponse):
         return result
 
+    admin = result
     form = await request.form()
-    user_id = int(form.get("user_id", 0))
+    user_id_raw = form.get("user_id", "")
     report_date_str = form.get("report_date", "")
+
+    # 如果沒傳 user_id，用登入者自己的 User
+    user_id = int(user_id_raw) if user_id_raw else 0
+    if not user_id and admin.line_user_id:
+        current_user = db.query(User).filter(User.line_user_id == admin.line_user_id).first()
+        if current_user:
+            user_id = current_user.id
 
     if not user_id or not report_date_str:
         return RedirectResponse(
