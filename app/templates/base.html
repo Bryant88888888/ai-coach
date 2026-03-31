@@ -196,6 +196,14 @@
 
         <!-- 主要內容區 -->
         <main id="main-content" class="flex-1 lg:ml-64 p-4 lg:p-8 min-h-screen">
+            <!-- DEBUG: 移除此區塊 -->
+            <div class="bg-yellow-100 text-yellow-800 p-2 text-xs mb-4 rounded">
+                sidebar_items 數量: {{ sidebar_items|length }} |
+                群組: {% for item in sidebar_items %}{{ item.group if item.group is defined else item.label }}, {% endfor %} |
+                admin_permissions 數量: {{ admin_permissions|length }} |
+                有 admin:view: {{ "admin:view" in admin_permissions }}
+            </div>
+            <!-- END DEBUG -->
             {% block content %}{% endblock %}
         </main>
     </div>
