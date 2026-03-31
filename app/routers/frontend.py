@@ -69,11 +69,20 @@ def require_permission(request: Request, db: Session, permission: str) -> AdminA
     if not admin:
         return RedirectResponse(url="/login", status_code=303)
     if not admin.has_permission(permission):
-        # 如果連儀表板都沒有權限，導回登入頁避免無限重導向
         if permission == "dashboard:view":
+            # 員工沒有 dashboard 權限，導向表單頁
+            if admin.has_permission("morning:edit"):
+                return RedirectResponse(url="/dashboard/morning-report", status_code=303)
             request.session.clear()
             return RedirectResponse(url="/login?error=您的帳號沒有任何頁面存取權限", status_code=303)
-        return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
+        # 沒有特定頁面權限，導回有權限的地方
+        if admin.has_permission("dashboard:view"):
+            return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
+        elif admin.has_permission("morning:edit"):
+            return RedirectResponse(url="/dashboard/morning-report?error=您沒有此頁面的權限", status_code=303)
+        else:
+            request.session.clear()
+            return RedirectResponse(url="/login?error=您沒有任何頁面存取權限", status_code=303)
     return admin
 
 
@@ -3326,8 +3335,8 @@ async def morning_report_page(
     report_date: str = None,
     leader_filter: int = None,
 ):
-    """早會日報表頁面"""
-    result = require_permission(request, db, "morning:view")
+    """早會日報表頁面（員工用 morning:edit 即可進入填表）"""
+    result = require_permission(request, db, "morning:edit")
     if isinstance(result, RedirectResponse):
         return result
     admin = result

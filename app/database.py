@@ -256,6 +256,18 @@ def run_migrations():
 
                 conn.commit()
 
+        # 修正「員工」角色權限（確保只有 morning:edit）
+        if 'admin_roles' in table_names:
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text(
+                        """UPDATE admin_roles SET permissions = '["morning:edit"]'
+                           WHERE name = '員工' AND permissions != '["morning:edit"]'"""
+                    ))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Migration note: {e}")
+
         # 檢查並更新 morning_reports 表（JSON 多筆格式）
         if 'morning_reports' in table_names:
             columns = [col['name'] for col in inspector.get_columns('morning_reports')]
