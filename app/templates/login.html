@@ -103,8 +103,17 @@
 
         <script>
             const LIFF_ID = "{{ liff_id }}";
+            const HAS_ERROR = {{ 'true' if (error or request.query_params.get('error')) else 'false' }};
 
             async function initLiffLogin() {
+                // 如果已有錯誤訊息（登入被拒），不要自動重試，避免無限循環
+                if (HAS_ERROR) {
+                    document.getElementById('liff-loading').classList.add('hidden');
+                    document.getElementById('liff-error').classList.remove('hidden');
+                    document.getElementById('liff-error-msg').textContent = '如需重新驗證，請點擊下方按鈕';
+                    return;
+                }
+
                 try {
                     await liff.init({ liffId: LIFF_ID });
 
