@@ -252,11 +252,20 @@ class PermissionService:
         self.db.commit()
 
     def seed_super_admin_from_env(self) -> None:
-        """從 .env 設定建立超級管理員（僅在無帳號時執行）"""
-        if self.db.query(AdminAccount).count() > 0:
+        """從 .env 設定建立或確保超級管理員存在"""
+        settings = get_settings()
+
+        # 查找是否已存在此帳號
+        admin = self.get_admin_by_username(settings.admin_username)
+        if admin:
+            # 確保是超級管理員且啟用
+            if not admin.is_super_admin or not admin.is_active:
+                admin.is_super_admin = True
+                admin.is_active = True
+                self.db.commit()
             return
 
-        settings = get_settings()
+        # 不存在則建立
         self.create_admin(
             username=settings.admin_username,
             password=settings.admin_password,
