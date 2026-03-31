@@ -92,21 +92,35 @@
         <input type="hidden" name="report_date" value="{{ selected_date }}">
 
         <!-- 填寫者選擇 -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                填寫人員 <span class="text-red-500">*</span>
-            </label>
-            <select name="user_id" required
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-                <option value="">-- 選擇人員 --</option>
-                {% for member in filled_members + unfilled_members %}
-                <option value="{{ member.id }}">
-                    {{ member.real_name or member.nickname }}
-                    {% if member.position %}({{ member.position }}){% endif %}
-                    {% if member.id in report_map %} [已填寫]{% endif %}
-                </option>
-                {% endfor %}
-            </select>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    填寫人員 <span class="text-red-500">*</span>
+                </label>
+                <select name="user_id" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                    <option value="">-- 選擇人員 --</option>
+                    {% for member in filled_members + unfilled_members %}
+                    <option value="{{ member.id }}">
+                        {{ member.real_name or member.nickname }}
+                        {% if member.position %}({{ member.position }}){% endif %}
+                        {% if member.id in report_map %} [已填寫]{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    所屬組別 <span class="text-red-500">*</span>
+                </label>
+                <select name="leader_id" required
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                    <option value="">-- 選擇組別 --</option>
+                    {% for leader in leaders %}
+                    <option value="{{ leader.id }}">{{ leader.real_name or leader.nickname }}組</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
         <!-- 區塊 1：早會記錄 -->

@@ -66,18 +66,13 @@ class MorningReportService:
         report = self.get_report(user_id, report_date)
 
         if not report:
-            # 取得使用者的組長
-            user = self.db.query(User).filter(User.id == user_id).first()
-            leader_id = user.leader_id if user else None
-
             report = MorningReport(
                 user_id=user_id,
                 report_date=report_date,
-                leader_id=leader_id,
             )
             self.db.add(report)
 
-        # 更新欄位
+        # 更新欄位（包含 leader_id）
         for key, value in data.items():
             if hasattr(report, key) and key not in ('id', 'user_id', 'report_date', 'created_at'):
                 setattr(report, key, value if value != '' else None)

@@ -3342,7 +3342,11 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
 
     report_date_val = date.fromisoformat(report_date_str)
 
+    leader_id_raw = form.get("leader_id", "")
+    leader_id_val = int(leader_id_raw) if leader_id_raw else None
+
     data = {
+        "leader_id": leader_id_val,
         "meeting_time": form.get("meeting_time", ""),
         "review_category": form.get("review_category", ""),
         "review_description": form.get("review_description", ""),
