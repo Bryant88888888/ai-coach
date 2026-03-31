@@ -91,48 +91,6 @@ def build_template_context(request: Request, admin: AdminAccount, db: Session,
     }
 
 
-@router.get("/debug/admins")
-async def debug_admins(request: Request, db: Session = Depends(get_db)):
-    """臨時 debug：查看管理員帳號及登入狀態"""
-    from app.models.admin import AdminAccount, ALL_PERMISSIONS, SIDEBAR_ITEMS
-    admins = db.query(AdminAccount).all()
-
-    # 檢查目前登入狀態
-    current = get_current_admin(request, db)
-    session_data = dict(request.session)
-
-    # 如果有登入，測試 sidebar
-    sidebar_result = None
-    permissions_result = None
-    if current:
-        perm_service = PermissionService(db)
-        sidebar_result = perm_service.get_visible_sidebar(current)
-        permissions_result = perm_service.get_permissions(current)
-
-    return {
-        "all_admins": [{
-            "id": a.id,
-            "username": a.username,
-            "display_name": a.display_name,
-            "is_super_admin": a.is_super_admin,
-            "is_active": a.is_active,
-            "line_user_id": a.line_user_id,
-            "role_id": a.role_id,
-        } for a in admins],
-        "session": session_data,
-        "current_admin": {
-            "id": current.id,
-            "username": current.username,
-            "is_super_admin": current.is_super_admin,
-            "permissions_count": len(permissions_result),
-            "has_admin_view": "admin:view" in permissions_result,
-            "permissions": permissions_result,
-        } if current else None,
-        "sidebar_groups": [item.get("group", item.get("label")) for item in sidebar_result] if sidebar_result else None,
-        "ALL_PERMISSIONS_count": len(ALL_PERMISSIONS),
-        "ALL_PERMISSIONS_has_admin_view": "admin:view" in ALL_PERMISSIONS,
-    }
-
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, db: Session = Depends(get_db)):
