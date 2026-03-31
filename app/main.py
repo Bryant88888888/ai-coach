@@ -45,7 +45,7 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret_key,
-    max_age=None,  # session cookie，瀏覽器關閉即失效
+    max_age=28800,  # 8 小時後過期，需重新登入
 )
 
 # 設定 CORS（跨域請求）
