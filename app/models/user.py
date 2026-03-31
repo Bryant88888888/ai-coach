@@ -55,7 +55,7 @@ class User(Base):
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
     # 關聯
-    leader = relationship("User", remote_side="User.id", foreign_keys=[leader_id])
+    leader = relationship("User", remote_side=[id], foreign_keys=[leader_id])
     messages = relationship("Message", back_populates="user", order_by="Message.created_at.desc()")
     trainings = relationship("UserTraining", back_populates="user", order_by="UserTraining.created_at.desc()")
     leave_requests = relationship("LeaveRequest", back_populates="user", order_by="LeaveRequest.created_at.desc()")

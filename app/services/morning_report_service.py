@@ -74,7 +74,7 @@ class MorningReportService:
 
         # 更新欄位（包含 leader_id）
         for key, value in data.items():
-            if hasattr(report, key) and key not in ('id', 'user_id', 'report_date', 'created_at'):
+            if hasattr(report, key) and key not in ('id', 'user_id', 'report_date', 'created_at', 'updated_at'):
                 setattr(report, key, value if value != '' else None)
 
         self.db.commit()
@@ -109,7 +109,7 @@ class MorningReportService:
             "date": report_date.isoformat(),
             "expected": total_expected,
             "present": total_present,
-            "absent": total_expected - total_present,
+            "absent": max(0, total_expected - total_present),
             "rate": rate,
         }
 

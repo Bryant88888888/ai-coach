@@ -156,9 +156,9 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">早會時間</label>
                 <select name="meeting_time"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-                    <option value="05:00-05:20">05:00-05:20</option>
-                    <option value="05:00-05:30">05:00-05:30</option>
-                    <option value="06:00-06:20">06:00-06:20</option>
+                    <option value="05:00-05:20" {% if my_report and my_report.meeting_time == '05:00-05:20' %}selected{% endif %}>05:00-05:20</option>
+                    <option value="05:00-05:30" {% if my_report and my_report.meeting_time == '05:00-05:30' %}selected{% endif %}>05:00-05:30</option>
+                    <option value="06:00-06:20" {% if my_report and my_report.meeting_time == '06:00-06:20' %}selected{% endif %}>06:00-06:20</option>
                 </select>
             </div>
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
@@ -177,51 +177,56 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">檢討類別</label>
                     <select name="review_category"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        {% set rc = my_report.review_category if my_report else '' %}
                         <option value="">-- 無需檢討 --</option>
-                        <option value="客戶投訴">客戶投訴</option>
-                        <option value="流程問題">流程問題</option>
-                        <option value="系統故障">系統故障</option>
-                        <option value="人員失誤">人員失誤</option>
-                        <option value="其他">其他</option>
+                        <option value="客戶投訴" {% if rc == '客戶投訴' %}selected{% endif %}>客戶投訴</option>
+                        <option value="流程問題" {% if rc == '流程問題' %}selected{% endif %}>流程問題</option>
+                        <option value="系統故障" {% if rc == '系統故障' %}selected{% endif %}>系統故障</option>
+                        <option value="人員失誤" {% if rc == '人員失誤' %}selected{% endif %}>人員失誤</option>
+                        <option value="其他" {% if rc == '其他' %}selected{% endif %}>其他</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">影響程度</label>
                     <select name="review_impact"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        {% set ri = my_report.review_impact if my_report else '' %}
                         <option value="">--</option>
-                        <option value="高">高</option>
-                        <option value="中">中</option>
-                        <option value="低">低</option>
+                        <option value="高" {% if ri == '高' %}selected{% endif %}>高</option>
+                        <option value="中" {% if ri == '中' %}selected{% endif %}>中</option>
+                        <option value="低" {% if ri == '低' %}selected{% endif %}>低</option>
                     </select>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">發生狀況描述</label>
                     <textarea name="review_description" rows="2" placeholder="描述昨日發生的狀況..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ my_report.review_description or '' if my_report else '' }}</textarea>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">改善對策</label>
                     <textarea name="review_solution" rows="2" placeholder="如何改善..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ my_report.review_solution or '' if my_report else '' }}</textarea>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">負責人</label>
                     <input type="text" name="review_responsible" placeholder="手動輸入負責人姓名"
+                        value="{{ my_report.review_responsible or '' if my_report else '' }}"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">預計完成日</label>
                     <input type="date" name="review_deadline"
+                        value="{{ my_report.review_deadline.isoformat() if my_report and my_report.review_deadline else '' }}"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">完成狀態</label>
                     <select name="review_status"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-                        <option value="未處理">未處理</option>
-                        <option value="進行中">進行中</option>
-                        <option value="已改善">已改善</option>
+                        {% set rs = my_report.review_status if my_report else '未處理' %}
+                        <option value="未處理" {% if rs == '未處理' %}selected{% endif %}>未處理</option>
+                        <option value="進行中" {% if rs == '進行中' %}selected{% endif %}>進行中</option>
+                        <option value="已改善" {% if rs == '已改善' %}selected{% endif %}>已改善</option>
                     </select>
                 </div>
             </div>
@@ -238,49 +243,53 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">案例類型</label>
                     <select name="share_category"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        {% set sc = my_report.share_category if my_report else '' %}
                         <option value="">-- 無分享 --</option>
-                        <option value="客訴處理">客訴處理</option>
-                        <option value="時間管理">時間管理</option>
-                        <option value="溝通技巧">溝通技巧</option>
-                        <option value="專業知識">專業知識</option>
-                        <option value="其他">其他</option>
+                        <option value="客訴處理" {% if sc == '客訴處理' %}selected{% endif %}>客訴處理</option>
+                        <option value="時間管理" {% if sc == '時間管理' %}selected{% endif %}>時間管理</option>
+                        <option value="溝通技巧" {% if sc == '溝通技巧' %}selected{% endif %}>溝通技巧</option>
+                        <option value="專業知識" {% if sc == '專業知識' %}selected{% endif %}>專業知識</option>
+                        <option value="其他" {% if sc == '其他' %}selected{% endif %}>其他</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">成效評分</label>
                     <select name="share_rating"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        {% set sr = my_report.share_rating if my_report else None %}
                         <option value="">--</option>
-                        <option value="5">5 - 非常好</option>
-                        <option value="4">4 - 好</option>
-                        <option value="3">3 - 普通</option>
-                        <option value="2">2 - 差</option>
-                        <option value="1">1 - 很差</option>
+                        <option value="5" {% if sr == 5 %}selected{% endif %}>5 - 非常好</option>
+                        <option value="4" {% if sr == 4 %}selected{% endif %}>4 - 好</option>
+                        <option value="3" {% if sr == 3 %}selected{% endif %}>3 - 普通</option>
+                        <option value="2" {% if sr == 2 %}selected{% endif %}>2 - 差</option>
+                        <option value="1" {% if sr == 1 %}selected{% endif %}>1 - 很差</option>
                     </select>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">遇到的狀況</label>
                     <textarea name="share_situation" rows="2" placeholder="描述遇到的狀況..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ my_report.share_situation or '' if my_report else '' }}</textarea>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">解決方法</label>
                     <textarea name="share_solution" rows="2" placeholder="如何解決..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ my_report.share_solution or '' if my_report else '' }}</textarea>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">學習重點</label>
                     <textarea name="share_lesson" rows="2" placeholder="從中學到什麼..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ my_report.share_lesson or '' if my_report else '' }}</textarea>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">適用場景</label>
                     <input type="text" name="share_scenario" placeholder="什麼情況可以用到"
+                        value="{{ my_report.share_scenario or '' if my_report else '' }}"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">備註</label>
                     <input type="text" name="share_note" placeholder="其他補充"
+                        value="{{ my_report.share_note or '' if my_report else '' }}"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 </div>
             </div>

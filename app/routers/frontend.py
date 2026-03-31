@@ -127,31 +127,48 @@ async def login(request: Request, db: Session = Depends(get_db)):
             # 檢查是否為員工 → 自動建立帳號（僅早會日報權限）
             user = db.query(User).filter(User.line_user_id == line_user_id).first()
             if user and user.real_name:
-                # 找到或建立「員工」角色（只有早會日報權限）
-                from app.models.admin import AdminRole
-                import json as json_module
-                employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
-                if not employee_role:
-                    employee_role = AdminRole(
-                        name="員工",
-                        description="一般員工，僅可填寫早會日報",
-                        permissions=json_module.dumps(["dashboard:view", "morning:view", "morning:edit"]),
-                        is_system=True,
-                    )
-                    db.add(employee_role)
-                    db.commit()
-                    db.refresh(employee_role)
+                try:
+                    # 找到或建立「員工」角色
+                    from app.models.admin import AdminRole
+                    import json as json_module
+                    employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
+                    if not employee_role:
+                        try:
+                            employee_role = AdminRole(
+                                name="員工",
+                                description="一般員工，僅可填寫早會日報",
+                                permissions=json_module.dumps(["dashboard:view", "morning:view", "morning:edit"]),
+                                is_system=True,
+                            )
+                            db.add(employee_role)
+                            db.commit()
+                            db.refresh(employee_role)
+                        except Exception:
+                            db.rollback()
+                            employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
 
-                # 自動建立 AdminAccount
-                admin = perm_service.create_admin(
-                    username=f"line_{line_user_id[:16]}",
-                    password=secrets.token_hex(16),
-                    display_name=user.real_name or user.nickname or "員工",
-                    role_id=employee_role.id,
-                    is_super_admin=False,
-                )
-                admin.line_user_id = line_user_id
-                db.commit()
+                    # 自動建立 AdminAccount（用完整 line_user_id 避免碰撞）
+                    admin_account = AdminAccount(
+                        username=f"line_{line_user_id}",
+                        password_hash=secrets.token_hex(16),
+                        display_name=user.real_name or user.nickname or "員工",
+                        role_id=employee_role.id if employee_role else None,
+                        is_super_admin=False,
+                        is_active=True,
+                        line_user_id=line_user_id,
+                    )
+                    db.add(admin_account)
+                    db.commit()
+                    db.refresh(admin_account)
+                    admin = admin_account
+                except Exception:
+                    db.rollback()
+                    # 可能是重複建立，重新查詢
+                    admin = perm_service.get_admin_by_line_user_id(line_user_id)
+                    if not admin:
+                        return templates.TemplateResponse("login.html", {
+                            "request": request, "error": "帳號建立失敗，請重試", "liff_id": liff_id,
+                        })
             elif user:
                 error_msg = "請先填寫員工資料（真實姓名）後再登入"
                 return templates.TemplateResponse("login.html", {
@@ -3312,7 +3329,10 @@ async def morning_report_page(
 
     service = MorningReportService(db)
     today = date.today()
-    selected_date = date.fromisoformat(report_date) if report_date else today
+    try:
+        selected_date = date.fromisoformat(report_date) if report_date else today
+    except (ValueError, TypeError):
+        selected_date = today
 
     # 取得所有組長（用於篩選）
     leaders = service.get_all_leaders()
@@ -3387,10 +3407,31 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
             status_code=303
         )
 
-    report_date_val = date.fromisoformat(report_date_str)
+    try:
+        report_date_val = date.fromisoformat(report_date_str)
+    except (ValueError, TypeError):
+        return RedirectResponse(url="/dashboard/morning-report?error=日期格式錯誤", status_code=303)
 
     leader_id_raw = form.get("leader_id", "")
-    leader_id_val = int(leader_id_raw) if leader_id_raw else None
+    try:
+        leader_id_val = int(leader_id_raw) if leader_id_raw else None
+    except ValueError:
+        leader_id_val = None
+
+    # 安全解析日期和數值
+    review_deadline = None
+    try:
+        if form.get("review_deadline"):
+            review_deadline = date.fromisoformat(form.get("review_deadline"))
+    except (ValueError, TypeError):
+        pass
+
+    share_rating = None
+    try:
+        if form.get("share_rating"):
+            share_rating = max(1, min(5, int(form.get("share_rating"))))
+    except (ValueError, TypeError):
+        pass
 
     data = {
         "leader_id": leader_id_val,
@@ -3400,14 +3441,14 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
         "review_impact": form.get("review_impact", ""),
         "review_solution": form.get("review_solution", ""),
         "review_responsible": form.get("review_responsible", ""),
-        "review_deadline": date.fromisoformat(form.get("review_deadline")) if form.get("review_deadline") else None,
+        "review_deadline": review_deadline,
         "review_status": form.get("review_status", "未處理"),
         "share_category": form.get("share_category", ""),
         "share_situation": form.get("share_situation", ""),
         "share_solution": form.get("share_solution", ""),
         "share_lesson": form.get("share_lesson", ""),
         "share_scenario": form.get("share_scenario", ""),
-        "share_rating": int(form.get("share_rating")) if form.get("share_rating") else None,
+        "share_rating": share_rating,
         "share_note": form.get("share_note", ""),
     }
 
