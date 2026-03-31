@@ -256,6 +256,39 @@ def run_migrations():
 
                 conn.commit()
 
+        # 檢查並更新 morning_reports 表（JSON 多筆格式）
+        if 'morning_reports' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('morning_reports')]
+
+            with engine.connect() as conn:
+                # 新增 reviews/shares JSON 欄位
+                if 'reviews' not in columns:
+                    try:
+                        conn.execute(text("ALTER TABLE morning_reports ADD COLUMN IF NOT EXISTS reviews TEXT"))
+                        print("Migration: Added 'reviews' column to morning_reports table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+                if 'shares' not in columns:
+                    try:
+                        conn.execute(text("ALTER TABLE morning_reports ADD COLUMN IF NOT EXISTS shares TEXT"))
+                        print("Migration: Added 'shares' column to morning_reports table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
+                # 移除舊的單筆欄位（如果存在）
+                for old_col in ['meeting_time', 'review_category', 'review_description', 'review_impact',
+                                'review_solution', 'review_responsible', 'review_deadline', 'review_status',
+                                'share_category', 'share_situation', 'share_solution', 'share_lesson',
+                                'share_scenario', 'share_rating', 'share_note']:
+                    if old_col in columns:
+                        try:
+                            conn.execute(text(f"ALTER TABLE morning_reports DROP COLUMN IF EXISTS {old_col}"))
+                            print(f"Migration: Dropped old column '{old_col}' from morning_reports")
+                        except Exception as e:
+                            print(f"Migration note: {e}")
+
+                conn.commit()
+
         # 檢查並加入 users 新欄位（所屬組長）
         if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]
