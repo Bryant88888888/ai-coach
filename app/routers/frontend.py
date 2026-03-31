@@ -137,7 +137,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
                             employee_role = AdminRole(
                                 name="員工",
                                 description="一般員工，僅可填寫早會日報",
-                                permissions=json_module.dumps(["dashboard:view", "morning:view", "morning:edit"]),
+                                permissions=json_module.dumps(["morning:edit"]),
                                 is_system=True,
                             )
                             db.add(employee_role)
@@ -203,7 +203,12 @@ async def login(request: Request, db: Session = Depends(get_db)):
     request.session["is_super_admin"] = admin.is_super_admin
     admin.last_login_at = datetime.now(timezone.utc)
     db.commit()
-    return RedirectResponse(url="/dashboard", status_code=303)
+
+    # 員工（沒有 dashboard:view 權限）直接導向表單頁
+    if admin.has_permission("dashboard:view"):
+        return RedirectResponse(url="/dashboard", status_code=303)
+    else:
+        return RedirectResponse(url="/dashboard/morning-report", status_code=303)
 
 
 @router.get("/logout")
@@ -3384,7 +3389,7 @@ async def morning_report_page(
 
 @router.post("/dashboard/morning-report/submit")
 async def morning_report_submit(request: Request, db: Session = Depends(get_db)):
-    """提交/更新早會日報表"""
+    """提交/更新早會日報表（支援多筆檢討和分享）"""
     result = require_permission(request, db, "morning:edit")
     if isinstance(result, RedirectResponse):
         return result
@@ -3394,7 +3399,6 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
     user_id_raw = form.get("user_id", "")
     report_date_str = form.get("report_date", "")
 
-    # 如果沒傳 user_id，用登入者自己的 User
     user_id = int(user_id_raw) if user_id_raw else 0
     if not user_id and admin.line_user_id:
         current_user = db.query(User).filter(User.line_user_id == admin.line_user_id).first()
@@ -3402,10 +3406,7 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
             user_id = current_user.id
 
     if not user_id or not report_date_str:
-        return RedirectResponse(
-            url="/dashboard/morning-report?error=缺少必要資訊",
-            status_code=303
-        )
+        return RedirectResponse(url="/dashboard/morning-report?error=缺少必要資訊", status_code=303)
 
     try:
         report_date_val = date.fromisoformat(report_date_str)
@@ -3418,42 +3419,53 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
     except ValueError:
         leader_id_val = None
 
-    # 安全解析日期和數值
-    review_deadline = None
-    try:
-        if form.get("review_deadline"):
-            review_deadline = date.fromisoformat(form.get("review_deadline"))
-    except (ValueError, TypeError):
-        pass
+    # 解析多筆檢討
+    reviews = []
+    idx = 0
+    while True:
+        cat = form.get(f"review_category_{idx}", "")
+        desc = form.get(f"review_description_{idx}", "")
+        if not cat and not desc:
+            break
+        reviews.append({
+            "category": cat,
+            "description": desc,
+            "impact": form.get(f"review_impact_{idx}", ""),
+            "solution": form.get(f"review_solution_{idx}", ""),
+            "responsible": form.get(f"review_responsible_{idx}", ""),
+            "deadline": form.get(f"review_deadline_{idx}", ""),
+            "status": form.get(f"review_status_{idx}", "未處理"),
+        })
+        idx += 1
 
-    share_rating = None
-    try:
-        if form.get("share_rating"):
-            share_rating = max(1, min(5, int(form.get("share_rating"))))
-    except (ValueError, TypeError):
-        pass
-
-    data = {
-        "leader_id": leader_id_val,
-        "meeting_time": form.get("meeting_time", ""),
-        "review_category": form.get("review_category", ""),
-        "review_description": form.get("review_description", ""),
-        "review_impact": form.get("review_impact", ""),
-        "review_solution": form.get("review_solution", ""),
-        "review_responsible": form.get("review_responsible", ""),
-        "review_deadline": review_deadline,
-        "review_status": form.get("review_status", "未處理"),
-        "share_category": form.get("share_category", ""),
-        "share_situation": form.get("share_situation", ""),
-        "share_solution": form.get("share_solution", ""),
-        "share_lesson": form.get("share_lesson", ""),
-        "share_scenario": form.get("share_scenario", ""),
-        "share_rating": share_rating,
-        "share_note": form.get("share_note", ""),
-    }
+    # 解析多筆分享
+    shares = []
+    idx = 0
+    while True:
+        cat = form.get(f"share_category_{idx}", "")
+        sit = form.get(f"share_situation_{idx}", "")
+        if not cat and not sit:
+            break
+        rating = None
+        try:
+            r = form.get(f"share_rating_{idx}", "")
+            if r:
+                rating = max(1, min(5, int(r)))
+        except (ValueError, TypeError):
+            pass
+        shares.append({
+            "category": cat,
+            "situation": sit,
+            "solution": form.get(f"share_solution_{idx}", ""),
+            "lesson": form.get(f"share_lesson_{idx}", ""),
+            "scenario": form.get(f"share_scenario_{idx}", ""),
+            "rating": rating,
+            "note": form.get(f"share_note_{idx}", ""),
+        })
+        idx += 1
 
     service = MorningReportService(db)
-    service.submit_report(user_id, report_date_val, data)
+    service.submit_report(user_id, report_date_val, leader_id=leader_id_val, reviews=reviews, shares=shares)
 
     return RedirectResponse(
         url=f"/dashboard/morning-report?report_date={report_date_str}&success=日報表已提交",

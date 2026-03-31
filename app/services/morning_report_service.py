@@ -1,8 +1,7 @@
 """早會登記暨日報表服務"""
-from datetime import date, datetime
+from datetime import date, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func as sql_func
 from collections import defaultdict
 
 from app.models.user import User, UserStatus
@@ -18,7 +17,6 @@ class MorningReportService:
     # ===== 組別管理 =====
 
     def get_all_leaders(self) -> list[User]:
-        """取得所有組長（position='組長'且 Active）"""
         return self.db.query(User).filter(
             User.position == '組長',
             User.status == UserStatus.ACTIVE.value,
@@ -27,7 +25,6 @@ class MorningReportService:
         ).order_by(User.real_name).all()
 
     def get_team_members(self, leader_id: int) -> list[User]:
-        """取得指定組長的組員"""
         return self.db.query(User).filter(
             User.leader_id == leader_id,
             User.status == UserStatus.ACTIVE.value,
@@ -36,7 +33,6 @@ class MorningReportService:
         ).order_by(User.real_name).all()
 
     def get_all_active_users(self) -> list[User]:
-        """取得所有活躍且已註冊的員工"""
         return self.db.query(User).filter(
             User.status == UserStatus.ACTIVE.value,
             User.real_name.isnot(None),
@@ -46,14 +42,12 @@ class MorningReportService:
     # ===== 日報表 CRUD =====
 
     def get_report(self, user_id: int, report_date: date) -> Optional[MorningReport]:
-        """取得某人某天的報表"""
         return self.db.query(MorningReport).filter(
             MorningReport.user_id == user_id,
             MorningReport.report_date == report_date,
         ).first()
 
     def get_reports_by_date(self, report_date: date, leader_id: int = None) -> list[MorningReport]:
-        """按日期取得報表（可按組別篩選）"""
         query = self.db.query(MorningReport).filter(
             MorningReport.report_date == report_date,
         )
@@ -61,7 +55,10 @@ class MorningReportService:
             query = query.filter(MorningReport.leader_id == leader_id)
         return query.order_by(MorningReport.created_at).all()
 
-    def submit_report(self, user_id: int, report_date: date, data: dict) -> MorningReport:
+    def submit_report(self, user_id: int, report_date: date,
+                      leader_id: int = None,
+                      reviews: list[dict] = None,
+                      shares: list[dict] = None) -> MorningReport:
         """新增或更新日報表"""
         report = self.get_report(user_id, report_date)
 
@@ -69,13 +66,22 @@ class MorningReportService:
             report = MorningReport(
                 user_id=user_id,
                 report_date=report_date,
+                leader_id=leader_id,
             )
             self.db.add(report)
+        else:
+            if leader_id is not None:
+                report.leader_id = leader_id
 
-        # 更新欄位（包含 leader_id）
-        for key, value in data.items():
-            if hasattr(report, key) and key not in ('id', 'user_id', 'report_date', 'created_at', 'updated_at'):
-                setattr(report, key, value if value != '' else None)
+        if reviews is not None:
+            # 過濾空的檢討項目
+            valid_reviews = [r for r in reviews if r.get("category") or r.get("description")]
+            report.set_reviews(valid_reviews)
+
+        if shares is not None:
+            # 過濾空的分享項目
+            valid_shares = [s for s in shares if s.get("category") or s.get("situation")]
+            report.set_shares(valid_shares)
 
         self.db.commit()
         self.db.refresh(report)
@@ -84,8 +90,6 @@ class MorningReportService:
     # ===== 統計 =====
 
     def get_attendance_stats(self, report_date: date, leader_id: int = None) -> dict:
-        """取得某天的出勤統計"""
-        # 應到人數（該組或全部活躍員工）
         user_query = self.db.query(User).filter(
             User.status == UserStatus.ACTIVE.value,
             User.real_name.isnot(None),
@@ -95,7 +99,6 @@ class MorningReportService:
             user_query = user_query.filter(User.leader_id == leader_id)
         total_expected = user_query.count()
 
-        # 實到人數（有填報表的人）
         report_query = self.db.query(MorningReport).filter(
             MorningReport.report_date == report_date,
         )
@@ -114,18 +117,15 @@ class MorningReportService:
         }
 
     def get_monthly_stats(self, year: int, month: int, leader_id: int = None) -> dict:
-        """取得月度統計"""
         from calendar import monthrange
         _, last_day = monthrange(year, month)
         start = date(year, month, 1)
         end = date(year, month, last_day)
 
-        # 每日統計
         daily_stats = []
-        current = start
         total_expected = 0
         total_present = 0
-        from datetime import timedelta
+        current = start
         while current <= end and current <= date.today():
             stats = self.get_attendance_stats(current, leader_id)
             if stats["expected"] > 0:
@@ -135,20 +135,17 @@ class MorningReportService:
             current += timedelta(days=1)
 
         avg_rate = round(total_present / total_expected * 100, 1) if total_expected > 0 else 0
-        working_days = len(daily_stats)
 
         return {
-            "year": year,
-            "month": month,
+            "year": year, "month": month,
             "daily_stats": daily_stats,
-            "working_days": working_days,
+            "working_days": len(daily_stats),
             "total_expected": total_expected,
             "total_present": total_present,
             "avg_rate": avg_rate,
         }
 
     def get_review_stats(self, year: int, month: int, leader_id: int = None) -> list[dict]:
-        """取得問題檢討統計"""
         from calendar import monthrange
         _, last_day = monthrange(year, month)
         start = date(year, month, 1)
@@ -157,23 +154,27 @@ class MorningReportService:
         query = self.db.query(MorningReport).filter(
             MorningReport.report_date >= start,
             MorningReport.report_date <= end,
-            MorningReport.review_category.isnot(None),
-            MorningReport.review_category != "",
+            MorningReport.reviews.isnot(None),
+            MorningReport.reviews != "",
+            MorningReport.reviews != "[]",
         )
         if leader_id:
             query = query.filter(MorningReport.leader_id == leader_id)
-        reports = query.all()
 
         categories = defaultdict(lambda: {"total": 0, "resolved": 0, "in_progress": 0, "pending": 0})
-        for r in reports:
-            cat = r.review_category
-            categories[cat]["total"] += 1
-            if r.review_status == "已改善":
-                categories[cat]["resolved"] += 1
-            elif r.review_status == "進行中":
-                categories[cat]["in_progress"] += 1
-            else:
-                categories[cat]["pending"] += 1
+        for report in query.all():
+            for r in report.get_reviews():
+                cat = r.get("category", "其他")
+                if not cat:
+                    continue
+                categories[cat]["total"] += 1
+                status = r.get("status", "未處理")
+                if status == "已改善":
+                    categories[cat]["resolved"] += 1
+                elif status == "進行中":
+                    categories[cat]["in_progress"] += 1
+                else:
+                    categories[cat]["pending"] += 1
 
         result = []
         for cat, stats in categories.items():
@@ -182,7 +183,6 @@ class MorningReportService:
         return result
 
     def get_share_stats(self, year: int, month: int, leader_id: int = None) -> list[dict]:
-        """取得經驗分享統計"""
         from calendar import monthrange
         _, last_day = monthrange(year, month)
         start = date(year, month, 1)
@@ -191,31 +191,35 @@ class MorningReportService:
         query = self.db.query(MorningReport).filter(
             MorningReport.report_date >= start,
             MorningReport.report_date <= end,
-            MorningReport.share_category.isnot(None),
-            MorningReport.share_category != "",
+            MorningReport.shares.isnot(None),
+            MorningReport.shares != "",
+            MorningReport.shares != "[]",
         )
         if leader_id:
             query = query.filter(MorningReport.leader_id == leader_id)
-        reports = query.all()
 
         categories = defaultdict(lambda: {"count": 0, "ratings": []})
-        for r in reports:
-            cat = r.share_category
-            categories[cat]["count"] += 1
-            if r.share_rating:
-                categories[cat]["ratings"].append(r.share_rating)
+        for report in query.all():
+            for s in report.get_shares():
+                cat = s.get("category", "其他")
+                if not cat:
+                    continue
+                categories[cat]["count"] += 1
+                rating = s.get("rating")
+                if rating:
+                    try:
+                        categories[cat]["ratings"].append(int(rating))
+                    except (ValueError, TypeError):
+                        pass
 
         result = []
         for cat, stats in categories.items():
             ratings = stats["ratings"]
             avg = round(sum(ratings) / len(ratings), 1) if ratings else 0
-            highest = max(ratings) if ratings else 0
-            lowest = min(ratings) if ratings else 0
             result.append({
-                "category": cat,
-                "count": stats["count"],
+                "category": cat, "count": stats["count"],
                 "avg_rating": avg,
-                "highest": highest,
-                "lowest": lowest,
+                "highest": max(ratings) if ratings else 0,
+                "lowest": min(ratings) if ratings else 0,
             })
         return result
