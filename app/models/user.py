@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -52,8 +52,10 @@ class User(Base):
     registered_at = Column(DateTime(timezone=True), nullable=True)  # 正式註冊時間
     manager_notification_enabled = Column(Boolean, default=True)  # 主管通知設定
     position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
+    leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
     # 關聯
+    leader = relationship("User", remote_side="User.id", foreign_keys=[leader_id])
     messages = relationship("Message", back_populates="user", order_by="Message.created_at.desc()")
     trainings = relationship("UserTraining", back_populates="user", order_by="UserTraining.created_at.desc()")
     leave_requests = relationship("LeaveRequest", back_populates="user", order_by="LeaveRequest.created_at.desc()")

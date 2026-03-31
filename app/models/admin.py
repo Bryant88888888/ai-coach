@@ -93,6 +93,8 @@ PERMISSION_REGISTRY = {
     "duty:edit": {"label": "管理排班", "group": "日常管理"},
     "leave:view": {"label": "檢視請假", "group": "日常管理"},
     "leave:edit": {"label": "審核請假", "group": "日常管理"},
+    "morning:view": {"label": "檢視早會日報", "group": "日常管理"},
+    "morning:edit": {"label": "填寫早會日報", "group": "日常管理"},
     "admin:view": {"label": "檢視權限管理", "group": "系統管理"},
     "admin:edit": {"label": "管理帳號角色", "group": "系統管理"},
 }
@@ -112,9 +114,10 @@ SIDEBAR_ITEMS = [
         {"key": "training", "label": "訓練管理", "icon": "fa-graduation-cap", "url": "/dashboard/training", "permission": "training:view"},
         {"key": "messages", "label": "對話記錄", "icon": "fa-comments", "url": "/dashboard/messages", "permission": "messages:view"},
     ]},
-    {"group": "日常管理", "icon": "fa-clipboard-list", "keys": ["duty", "leave"], "items": [
+    {"group": "日常管理", "icon": "fa-clipboard-list", "keys": ["duty", "leave", "morning"], "items": [
         {"key": "duty", "label": "排班管理", "icon": "fa-broom", "url": "/dashboard/duty", "permission": "duty:view"},
         {"key": "leave", "label": "請假管理", "icon": "fa-calendar-check", "url": "/dashboard/leave", "permission": "leave:view"},
+        {"key": "morning", "label": "早會日報", "icon": "fa-clipboard-check", "url": "/dashboard/morning-report", "permission": "morning:view"},
     ]},
     {"group": "系統管理", "icon": "fa-gear", "keys": ["admin"], "items": [
         {"key": "admin", "label": "權限管理", "icon": "fa-shield-halved", "url": "/dashboard/admin", "permission": "admin:view"},
@@ -134,6 +137,7 @@ DEFAULT_ROLES = {
             "messages:view",
             "duty:view", "duty:edit",
             "leave:view", "leave:edit",
+            "morning:view", "morning:edit",
         ],
     },
     "助理": {
@@ -147,6 +151,7 @@ DEFAULT_ROLES = {
             "messages:view",
             "duty:view",
             "leave:view",
+            "morning:view",
         ],
     },
     "訓練管理員": {

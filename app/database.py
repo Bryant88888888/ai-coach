@@ -38,6 +38,7 @@ def init_db():
     from app.models import training_batch, user_training, course  # noqa: F401
     from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule  # noqa: F401
     from app.models import info_form  # noqa: F401
+    from app.models import morning_report  # noqa: F401
     from app.models import admin  # noqa: F401
 
     # 使用 try-except 處理多 worker 同時啟動時的競爭條件
@@ -254,6 +255,21 @@ def run_migrations():
                         print(f"Migration note: {e}")
 
                 conn.commit()
+
+        # 檢查並加入 users 新欄位（所屬組長）
+        if 'users' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('users')]
+
+            if 'leader_id' not in columns:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS leader_id INTEGER REFERENCES users(id)"
+                        ))
+                        print("Migration: Added 'leader_id' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+                    conn.commit()
 
         # 檢查並加入 admin_accounts 新欄位（LINE 登入）
         if 'admin_accounts' in table_names:

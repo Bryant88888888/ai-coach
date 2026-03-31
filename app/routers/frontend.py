@@ -18,9 +18,11 @@ from app.services.auth_service import AuthService
 from app.services.line_service import LineService
 from app.services.course_service import CourseService
 from app.services.permission_service import PermissionService
+from app.services.morning_report_service import MorningReportService
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.user import User, UserRole
 from app.models.admin import AdminAccount
+from app.models.morning_report import MorningReport
 from app.models.training_batch import TrainingBatch
 from app.models.user_training import UserTraining, TrainingStatus
 from app.models.info_form import InfoFormSubmission
@@ -3262,3 +3264,144 @@ async def admin_role_delete(role_id: int, request: Request, db: Session = Depend
             url=f"/dashboard/admin?error={str(e)}&tab=roles",
             status_code=303
         )
+
+
+# ===== 早會日報表 =====
+
+@router.get("/dashboard/morning-report", response_class=HTMLResponse)
+async def morning_report_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    report_date: str = None,
+    leader_filter: int = None,
+):
+    """早會日報表頁面"""
+    result = require_permission(request, db, "morning:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    service = MorningReportService(db)
+    today = date.today()
+    selected_date = date.fromisoformat(report_date) if report_date else today
+
+    # 取得所有組長（用於篩選）
+    leaders = service.get_all_leaders()
+
+    # 取得當天所有報表
+    reports = service.get_reports_by_date(selected_date, leader_id=leader_filter)
+    reported_user_ids = {r.user_id for r in reports}
+
+    # 取得出勤統計
+    attendance = service.get_attendance_stats(selected_date, leader_id=leader_filter)
+
+    # 取得所有活躍員工（用於顯示誰未填）
+    if leader_filter:
+        all_members = service.get_team_members(leader_filter)
+    else:
+        all_members = service.get_all_active_users()
+
+    # 區分已填寫和未填寫
+    filled_members = [m for m in all_members if m.id in reported_user_ids]
+    unfilled_members = [m for m in all_members if m.id not in reported_user_ids]
+
+    # 報表 map（user_id → report）
+    report_map = {r.user_id: r for r in reports}
+
+    ctx = build_template_context(request, admin, db, "morning")
+    ctx.update({
+        "selected_date": selected_date.isoformat(),
+        "today": today.isoformat(),
+        "leaders": leaders,
+        "leader_filter": leader_filter,
+        "attendance": attendance,
+        "reports": reports,
+        "report_map": report_map,
+        "filled_members": filled_members,
+        "unfilled_members": unfilled_members,
+    })
+    return templates.TemplateResponse("morning_report.html", ctx)
+
+
+@router.post("/dashboard/morning-report/submit")
+async def morning_report_submit(request: Request, db: Session = Depends(get_db)):
+    """提交/更新早會日報表"""
+    result = require_permission(request, db, "morning:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    form = await request.form()
+    user_id = int(form.get("user_id", 0))
+    report_date_str = form.get("report_date", "")
+
+    if not user_id or not report_date_str:
+        return RedirectResponse(
+            url="/dashboard/morning-report?error=缺少必要資訊",
+            status_code=303
+        )
+
+    report_date_val = date.fromisoformat(report_date_str)
+
+    data = {
+        "meeting_time": form.get("meeting_time", ""),
+        "review_category": form.get("review_category", ""),
+        "review_description": form.get("review_description", ""),
+        "review_impact": form.get("review_impact", ""),
+        "review_solution": form.get("review_solution", ""),
+        "review_responsible": form.get("review_responsible", ""),
+        "review_deadline": date.fromisoformat(form.get("review_deadline")) if form.get("review_deadline") else None,
+        "review_status": form.get("review_status", "未處理"),
+        "share_category": form.get("share_category", ""),
+        "share_situation": form.get("share_situation", ""),
+        "share_solution": form.get("share_solution", ""),
+        "share_lesson": form.get("share_lesson", ""),
+        "share_scenario": form.get("share_scenario", ""),
+        "share_rating": int(form.get("share_rating")) if form.get("share_rating") else None,
+        "share_note": form.get("share_note", ""),
+    }
+
+    service = MorningReportService(db)
+    service.submit_report(user_id, report_date_val, data)
+
+    return RedirectResponse(
+        url=f"/dashboard/morning-report?report_date={report_date_str}&success=日報表已提交",
+        status_code=303
+    )
+
+
+@router.get("/dashboard/morning-report/stats", response_class=HTMLResponse)
+async def morning_report_stats_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    year: int = None,
+    month: int = None,
+    leader_filter: int = None,
+):
+    """早會日報表統計頁面"""
+    result = require_permission(request, db, "morning:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    today = date.today()
+    selected_year = year or today.year
+    selected_month = month or today.month
+
+    service = MorningReportService(db)
+    leaders = service.get_all_leaders()
+
+    monthly = service.get_monthly_stats(selected_year, selected_month, leader_id=leader_filter)
+    review_stats = service.get_review_stats(selected_year, selected_month, leader_id=leader_filter)
+    share_stats = service.get_share_stats(selected_year, selected_month, leader_id=leader_filter)
+
+    ctx = build_template_context(request, admin, db, "morning")
+    ctx.update({
+        "selected_year": selected_year,
+        "selected_month": selected_month,
+        "leaders": leaders,
+        "leader_filter": leader_filter,
+        "monthly": monthly,
+        "review_stats": review_stats,
+        "share_stats": share_stats,
+    })
+    return templates.TemplateResponse("morning_report_stats.html", ctx)
