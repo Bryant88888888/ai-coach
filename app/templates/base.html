@@ -99,9 +99,9 @@
                     <div class="sidebar-group">
                         <button type="button" onclick="toggleSidebarGroup(this)" class="flex items-center justify-between w-full px-4 py-2.5 text-gray-500 dark:text-gray-400 min-h-[40px]">
                             <span class="flex items-center text-xs font-semibold uppercase tracking-wider"><i class="fas {{ item.icon }} mr-3 w-5 text-center text-indigo-400"></i>{{ item.group }}</span>
-                            <i class="fas fa-chevron-down text-[10px] transition-transform duration-200 {% if active_page in item.keys %}rotate-180{% endif %}"></i>
+                            <i class="fas fa-chevron-down text-[10px] transition-transform duration-200 {% if active_page in item.get("keys", []) %}rotate-180{% endif %}"></i>
                         </button>
-                        <div class="sidebar-group-items ml-2 space-y-0.5 {% if active_page in item.keys %}{% else %}hidden{% endif %}">
+                        <div class="sidebar-group-items ml-2 space-y-0.5 {% if active_page in item.get("keys", []) %}{% else %}hidden{% endif %}">
                             {% for sub in item.items %}
                             <a href="{{ sub.url }}" class="sidebar-link flex items-center px-4 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 min-h-[40px] text-sm {% if active_page == sub.key %}active{% endif %}"><i class="fas {{ sub.icon }} mr-3 w-5 text-center text-sm"></i>{{ sub.label }}</a>
                             {% endfor %}
@@ -153,9 +153,9 @@
                                 <i class="fas {{ item.icon }} mr-3 w-5 text-center text-indigo-400"></i>
                                 <span class="sidebar-text text-xs font-semibold uppercase tracking-wider">{{ item.group }}</span>
                             </span>
-                            <i class="fas fa-chevron-down sidebar-text text-[10px] transition-transform duration-200 {% if active_page in item.keys %}rotate-180{% endif %}"></i>
+                            <i class="fas fa-chevron-down sidebar-text text-[10px] transition-transform duration-200 {% if active_page in item.get("keys", []) %}rotate-180{% endif %}"></i>
                         </button>
-                        <div class="sidebar-group-items ml-2 space-y-0.5 overflow-hidden transition-all duration-200 {% if active_page in item.keys %}{% else %}hidden{% endif %}">
+                        <div class="sidebar-group-items ml-2 space-y-0.5 overflow-hidden transition-all duration-200 {% if active_page in item.get("keys", []) %}{% else %}hidden{% endif %}">
                             {% for sub in item.items %}
                             <a href="{{ sub.url }}" class="sidebar-link flex items-center px-4 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition min-h-[40px] text-sm {% if active_page == sub.key %}active{% endif %}">
                                 <i class="fas {{ sub.icon }} mr-3 w-5 text-center text-sm"></i>
@@ -196,14 +196,7 @@
 
         <!-- 主要內容區 -->
         <main id="main-content" class="flex-1 lg:ml-64 p-4 lg:p-8 min-h-screen">
-            <!-- DEBUG: 移除此區塊 -->
-            <div class="bg-yellow-100 text-yellow-800 p-2 text-xs mb-4 rounded">
-                sidebar_items 數量: {{ sidebar_items|length }} |
-                群組: {% for item in sidebar_items %}{{ item.group if item.group is defined else item.label }}, {% endfor %} |
-                admin_permissions 數量: {{ admin_permissions|length }} |
-                有 admin:view: {{ "admin:view" in admin_permissions }}
-            </div>
-            <!-- END DEBUG -->
+
             {% block content %}{% endblock %}
         </main>
     </div>
