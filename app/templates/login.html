@@ -104,8 +104,17 @@
         <script>
             const LIFF_ID = "{{ liff_id }}";
             const HAS_ERROR = {{ 'true' if (error or request.query_params.get('error')) else 'false' }};
+            const PASSWORD_MODE = new URLSearchParams(window.location.search).get('mode') === 'password';
 
             async function initLiffLogin() {
+                // 帳密模式：跳過 LIFF 自動登入
+                if (PASSWORD_MODE) {
+                    document.getElementById('liff-login-section').classList.add('hidden');
+                    document.getElementById('password-login-section').classList.remove('hidden');
+                    document.getElementById('toggle-pwd-btn').classList.add('hidden');
+                    return;
+                }
+
                 // 如果已有錯誤訊息（登入被拒），不要自動重試，避免無限循環
                 if (HAS_ERROR) {
                     document.getElementById('liff-loading').classList.add('hidden');
