@@ -91,6 +91,23 @@ def build_template_context(request: Request, admin: AdminAccount, db: Session,
     }
 
 
+@router.get("/debug/admins")
+async def debug_admins(db: Session = Depends(get_db)):
+    """臨時 debug：查看管理員帳號狀態"""
+    from app.models.admin import AdminAccount
+    admins = db.query(AdminAccount).all()
+    return [{
+        "id": a.id,
+        "username": a.username,
+        "display_name": a.display_name,
+        "is_super_admin": a.is_super_admin,
+        "is_active": a.is_active,
+        "line_user_id": a.line_user_id,
+        "role_id": a.role_id,
+        "permissions": a.get_permissions()[:5],  # 前 5 個
+    } for a in admins]
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, db: Session = Depends(get_db)):
     """登入頁面"""
