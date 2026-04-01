@@ -236,18 +236,17 @@ class PermissionService:
     # ===== 資料種子 =====
 
     def seed_default_roles(self) -> None:
-        """建立預設角色（僅在無角色時執行）"""
-        if self.db.query(AdminRole).count() > 0:
-            return
-
+        """建立預設角色（缺少的會自動補上）"""
         for name, config in DEFAULT_ROLES.items():
-            role = AdminRole(
-                name=name,
-                description=config["description"],
-                permissions=json.dumps(config["permissions"]),
-                is_system=True,
-            )
-            self.db.add(role)
+            existing = self.db.query(AdminRole).filter(AdminRole.name == name).first()
+            if not existing:
+                role = AdminRole(
+                    name=name,
+                    description=config["description"],
+                    permissions=json.dumps(config["permissions"]),
+                    is_system=True,
+                )
+                self.db.add(role)
 
         self.db.commit()
 

@@ -126,7 +126,11 @@ SIDEBAR_ITEMS = [
 
 # 預設角色範本
 DEFAULT_ROLES = {
-    "主管": {
+    "超級管理員": {
+        "description": "擁有所有功能的完整存取權限",
+        "permissions": list(PERMISSION_REGISTRY.keys()),
+    },
+    "組長": {
         "description": "可檢視與管理大部分功能，但無法管理系統設定",
         "permissions": [
             "dashboard:view",
@@ -152,16 +156,6 @@ DEFAULT_ROLES = {
             "duty:view",
             "leave:view",
             "morning:view",
-        ],
-    },
-    "訓練管理員": {
-        "description": "負責管理教育訓練相關功能",
-        "permissions": [
-            "dashboard:view",
-            "users:view",
-            "courses:view", "courses:edit",
-            "training:view", "training:edit",
-            "messages:view",
         ],
     },
 }

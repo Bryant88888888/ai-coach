@@ -256,13 +256,22 @@ def run_migrations():
 
                 conn.commit()
 
-        # 修正「員工」角色權限（確保只有 morning:edit）
+        # 角色遷移：主管→組長、刪除訓練管理員、新增超級管理員角色、修正員工權限
         if 'admin_roles' in table_names:
             with engine.connect() as conn:
                 try:
+                    # 主管 → 組長
                     conn.execute(text(
-                        """UPDATE admin_roles SET permissions = '["morning:edit"]'
-                           WHERE name = '員工' AND permissions != '["morning:edit"]'"""
+                        "UPDATE admin_roles SET name = '組長', description = '可檢視與管理大部分功能，但無法管理系統設定' WHERE name = '主管'"
+                    ))
+                    # 刪除訓練管理員（如果沒有帳號在用）
+                    conn.execute(text(
+                        """DELETE FROM admin_roles WHERE name = '訓練管理員'
+                           AND id NOT IN (SELECT DISTINCT role_id FROM admin_accounts WHERE role_id IS NOT NULL)"""
+                    ))
+                    # 員工權限修正
+                    conn.execute(text(
+                        "UPDATE admin_roles SET permissions = '[\"morning:edit\"]' WHERE name = '員工'"
                     ))
                     conn.commit()
                 except Exception as e:
