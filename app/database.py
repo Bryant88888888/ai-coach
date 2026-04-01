@@ -260,9 +260,13 @@ def run_migrations():
         if 'admin_roles' in table_names:
             with engine.connect() as conn:
                 try:
-                    # 主管 → 組長
+                    # 主管 → 組長（僅早會日報權限）
                     conn.execute(text(
-                        "UPDATE admin_roles SET name = '組長', description = '可檢視與管理大部分功能，但無法管理系統設定' WHERE name = '主管'"
+                        "UPDATE admin_roles SET name = '組長', description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '主管'"
+                    ))
+                    # 已改名的組長也更新權限
+                    conn.execute(text(
+                        "UPDATE admin_roles SET description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '組長'"
                     ))
                     # 刪除訓練管理員（如果沒有帳號在用）
                     conn.execute(text(

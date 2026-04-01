@@ -63,7 +63,7 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen">
     <!-- 手機版導航列 -->
-    <nav class="lg:hidden bg-indigo-600 dark:bg-gray-800 text-white p-4 flex justify-between items-center sticky top-0 z-40">
+    <nav class="{% if not sidebar_items %}hidden{% endif %} lg:hidden bg-indigo-600 dark:bg-gray-800 text-white p-4 flex justify-between items-center sticky top-0 z-40">
         <div class="flex items-center">
             <img src="/static/logo.jpg" alt="Logo" class="w-8 h-8 rounded-full mr-2">
             <h1 class="text-lg font-bold">寶格教育訓練</h1>
@@ -130,7 +130,7 @@
 
     <div class="flex">
         <!-- 電腦版側邊欄 -->
-        <aside id="sidebar" class="hidden lg:flex flex-col w-64 bg-white dark:bg-gray-800 shadow-lg min-h-screen fixed">
+        <aside id="sidebar" class="{% if not sidebar_items %}hidden{% else %}hidden lg:flex{% endif %} flex-col w-64 bg-white dark:bg-gray-800 shadow-lg min-h-screen fixed">
             <!-- 摺疊按鈕 -->
             <button id="sidebar-toggle" class="absolute -right-3 top-8 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 z-10">
                 <i id="collapse-icon" class="fas fa-chevron-left text-xs"></i>
@@ -195,7 +195,7 @@
         </aside>
 
         <!-- 主要內容區 -->
-        <main id="main-content" class="flex-1 lg:ml-64 p-4 lg:p-8 min-h-screen">
+        <main id="main-content" class="flex-1 {% if sidebar_items %}lg:ml-64{% endif %} p-4 lg:p-8 min-h-screen">
 
             {% block content %}{% endblock %}
         </main>

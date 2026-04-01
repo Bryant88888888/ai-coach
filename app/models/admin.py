@@ -131,16 +131,8 @@ DEFAULT_ROLES = {
         "permissions": list(PERMISSION_REGISTRY.keys()),
     },
     "組長": {
-        "description": "可檢視與管理大部分功能，但無法管理系統設定",
+        "description": "填寫早會日報、搜尋查看日報彙整",
         "permissions": [
-            "dashboard:view",
-            "users:view", "users:edit",
-            "managers:view",
-            "profiles:view", "profiles:edit",
-            "training:view", "training:edit",
-            "messages:view",
-            "duty:view", "duty:edit",
-            "leave:view", "leave:edit",
             "morning:view", "morning:edit",
         ],
     },

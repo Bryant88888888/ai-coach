@@ -3429,49 +3429,35 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
         leader_id_val = None
 
     # 解析多筆檢討
+    # 解析多筆檢討（檢查所有欄位是否存在該 index）
     reviews = []
-    idx = 0
-    while True:
-        cat = form.get(f"review_category_{idx}", "")
-        desc = form.get(f"review_description_{idx}", "")
-        if not cat and not desc:
-            break
-        reviews.append({
-            "category": cat,
-            "description": desc,
-            "impact": form.get(f"review_impact_{idx}", ""),
-            "solution": form.get(f"review_solution_{idx}", ""),
-            "responsible": form.get(f"review_responsible_{idx}", ""),
-            "deadline": form.get(f"review_deadline_{idx}", ""),
-            "status": form.get(f"review_status_{idx}", "未處理"),
-        })
-        idx += 1
+    for idx in range(50):  # 最多 50 筆
+        fields = {k: form.get(f"review_{k}_{idx}", "") for k in
+                  ["category", "description", "impact", "solution", "responsible", "deadline", "status"]}
+        if not any(fields.values()):
+            if idx > 0:
+                break  # index 0 之後沒資料就停止
+            continue
+        fields["status"] = fields["status"] or "未處理"
+        reviews.append(fields)
 
     # 解析多筆分享
     shares = []
-    idx = 0
-    while True:
-        cat = form.get(f"share_category_{idx}", "")
-        sit = form.get(f"share_situation_{idx}", "")
-        if not cat and not sit:
-            break
+    for idx in range(50):
+        fields = {k: form.get(f"share_{k}_{idx}", "") for k in
+                  ["category", "situation", "solution", "lesson", "scenario", "rating", "note"]}
+        if not any(fields.values()):
+            if idx > 0:
+                break
+            continue
         rating = None
         try:
-            r = form.get(f"share_rating_{idx}", "")
-            if r:
-                rating = max(1, min(5, int(r)))
+            if fields["rating"]:
+                rating = max(1, min(5, int(fields["rating"])))
         except (ValueError, TypeError):
             pass
-        shares.append({
-            "category": cat,
-            "situation": sit,
-            "solution": form.get(f"share_solution_{idx}", ""),
-            "lesson": form.get(f"share_lesson_{idx}", ""),
-            "scenario": form.get(f"share_scenario_{idx}", ""),
-            "rating": rating,
-            "note": form.get(f"share_note_{idx}", ""),
-        })
-        idx += 1
+        fields["rating"] = rating
+        shares.append(fields)
 
     service = MorningReportService(db)
     service.submit_report(user_id, report_date_val, leader_id=leader_id_val, reviews=reviews, shares=shares)
