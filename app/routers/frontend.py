@@ -3333,13 +3333,19 @@ async def morning_report_page(
     request: Request,
     db: Session = Depends(get_db),
     report_date: str = None,
-    leader_filter: int = None,
+    leader_filter: str = None,
 ):
     """早會日報表頁面（員工用 morning:edit 即可進入填表）"""
     result = require_permission(request, db, "morning:edit")
     if isinstance(result, RedirectResponse):
         return result
     admin = result
+
+    # 安全解析參數
+    try:
+        leader_filter_id = int(leader_filter) if leader_filter else None
+    except (ValueError, TypeError):
+        leader_filter_id = None
 
     service = MorningReportService(db)
     today = date.today()
@@ -3352,15 +3358,15 @@ async def morning_report_page(
     leaders = service.get_all_leaders()
 
     # 取得當天所有報表
-    reports = service.get_reports_by_date(selected_date, leader_id=leader_filter)
+    reports = service.get_reports_by_date(selected_date, leader_id=leader_filter_id)
     reported_user_ids = {r.user_id for r in reports}
 
     # 取得出勤統計
-    attendance = service.get_attendance_stats(selected_date, leader_id=leader_filter)
+    attendance = service.get_attendance_stats(selected_date, leader_id=leader_filter_id)
 
     # 取得所有活躍員工（用於顯示誰未填）
-    if leader_filter:
-        all_members = service.get_team_members(leader_filter)
+    if leader_filter_id:
+        all_members = service.get_team_members(leader_filter_id)
     else:
         all_members = service.get_all_active_users()
 
@@ -3371,7 +3377,7 @@ async def morning_report_page(
     # 報表 map（user_id → report）
     report_map = {r.user_id: r for r in reports}
 
-    # 取得當前登入者對應的 User（用 line_user_id 關聯）
+    # 取得當前登入者對應的 User
     current_user = None
     my_report = None
     if admin.line_user_id:
@@ -3384,7 +3390,7 @@ async def morning_report_page(
         "selected_date": selected_date.isoformat(),
         "today": today.isoformat(),
         "leaders": leaders,
-        "leader_filter": leader_filter,
+        "leader_filter": leader_filter_id,
         "attendance": attendance,
         "reports": reports,
         "report_map": report_map,
@@ -3463,7 +3469,7 @@ async def morning_report_submit(request: Request, db: Session = Depends(get_db))
     service.submit_report(user_id, report_date_val, leader_id=leader_id_val, reviews=reviews, shares=shares)
 
     return RedirectResponse(
-        url=f"/dashboard/morning-report?report_date={report_date_str}&success=日報表已提交",
+        url=f"/dashboard/morning-report?success=日報表已提交",
         status_code=303
     )
 
@@ -3474,13 +3480,18 @@ async def morning_report_stats_page(
     db: Session = Depends(get_db),
     year: int = None,
     month: int = None,
-    leader_filter: int = None,
+    leader_filter: str = None,
 ):
     """早會日報表統計頁面"""
     result = require_permission(request, db, "morning:view")
     if isinstance(result, RedirectResponse):
         return result
     admin = result
+
+    try:
+        leader_filter_id = int(leader_filter) if leader_filter else None
+    except (ValueError, TypeError):
+        leader_filter_id = None
 
     today = date.today()
     selected_year = year or today.year
@@ -3489,16 +3500,16 @@ async def morning_report_stats_page(
     service = MorningReportService(db)
     leaders = service.get_all_leaders()
 
-    monthly = service.get_monthly_stats(selected_year, selected_month, leader_id=leader_filter)
-    review_stats = service.get_review_stats(selected_year, selected_month, leader_id=leader_filter)
-    share_stats = service.get_share_stats(selected_year, selected_month, leader_id=leader_filter)
+    monthly = service.get_monthly_stats(selected_year, selected_month, leader_id=leader_filter_id)
+    review_stats = service.get_review_stats(selected_year, selected_month, leader_id=leader_filter_id)
+    share_stats = service.get_share_stats(selected_year, selected_month, leader_id=leader_filter_id)
 
     ctx = build_template_context(request, admin, db, "morning")
     ctx.update({
         "selected_year": selected_year,
         "selected_month": selected_month,
         "leaders": leaders,
-        "leader_filter": leader_filter,
+        "leader_filter": leader_filter_id,
         "monthly": monthly,
         "review_stats": review_stats,
         "share_stats": share_stats,

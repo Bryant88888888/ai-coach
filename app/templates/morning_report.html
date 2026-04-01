@@ -22,7 +22,7 @@
 {% endif %}
 
 {% if "morning:view" in admin_permissions %}
-<!-- 管理員：篩選列 + 統計連結 -->
+<!-- 管理員/組長：篩選列 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-6">
     <form method="GET" action="/dashboard/morning-report" class="flex flex-wrap items-end gap-4">
         <div>
@@ -36,7 +36,7 @@
                 class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 <option value="">全部組別</option>
                 {% for leader in leaders %}
-                <option value="{{ leader.id }}" {% if leader_filter == leader.id %}selected{% endif %}>{{ leader.real_name or leader.nickname }}組</option>
+                <option value="{{ leader.id }}" {% if leader_filter == leader.id %}selected{% endif %}>{{ leader.nickname or leader.real_name }}組</option>
                 {% endfor %}
             </select>
         </div>
@@ -49,7 +49,7 @@
     </form>
 </div>
 
-<!-- 管理員：出勤概覽 -->
+<!-- 出勤概覽 -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
         <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ attendance.expected }}</p>
@@ -82,8 +82,8 @@
         {% endif %}
     </h2>
 
-    <form method="POST" action="/dashboard/morning-report/submit" class="space-y-6">
-        <input type="hidden" name="report_date" value="{{ selected_date }}">
+    <form method="POST" action="/dashboard/morning-report/submit" class="space-y-6" id="report-form">
+        <input type="hidden" name="report_date" value="{{ today }}">
 
         <!-- 填寫者資訊 -->
         {% if current_user %}
@@ -91,9 +91,7 @@
             {% if current_user.line_picture_url %}
             <img src="{{ current_user.line_picture_url }}" class="w-10 h-10 rounded-full object-cover">
             {% else %}
-            <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center">
-                <i class="fas fa-user text-indigo-500"></i>
-            </div>
+            <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-indigo-500"></i></div>
             {% endif %}
             <div>
                 <p class="font-medium text-gray-800 dark:text-white">{{ current_user.real_name or current_user.nickname }}</p>
@@ -119,7 +117,7 @@
             <select name="leader_id" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                 <option value="">-- 選擇組別 --</option>
                 {% for leader in leaders %}
-                <option value="{{ leader.id }}" {% if my_report and my_report.leader_id == leader.id %}selected{% endif %}>{{ leader.real_name or leader.nickname }}組</option>
+                <option value="{{ leader.id }}" {% if my_report and my_report.leader_id == leader.id %}selected{% endif %}>{{ leader.nickname or leader.real_name }}組</option>
                 {% endfor %}
             </select>
         </div>
@@ -132,51 +130,10 @@
                     <span class="text-xs text-gray-400 font-normal">（選填，可多筆）</span>
                 </h3>
                 <button type="button" onclick="addReview()" class="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm hover:bg-amber-200 dark:hover:bg-amber-900/50 transition">
-                    <i class="fas fa-plus mr-1"></i>新增檢討
+                    <i class="fas fa-plus mr-1"></i>新增
                 </button>
             </div>
-            <div id="reviews-container" class="space-y-4">
-                {% if my_report and my_report.get_reviews() %}
-                {% for r in my_report.get_reviews() %}
-                <div class="review-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative" data-idx="{{ loop.index0 }}">
-                    <button type="button" onclick="this.closest('.review-item').remove(); reindexItems('review')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">檢討類別</label>
-                            <select name="review_category_{{ loop.index0 }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
-                                <option value="">--</option>
-                                {% for opt in ['客戶投訴','流程問題','系統故障','人員失誤','其他'] %}
-                                <option value="{{ opt }}" {% if r.category == opt %}selected{% endif %}>{{ opt }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">影響程度</label>
-                            <select name="review_impact_{{ loop.index0 }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
-                                <option value="">--</option>
-                                {% for opt in ['高','中','低'] %}
-                                <option value="{{ opt }}" {% if r.impact == opt %}selected{% endif %}>{{ opt }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">狀況描述</label><textarea name="review_description_{{ loop.index0 }}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">{{ r.description or '' }}</textarea></div>
-                    <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">改善對策</label><textarea name="review_solution_{{ loop.index0 }}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">{{ r.solution or '' }}</textarea></div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">負責人</label><input type="text" name="review_responsible_{{ loop.index0 }}" value="{{ r.responsible or '' }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">預計完成日</label><input type="date" name="review_deadline_{{ loop.index0 }}" value="{{ r.deadline or '' }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">狀態</label>
-                            <select name="review_status_{{ loop.index0 }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
-                                {% for opt in ['未處理','進行中','已改善'] %}
-                                <option value="{{ opt }}" {% if r.status == opt %}selected{% endif %}>{{ opt }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-                {% endif %}
-            </div>
+            <div id="reviews-container" class="space-y-4"></div>
         </div>
 
         <!-- 經驗分享（多筆） -->
@@ -187,43 +144,10 @@
                     <span class="text-xs text-gray-400 font-normal">（選填，可多筆）</span>
                 </h3>
                 <button type="button" onclick="addShare()" class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm hover:bg-green-200 dark:hover:bg-green-900/50 transition">
-                    <i class="fas fa-plus mr-1"></i>新增分享
+                    <i class="fas fa-plus mr-1"></i>新增
                 </button>
             </div>
-            <div id="shares-container" class="space-y-4">
-                {% if my_report and my_report.get_shares() %}
-                {% for s in my_report.get_shares() %}
-                <div class="share-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative" data-idx="{{ loop.index0 }}">
-                    <button type="button" onclick="this.closest('.share-item').remove(); reindexItems('share')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">案例類型</label>
-                            <select name="share_category_{{ loop.index0 }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
-                                <option value="">--</option>
-                                {% for opt in ['客訴處理','時間管理','溝通技巧','專業知識','其他'] %}
-                                <option value="{{ opt }}" {% if s.category == opt %}selected{% endif %}>{{ opt }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">成效評分</label>
-                            <select name="share_rating_{{ loop.index0 }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
-                                <option value="">--</option>
-                                {% for v in [5,4,3,2,1] %}
-                                <option value="{{ v }}" {% if s.rating == v %}selected{% endif %}>{{ v }}{% if v==5 %} - 非常好{% elif v==4 %} - 好{% elif v==3 %} - 普通{% elif v==2 %} - 差{% else %} - 很差{% endif %}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">遇到的狀況</label><textarea name="share_situation_{{ loop.index0 }}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">{{ s.situation or '' }}</textarea></div>
-                    <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">解決方法</label><textarea name="share_solution_{{ loop.index0 }}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">{{ s.solution or '' }}</textarea></div>
-                    <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">學習重點</label><textarea name="share_lesson_{{ loop.index0 }}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">{{ s.lesson or '' }}</textarea></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">適用場景</label><input type="text" name="share_scenario_{{ loop.index0 }}" value="{{ s.scenario or '' }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-                        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">備註</label><input type="text" name="share_note_{{ loop.index0 }}" value="{{ s.note or '' }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-                    </div>
-                </div>
-                {% endfor %}
-                {% endif %}
-            </div>
+            <div id="shares-container" class="space-y-4"></div>
         </div>
 
         <button type="submit" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-8 rounded-lg transition min-h-[48px]">
@@ -234,7 +158,78 @@
 {% endif %}
 
 {% if "morning:view" in admin_permissions %}
-<!-- 管理員：填報狀態 -->
+<!-- 組長/管理員：組員填報內容 -->
+{% if reports %}
+<div class="space-y-4 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+        <i class="fas fa-users text-indigo-500 mr-2"></i>{{ selected_date }} 組員日報內容
+    </h2>
+    {% for report in reports %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <!-- 人員資訊 -->
+        <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50">
+            <div class="flex items-center gap-3">
+                {% if report.user.line_picture_url %}
+                <img src="{{ report.user.line_picture_url }}" class="w-10 h-10 rounded-full object-cover">
+                {% else %}
+                <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-indigo-500"></i></div>
+                {% endif %}
+                <div>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ report.user.real_name or report.user.nickname }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ report.created_at.strftime('%H:%M') if report.created_at else '' }} 填寫</p>
+                </div>
+            </div>
+            <div class="flex gap-1">
+                {% if report.review_count > 0 %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400">檢討 {{ report.review_count }}</span>
+                {% endif %}
+                {% if report.share_count > 0 %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">分享 {{ report.share_count }}</span>
+                {% endif %}
+                {% if report.review_count == 0 and report.share_count == 0 %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400">出席</span>
+                {% endif %}
+            </div>
+        </div>
+        <!-- 檢討內容 -->
+        {% for r in report.get_reviews() %}
+        <div class="p-4 border-b dark:border-gray-700">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400">{{ r.category or '檢討' }}</span>
+                {% if r.impact %}
+                <span class="px-2 py-0.5 text-xs rounded-full {% if r.impact == '高' %}bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400{% elif r.impact == '中' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400{% else %}bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400{% endif %}">{{ r.impact }}</span>
+                {% endif %}
+                {% if r.status %}
+                <span class="px-2 py-0.5 text-xs rounded-full {% if r.status == '已改善' %}bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400{% elif r.status == '進行中' %}bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">{{ r.status }}</span>
+                {% endif %}
+            </div>
+            {% if r.description %}<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>狀況：</strong>{{ r.description }}</p>{% endif %}
+            {% if r.solution %}<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>對策：</strong>{{ r.solution }}</p>{% endif %}
+            {% if r.responsible or r.deadline %}<p class="text-xs text-gray-500 dark:text-gray-400">{% if r.responsible %}負責人：{{ r.responsible }}{% endif %}{% if r.deadline %} | 預計完成：{{ r.deadline }}{% endif %}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <!-- 分享內容 -->
+        {% for s in report.get_shares() %}
+        <div class="p-4 border-b dark:border-gray-700">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">{{ s.category or '分享' }}</span>
+                {% if s.rating %}
+                <span class="text-yellow-500 text-xs">{{ '★' * s.rating }}{{ '☆' * (5 - s.rating) }}</span>
+                {% endif %}
+            </div>
+            {% if s.situation %}<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>狀況：</strong>{{ s.situation }}</p>{% endif %}
+            {% if s.solution %}<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>解決：</strong>{{ s.solution }}</p>{% endif %}
+            {% if s.lesson %}<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>學習：</strong>{{ s.lesson }}</p>{% endif %}
+            {% if s.scenario %}<p class="text-xs text-gray-500 dark:text-gray-400">適用：{{ s.scenario }}</p>{% endif %}
+            {% if s.note %}<p class="text-xs text-gray-500 dark:text-gray-400">備註：{{ s.note }}</p>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 填報狀態 -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
         <div class="p-4 border-b dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
@@ -242,31 +237,17 @@
         </div>
         <div class="divide-y dark:divide-gray-700">
             {% for member in filled_members %}
-            {% set report = report_map.get(member.id) %}
-            <div class="p-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    {% if member.line_picture_url %}
-                    <img src="{{ member.line_picture_url }}" class="w-10 h-10 rounded-full object-cover">
-                    {% else %}
-                    <div class="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-green-500"></i></div>
-                    {% endif %}
-                    <div>
-                        <p class="font-medium text-gray-800 dark:text-white">{{ member.real_name or member.nickname }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ report.created_at.strftime('%H:%M') if report and report.created_at else '' }} 填寫</p>
-                    </div>
-                </div>
-                <div class="flex gap-1">
-                    {% if report and report.review_count > 0 %}
-                    <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400">檢討{{ report.review_count }}</span>
-                    {% endif %}
-                    {% if report and report.share_count > 0 %}
-                    <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">分享{{ report.share_count }}</span>
-                    {% endif %}
-                </div>
+            <div class="p-3 flex items-center gap-3">
+                {% if member.line_picture_url %}
+                <img src="{{ member.line_picture_url }}" class="w-8 h-8 rounded-full object-cover">
+                {% else %}
+                <div class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-green-500 text-sm"></i></div>
+                {% endif %}
+                <span class="text-sm text-gray-800 dark:text-white">{{ member.real_name or member.nickname }}</span>
             </div>
             {% endfor %}
             {% if not filled_members %}
-            <div class="p-6 text-center text-gray-400 dark:text-gray-500"><i class="fas fa-inbox text-2xl mb-2"></i><p>尚無人填寫</p></div>
+            <div class="p-6 text-center text-gray-400"><i class="fas fa-inbox text-2xl mb-2"></i><p>尚無人填寫</p></div>
             {% endif %}
         </div>
     </div>
@@ -276,17 +257,17 @@
         </div>
         <div class="divide-y dark:divide-gray-700">
             {% for member in unfilled_members %}
-            <div class="p-4 flex items-center gap-3">
+            <div class="p-3 flex items-center gap-3">
                 {% if member.line_picture_url %}
-                <img src="{{ member.line_picture_url }}" class="w-10 h-10 rounded-full object-cover">
+                <img src="{{ member.line_picture_url }}" class="w-8 h-8 rounded-full object-cover">
                 {% else %}
-                <div class="w-10 h-10 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-red-400"></i></div>
+                <div class="w-8 h-8 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center"><i class="fas fa-user text-red-400 text-sm"></i></div>
                 {% endif %}
-                <p class="font-medium text-gray-800 dark:text-white">{{ member.real_name or member.nickname }}</p>
+                <span class="text-sm text-gray-800 dark:text-white">{{ member.real_name or member.nickname }}</span>
             </div>
             {% endfor %}
             {% if not unfilled_members %}
-            <div class="p-6 text-center text-gray-400 dark:text-gray-500"><i class="fas fa-check-double text-2xl mb-2"></i><p>全員已填寫</p></div>
+            <div class="p-6 text-center text-gray-400"><i class="fas fa-check-double text-2xl mb-2"></i><p>全員已填寫</p></div>
             {% endif %}
         </div>
     </div>
@@ -296,31 +277,33 @@
 
 {% block scripts %}
 <script>
-let reviewCount = document.querySelectorAll('.review-item').length;
-let shareCount = document.querySelectorAll('.share-item').length;
+const inputClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]';
+const textareaClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm';
+let reviewCount = 0;
+let shareCount = 0;
 
 function addReview() {
     const idx = reviewCount++;
     const html = `
-    <div class="review-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative" data-idx="${idx}">
-        <button type="button" onclick="this.closest('.review-item').remove(); reindexItems('review')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
+    <div class="review-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative">
+        <button type="button" onclick="this.closest('.review-item').remove(); reindex('review')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">檢討類別</label>
-                <select name="review_category_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                <select name="review_category_${idx}" class="${inputClass}">
                     <option value="">--</option><option value="客戶投訴">客戶投訴</option><option value="流程問題">流程問題</option><option value="系統故障">系統故障</option><option value="人員失誤">人員失誤</option><option value="其他">其他</option>
                 </select></div>
             <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">影響程度</label>
-                <select name="review_impact_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                <select name="review_impact_${idx}" class="${inputClass}">
                     <option value="">--</option><option value="高">高</option><option value="中">中</option><option value="低">低</option>
                 </select></div>
         </div>
-        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">狀況描述</label><textarea name="review_description_${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea></div>
-        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">改善對策</label><textarea name="review_solution_${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea></div>
+        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">狀況描述</label><textarea name="review_description_${idx}" rows="2" class="${textareaClass}"></textarea></div>
+        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">改善對策</label><textarea name="review_solution_${idx}" rows="2" class="${textareaClass}"></textarea></div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">負責人</label><input type="text" name="review_responsible_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">預計完成日</label><input type="date" name="review_deadline_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
+            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">負責人</label><input type="text" name="review_responsible_${idx}" class="${inputClass}"></div>
+            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">預計完成日</label><input type="date" name="review_deadline_${idx}" class="${inputClass}"></div>
             <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">狀態</label>
-                <select name="review_status_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                <select name="review_status_${idx}" class="${inputClass}">
                     <option value="未處理">未處理</option><option value="進行中">進行中</option><option value="已改善">已改善</option>
                 </select></div>
         </div>
@@ -331,39 +314,44 @@ function addReview() {
 function addShare() {
     const idx = shareCount++;
     const html = `
-    <div class="share-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative" data-idx="${idx}">
-        <button type="button" onclick="this.closest('.share-item').remove(); reindexItems('share')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
+    <div class="share-item bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3 relative">
+        <button type="button" onclick="this.closest('.share-item').remove(); reindex('share')" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">案例類型</label>
-                <select name="share_category_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                <select name="share_category_${idx}" class="${inputClass}">
                     <option value="">--</option><option value="客訴處理">客訴處理</option><option value="時間管理">時間管理</option><option value="溝通技巧">溝通技巧</option><option value="專業知識">專業知識</option><option value="其他">其他</option>
                 </select></div>
             <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">成效評分</label>
-                <select name="share_rating_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]">
+                <select name="share_rating_${idx}" class="${inputClass}">
                     <option value="">--</option><option value="5">5 - 非常好</option><option value="4">4 - 好</option><option value="3">3 - 普通</option><option value="2">2 - 差</option><option value="1">1 - 很差</option>
                 </select></div>
         </div>
-        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">遇到的狀況</label><textarea name="share_situation_${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea></div>
-        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">解決方法</label><textarea name="share_solution_${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea></div>
-        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">學習重點</label><textarea name="share_lesson_${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"></textarea></div>
+        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">遇到的狀況</label><textarea name="share_situation_${idx}" rows="2" class="${textareaClass}"></textarea></div>
+        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">解決方法</label><textarea name="share_solution_${idx}" rows="2" class="${textareaClass}"></textarea></div>
+        <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">學習重點</label><textarea name="share_lesson_${idx}" rows="2" class="${textareaClass}"></textarea></div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">適用場景</label><input type="text" name="share_scenario_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
-            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">備註</label><input type="text" name="share_note_${idx}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-h-[40px]"></div>
+            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">適用場景</label><input type="text" name="share_scenario_${idx}" class="${inputClass}"></div>
+            <div><label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">備註</label><input type="text" name="share_note_${idx}" class="${inputClass}"></div>
         </div>
     </div>`;
     document.getElementById('shares-container').insertAdjacentHTML('beforeend', html);
 }
 
-function reindexItems(type) {
+function reindex(type) {
     const container = document.getElementById(type + 's-container');
     const items = container.querySelectorAll('.' + type + '-item');
-    items.forEach((item, newIdx) => {
+    items.forEach((item, i) => {
         item.querySelectorAll('[name]').forEach(el => {
-            el.name = el.name.replace(/_\d+$/, '_' + newIdx);
+            el.name = el.name.replace(/_\d+$/, '_' + i);
         });
     });
     if (type === 'review') reviewCount = items.length;
     else shareCount = items.length;
 }
+
+// 送出後顯示成功並清空動態欄位
+document.getElementById('report-form')?.addEventListener('submit', function() {
+    // 表單提交後會 redirect，清空會在新頁面自動完成
+});
 </script>
 {% endblock %}
