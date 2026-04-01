@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}換班管理 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="/dashboard/duty" class="hover:text-indigo-600 dark:hover:text-indigo-400">值日生管理</a>
+        <i class="fas fa-chevron-right text-xs"></i>
+        <span>換班管理</span>
+    </div>
+    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white">換班管理</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">查看與管理值日生換班申請</p>
+</div>
+
+{% if success_message %}
+<div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-check-circle mr-3 text-xl"></i>
+    <span>{{ success_message }}</span>
+</div>
+{% endif %}
+
+{% if error_message %}
+<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center">
+    <i class="fas fa-exclamation-circle mr-3 text-xl"></i>
+    <span>{{ error_message }}</span>
+</div>
+{% endif %}
+
+<!-- 狀態篩選 -->
+<div class="flex flex-wrap gap-2 mb-6">
+    <a href="/dashboard/duty/swaps" class="px-4 py-2 rounded-lg text-sm font-medium transition {% if status_filter == 'all' %}bg-indigo-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+        全部
+    </a>
+    <a href="/dashboard/duty/swaps?status_filter=pending" class="px-4 py-2 rounded-lg text-sm font-medium transition {% if status_filter == 'pending' %}bg-yellow-500 text-white{% else %}bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+        <i class="fas fa-clock mr-1"></i>待審核
+    </a>
+    <a href="/dashboard/duty/swaps?status_filter=approved" class="px-4 py-2 rounded-lg text-sm font-medium transition {% if status_filter == 'approved' %}bg-green-500 text-white{% else %}bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+        <i class="fas fa-check-circle mr-1"></i>已同意
+    </a>
+    <a href="/dashboard/duty/swaps?status_filter=rejected" class="px-4 py-2 rounded-lg text-sm font-medium transition {% if status_filter == 'rejected' %}bg-red-500 text-white{% else %}bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+        <i class="fas fa-times-circle mr-1"></i>已拒絕
+    </a>
+    <a href="/dashboard/duty/swaps?status_filter=cancelled" class="px-4 py-2 rounded-lg text-sm font-medium transition {% if status_filter == 'cancelled' %}bg-gray-500 text-white{% else %}bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+        <i class="fas fa-ban mr-1"></i>已取消
+    </a>
+</div>
+
+<!-- 換班列表 -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+    <div class="p-4 border-b dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+            <i class="fas fa-exchange-alt text-indigo-500 mr-2"></i>換班申請
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({{ swaps|length }} 筆)</span>
+        </h2>
+    </div>
+
+    {% if swaps %}
+    <div class="divide-y dark:divide-gray-700">
+        {% for swap in swaps %}
+        <div class="p-4">
+            <div class="flex flex-col lg:flex-row gap-4">
+                <!-- 換班資訊 -->
+                <div class="flex-1">
+                    <div class="flex items-center gap-4 mb-3">
+                        <!-- 申請者 -->
+                        <div class="flex items-center gap-2">
+                            {% if swap.requester and swap.requester.line_picture_url %}
+                            <img src="{{ swap.requester.line_picture_url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                            <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-400 text-sm"></i>
+                            </div>
+                            {% endif %}
+                            <span class="text-sm text-gray-600 dark:text-gray-400">{{ (swap.requester.real_name or swap.requester.display_name) if swap.requester else '未知' }}</span>
+                        </div>
+                        <i class="fas fa-arrow-right text-gray-400"></i>
+                        <!-- 對象 -->
+                        <div class="flex items-center gap-2">
+                            {% if swap.target_user and swap.target_user.line_picture_url %}
+                            <img src="{{ swap.target_user.line_picture_url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                            <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-400 text-sm"></i>
+                            </div>
+                            {% endif %}
+                            <span class="text-sm font-medium text-gray-800 dark:text-white">{{ (swap.target_user.real_name or swap.target_user.display_name) if swap.target_user else '未知' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        {% if swap.schedule %}
+                        <span><i class="fas fa-calendar mr-1"></i>值日日期：{{ swap.schedule.duty_date }}</span>
+                        {% endif %}
+                        <span><i class="fas fa-clock mr-1"></i>申請時間：{{ swap.created_at.strftime('%m/%d %H:%M') if swap.created_at else '' }}</span>
+                    </div>
+
+                    {% if swap.reason %}
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-2">
+                        <p class="text-sm text-gray-700 dark:text-gray-300"><i class="fas fa-comment mr-1 text-gray-400"></i>{{ swap.reason }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if swap.response_note %}
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-2">
+                        <p class="text-sm text-gray-700 dark:text-gray-300"><i class="fas fa-reply mr-1 text-gray-400"></i>回覆：{{ swap.response_note }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- 狀態標籤 -->
+                    <div class="flex items-center gap-2">
+                        {% if swap.status == 'pending' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400">
+                            <i class="fas fa-clock mr-1"></i>待審核
+                        </span>
+                        {% elif swap.status == 'approved' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
+                            <i class="fas fa-check-circle mr-1"></i>已同意
+                        </span>
+                        {% elif swap.status == 'rejected' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
+                            <i class="fas fa-times-circle mr-1"></i>已拒絕
+                        </span>
+                        {% elif swap.status == 'cancelled' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400">
+                            <i class="fas fa-ban mr-1"></i>已取消
+                        </span>
+                        {% endif %}
+
+                        {% if swap.responded_at %}
+                        <span class="text-xs text-gray-400">{{ swap.responded_at.strftime('%m/%d %H:%M') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 管理操作（僅待審核） -->
+                {% if swap.status == 'pending' and "duty:edit" in admin_permissions %}
+                <div class="flex lg:flex-col gap-2 lg:justify-center">
+                    <form method="POST" action="/dashboard/duty/swaps/{{ swap.id }}/force" class="inline">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="note" value="管理員核准">
+                        <button type="submit" onclick="return confirm('確定要強制核准此換班申請？')" class="px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition text-sm font-medium min-h-[44px]">
+                            <i class="fas fa-check mr-1"></i>核准
+                        </button>
+                    </form>
+                    <form method="POST" action="/dashboard/duty/swaps/{{ swap.id }}/force" class="inline">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="note" value="管理員拒絕">
+                        <button type="submit" onclick="return confirm('確定要拒絕此換班申請？')" class="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition text-sm font-medium min-h-[44px]">
+                            <i class="fas fa-times mr-1"></i>拒絕
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-exchange-alt text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400">目前沒有換班申請</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

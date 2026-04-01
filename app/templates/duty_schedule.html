@@ -27,6 +27,7 @@
 </div>
 {% endif %}
 
+{% if "duty:edit" in admin_permissions %}
 <!-- 自動排班 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -66,9 +67,10 @@
         </form>
     </div>
     <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">
-        <i class="fas fa-info-circle mr-1"></i>值日生排班依照值日生名單輪替，組長排班依照職位為「組長」的員工輪替，已有排班的日期會跳過
+        <i class="fas fa-info-circle mr-1"></i>值日生排班依照排班設定的規則生成（每日指定人員），組長排班依照組長排班規則生成，已有排班的人員會跳過
     </p>
 </div>
+{% endif %}
 
 <!-- 月曆導航 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
@@ -216,6 +218,7 @@
                 <p id="modal-status" class="text-lg font-medium"></p>
             </div>
 
+            {% if "duty:edit" in admin_permissions %}
             <!-- 換班表單 -->
             <div id="swap-section" class="border-t dark:border-gray-700 pt-4 mt-4">
                 <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -240,14 +243,17 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
+{% if "duty:edit" in admin_permissions %}
 <!-- 刪除確認表單 (隱藏) -->
 <form id="delete-form" method="POST" action="/dashboard/duty/schedule/delete" class="hidden">
     <input type="hidden" name="schedule_id" id="delete-schedule-id">
 </form>
+{% endif %}
 
 <script>
 function openScheduleModal(scheduleId, userName, date, status, statusDisplay) {

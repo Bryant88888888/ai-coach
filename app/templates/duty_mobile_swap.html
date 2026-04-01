@@ -45,55 +45,112 @@
             <p style="color: rgba(255,255,255,0.35); letter-spacing: 0.08em;" class="text-sm">載入中...</p>
         </div>
 
-        <!-- 成功訊息 -->
-        <div id="success-section" class="hidden glass rounded-2xl p-8 text-center">
-            <div class="success-icon w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-check text-4xl"></i>
+        <!-- 主內容 -->
+        <div id="main-content" class="hidden space-y-4">
+
+            <!-- Tab 切換 -->
+            <div class="glass rounded-2xl p-1 flex">
+                <button id="tab-apply" onclick="switchTab('apply')" class="flex-1 py-3 rounded-xl text-center text-sm font-medium transition-all" style="background: rgba(212,168,83,0.2); color: #d4a853;">
+                    <i class="fas fa-paper-plane mr-1"></i>申請換班
+                </button>
+                <button id="tab-pending" onclick="switchTab('pending')" class="flex-1 py-3 rounded-xl text-center text-sm font-medium transition-all" style="color: rgba(255,255,255,0.4);">
+                    <i class="fas fa-bell mr-1"></i>待我回應 <span id="pending-badge" class="hidden ml-1 px-2 py-0.5 rounded-full text-xs" style="background: #ef4444; color: white;">0</span>
+                </button>
+                <button id="tab-history" onclick="switchTab('history')" class="flex-1 py-3 rounded-xl text-center text-sm font-medium transition-all" style="color: rgba(255,255,255,0.4);">
+                    <i class="fas fa-history mr-1"></i>紀錄
+                </button>
             </div>
-            <h2 class="text-xl font-light text-white mb-2" style="letter-spacing: 0.06em;">換班成功！</h2>
-            <p class="mb-6" style="color: rgba(255,255,255,0.35);">已將值日轉給其他人</p>
-            <a href="/duty/my" class="btn-submit inline-block px-6 py-3 rounded-xl">
-                返回首頁
-            </a>
-        </div>
 
-        <!-- 無可換班排班 -->
-        <div id="empty-section" class="hidden glass rounded-2xl p-10 text-center">
-            <i class="fas fa-exchange-alt text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
-            <p class="mb-2" style="color: rgba(255,255,255,0.5);">目前沒有可換的排班</p>
-            <p class="text-sm" style="color: rgba(255,255,255,0.25);">只有未來的「已排班」狀態可以換班</p>
-        </div>
+            <!-- === 申請換班 Tab === -->
+            <div id="section-apply" class="space-y-4">
+                <!-- 無可換班排班 -->
+                <div id="empty-section" class="hidden glass rounded-2xl p-10 text-center">
+                    <i class="fas fa-exchange-alt text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
+                    <p class="mb-2" style="color: rgba(255,255,255,0.5);">目前沒有可換的排班</p>
+                    <p class="text-sm" style="color: rgba(255,255,255,0.25);">只有未來的「已排班」狀態可以換班</p>
+                </div>
 
-        <!-- 換班表單 -->
-        <div id="swap-form-section" class="hidden space-y-4">
-            <!-- 選擇我的排班 -->
-            <div class="glass rounded-2xl p-5">
-                <label class="field-label block mb-3">
-                    <i class="fas fa-calendar-day mr-2" style="color: #d4a853;"></i>選擇要換掉的排班
-                </label>
-                <div id="my-schedule-options" class="space-y-2">
-                    <!-- 動態載入 -->
+                <!-- 換班表單 -->
+                <div id="swap-form-section" class="hidden space-y-4">
+                    <!-- 選擇排班 -->
+                    <div class="glass rounded-2xl p-5">
+                        <label class="field-label block mb-3">
+                            <i class="fas fa-calendar-day mr-2" style="color: #d4a853;"></i>選擇要換掉的排班
+                        </label>
+                        <div id="my-schedule-options" class="space-y-2"></div>
+                    </div>
+
+                    <!-- 選擇對象 -->
+                    <div class="glass rounded-2xl p-5">
+                        <label class="field-label block mb-3">
+                            <i class="fas fa-user-friends mr-2" style="color: #d4a853;"></i>換班給誰？
+                        </label>
+                        <!-- 搜尋框 -->
+                        <div class="relative mb-3">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color: rgba(255,255,255,0.25);"></i>
+                            <input type="text" id="member-search" placeholder="搜尋姓名或暱稱..." oninput="filterMembers()"
+                                class="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1"
+                                style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); focus:ring-color: rgba(212,168,83,0.5);">
+                        </div>
+                        <div id="member-options" class="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto"></div>
+                        <p id="member-no-result" class="hidden text-center text-sm py-4" style="color: rgba(255,255,255,0.3);">
+                            找不到符合的人員
+                        </p>
+                    </div>
+
+                    <!-- 原因（選填） -->
+                    <div class="glass rounded-2xl p-5">
+                        <label class="field-label block mb-3">
+                            <i class="fas fa-comment mr-2" style="color: #d4a853;"></i>申請原因（選填）
+                        </label>
+                        <textarea id="swap-reason" rows="2" placeholder="例如：家中有事、臨時無法到班..."
+                            class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);"></textarea>
+                    </div>
+
+                    <!-- 送出按鈕 -->
+                    <button id="submit-btn" onclick="submitSwap()" class="btn-submit w-full py-4 px-6 rounded-2xl flex items-center justify-center min-h-[60px] text-lg">
+                        <i class="fas fa-paper-plane mr-2"></i>送出換班申請
+                    </button>
+
+                    <p class="text-center text-sm" style="color: rgba(255,255,255,0.25);">
+                        <i class="fas fa-info-circle mr-1"></i>申請送出後對方會收到通知，同意後才會換班
+                    </p>
+                </div>
+
+                <!-- 送出成功 -->
+                <div id="success-section" class="hidden glass rounded-2xl p-8 text-center">
+                    <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: rgba(212,168,83,0.15);">
+                        <i class="fas fa-paper-plane text-3xl" style="color: #d4a853;"></i>
+                    </div>
+                    <h2 class="text-xl font-light text-white mb-2" style="letter-spacing: 0.06em;">申請已送出！</h2>
+                    <p class="mb-2" style="color: rgba(255,255,255,0.35);">等待對方確認中</p>
+                    <p id="conflict-warning" class="hidden mb-4 text-sm px-4 py-2 rounded-lg" style="background: rgba(251,191,36,0.15); color: #fbbf24;">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>對方當天已有排班，請留意
+                    </p>
+                    <a href="/duty/my" class="btn-submit inline-block px-6 py-3 rounded-xl">
+                        返回首頁
+                    </a>
                 </div>
             </div>
 
-            <!-- 選擇換班對象 -->
-            <div class="glass rounded-2xl p-5">
-                <label class="field-label block mb-3">
-                    <i class="fas fa-user-friends mr-2" style="color: #d4a853;"></i>換班給誰？
-                </label>
-                <div id="member-options" class="grid grid-cols-2 gap-2">
-                    <!-- 動態載入 -->
+            <!-- === 待我回應 Tab === -->
+            <div id="section-pending" class="hidden space-y-4">
+                <div id="pending-list" class="space-y-3"></div>
+                <div id="pending-empty" class="hidden glass rounded-2xl p-10 text-center">
+                    <i class="fas fa-inbox text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
+                    <p style="color: rgba(255,255,255,0.5);">目前沒有待回應的換班申請</p>
                 </div>
             </div>
 
-            <!-- 送出按鈕 -->
-            <button id="submit-btn" onclick="submitSwap()" class="btn-submit w-full py-4 px-6 rounded-2xl flex items-center justify-center min-h-[60px] text-lg">
-                <i class="fas fa-exchange-alt mr-2"></i>確認換班
-            </button>
-
-            <p class="text-center text-sm" style="color: rgba(255,255,255,0.25);">
-                <i class="fas fa-info-circle mr-1"></i>換班後對方會立即被排上該日值日
-            </p>
+            <!-- === 歷史紀錄 Tab === -->
+            <div id="section-history" class="hidden space-y-4">
+                <div id="history-list" class="space-y-3"></div>
+                <div id="history-empty" class="hidden glass rounded-2xl p-10 text-center">
+                    <i class="fas fa-history text-5xl mb-4" style="color: rgba(255,255,255,0.15);"></i>
+                    <p style="color: rgba(255,255,255,0.5);">還沒有換班紀錄</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -102,7 +159,9 @@
         let currentUser = null;
         let selectedScheduleId = null;
         let selectedMemberId = null;
+        let allMembers = []; // 儲存完整的成員清單供搜尋用
 
+        // ===== LIFF 初始化 =====
         async function initializeLiff() {
             try {
                 await liff.init({ liffId: LIFF_ID });
@@ -112,7 +171,7 @@
                 }
                 const profile = await liff.getProfile();
                 currentUser = { lineUserId: profile.userId };
-                await loadSwapOptions();
+                await loadAllData();
             } catch (error) {
                 document.getElementById('loading-section').innerHTML = `
                     <div class="text-center">
@@ -124,19 +183,39 @@
             }
         }
 
+        async function loadAllData() {
+            await Promise.all([loadSwapOptions(), loadPending(), loadHistory()]);
+            document.getElementById('loading-section').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
+
+        // ===== Tab 切換 =====
+        function switchTab(tab) {
+            const tabs = ['apply', 'pending', 'history'];
+            tabs.forEach(t => {
+                document.getElementById(`section-${t}`).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.style.background = 'rgba(212,168,83,0.2)';
+                    btn.style.color = '#d4a853';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'rgba(255,255,255,0.4)';
+                }
+            });
+        }
+
+        // ===== 申請換班 =====
         async function loadSwapOptions() {
             try {
                 const response = await fetch(`/duty/my/api/swap-options?line_user_id=${currentUser.lineUserId}`);
                 const data = await response.json();
-
-                document.getElementById('loading-section').classList.add('hidden');
 
                 if (!data.my_schedules || data.my_schedules.length === 0) {
                     document.getElementById('empty-section').classList.remove('hidden');
                     return;
                 }
 
-                // 我的排班
                 const scheduleOptions = document.getElementById('my-schedule-options');
                 scheduleOptions.innerHTML = data.my_schedules.map((s, i) => `
                     <label class="option-card flex items-center gap-3 p-3 rounded-xl">
@@ -150,35 +229,68 @@
                 `).join('');
                 selectedScheduleId = data.my_schedules[0].id;
 
-                // 換班對象
-                const memberOptions = document.getElementById('member-options');
-                memberOptions.innerHTML = data.other_members.map((m, i) => `
-                    <label class="member-card flex flex-col items-center gap-2 p-3 rounded-xl ${i === 0 ? 'selected' : ''}" id="member-${m.id}">
-                        <input type="radio" name="member" value="${m.id}" ${i === 0 ? 'checked' : ''}
+                // 儲存成員清單供搜尋用
+                allMembers = data.other_members;
+                renderMembers(allMembers);
+
+                document.getElementById('swap-form-section').classList.remove('hidden');
+            } catch (error) {
+                console.error('載入換班選項失敗:', error);
+            }
+        }
+
+        function renderMembers(members, preserveSelection = false) {
+            const memberOptions = document.getElementById('member-options');
+            const noResult = document.getElementById('member-no-result');
+
+            if (members.length === 0) {
+                memberOptions.innerHTML = '';
+                noResult.classList.remove('hidden');
+                return;
+            }
+            noResult.classList.add('hidden');
+
+            // 如果沒有保留選中，預設選第一個
+            if (!preserveSelection || !members.find(m => m.id === selectedMemberId)) {
+                selectedMemberId = members[0].id;
+            }
+
+            memberOptions.innerHTML = members.map(m => {
+                const isSelected = m.id === selectedMemberId;
+                const subText = m.nickname && m.nickname !== m.display_name
+                    ? `<span class="text-xs" style="color: rgba(255,255,255,0.3);">${m.real_name || ''}</span>`
+                    : (m.nickname ? `<span class="text-xs" style="color: rgba(255,255,255,0.3);">${m.nickname}</span>` : '');
+                return `
+                    <label class="member-card flex flex-col items-center gap-1 p-3 rounded-xl ${isSelected ? 'selected' : ''}" id="member-${m.id}">
+                        <input type="radio" name="member" value="${m.id}" ${isSelected ? 'checked' : ''}
                             class="sr-only" onchange="selectMember(${m.id})">
                         ${m.picture_url
                             ? `<img src="${m.picture_url}" class="w-12 h-12 rounded-full object-cover" style="border: 1px solid rgba(255,255,255,0.1);">`
                             : `<div class="w-12 h-12 icon-circle rounded-full flex items-center justify-center"><i class="fas fa-user" style="color: #d4a853;"></i></div>`
                         }
-                        <span class="text-sm font-light text-white text-center">${m.display_name}</span>
+                        <span class="text-sm font-light text-white text-center leading-tight">${m.display_name}</span>
+                        ${subText}
                     </label>
-                `).join('');
-                if (data.other_members.length > 0) {
-                    selectedMemberId = data.other_members[0].id;
-                }
+                `;
+            }).join('');
+        }
 
-                document.getElementById('swap-form-section').classList.remove('hidden');
-            } catch (error) {
-                console.error('載入失敗:', error);
+        function filterMembers() {
+            const keyword = document.getElementById('member-search').value.trim().toLowerCase();
+            if (!keyword) {
+                renderMembers(allMembers, true);
+                return;
             }
+            const filtered = allMembers.filter(m =>
+                (m.display_name && m.display_name.toLowerCase().includes(keyword)) ||
+                (m.real_name && m.real_name.toLowerCase().includes(keyword)) ||
+                (m.nickname && m.nickname.toLowerCase().includes(keyword))
+            );
+            renderMembers(filtered, true);
         }
 
         function selectMember(memberId) {
-            // 移除所有選中樣式
-            document.querySelectorAll('[id^="member-"]').forEach(el => {
-                el.classList.remove('selected');
-            });
-            // 添加選中樣式
+            document.querySelectorAll('[id^="member-"]').forEach(el => el.classList.remove('selected'));
             document.getElementById(`member-${memberId}`).classList.add('selected');
             selectedMemberId = memberId;
         }
@@ -188,39 +300,194 @@
                 alert('請選擇排班和換班對象');
                 return;
             }
-
-            if (!confirm('確定要將這個排班轉給對方嗎？')) {
-                return;
-            }
+            if (!confirm('確定要送出換班申請嗎？對方同意後才會生效。')) return;
 
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>處理中...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>送出中...';
 
             const formData = new FormData();
             formData.append('line_user_id', currentUser.lineUserId);
             formData.append('schedule_id', selectedScheduleId);
             formData.append('target_user_id', selectedMemberId);
+            const reason = document.getElementById('swap-reason').value.trim();
+            if (reason) formData.append('reason', reason);
 
             try {
-                const response = await fetch('/duty/my/api/swap-request', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('/duty/my/api/swap-request', { method: 'POST', body: formData });
                 const result = await response.json();
-
                 if (result.success) {
                     document.getElementById('swap-form-section').classList.add('hidden');
                     document.getElementById('success-section').classList.remove('hidden');
+                    if (result.conflict) {
+                        document.getElementById('conflict-warning').classList.remove('hidden');
+                    }
                 } else {
-                    alert(result.error || '換班失敗，請重試');
+                    alert(result.error || '換班申請失敗，請重試');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i>確認換班';
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>送出換班申請';
                 }
             } catch (error) {
                 alert('網路錯誤，請重試');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i>確認換班';
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>送出換班申請';
+            }
+        }
+
+        // ===== 待我回應 =====
+        async function loadPending() {
+            try {
+                const response = await fetch(`/duty/my/api/swap-pending?line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+                const list = document.getElementById('pending-list');
+
+                if (!data.pending_swaps || data.pending_swaps.length === 0) {
+                    document.getElementById('pending-empty').classList.remove('hidden');
+                    return;
+                }
+
+                // 顯示 badge
+                const badge = document.getElementById('pending-badge');
+                badge.textContent = data.pending_swaps.length;
+                badge.classList.remove('hidden');
+
+                list.innerHTML = data.pending_swaps.map(swap => `
+                    <div class="glass rounded-2xl p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            ${swap.requester_picture
+                                ? `<img src="${swap.requester_picture}" class="w-10 h-10 rounded-full object-cover" style="border: 1px solid rgba(255,255,255,0.1);">`
+                                : `<div class="w-10 h-10 icon-circle rounded-full flex items-center justify-center"><i class="fas fa-user" style="color: #d4a853;"></i></div>`
+                            }
+                            <div class="flex-1">
+                                <p class="text-white font-medium">${swap.requester_name}</p>
+                                <p class="text-xs" style="color: rgba(255,255,255,0.35);">${swap.created_at}</p>
+                            </div>
+                        </div>
+                        <div class="mb-3 p-3 rounded-xl" style="background: rgba(255,255,255,0.03);">
+                            <p class="text-sm text-white"><i class="fas fa-calendar mr-2" style="color: #d4a853;"></i>${swap.duty_date}（${swap.weekday}）</p>
+                            ${swap.reason ? `<p class="text-sm mt-1" style="color: rgba(255,255,255,0.4);"><i class="fas fa-comment mr-2"></i>${swap.reason}</p>` : ''}
+                            ${swap.conflict ? `<p class="text-sm mt-2" style="color: #fbbf24;"><i class="fas fa-exclamation-triangle mr-1"></i>你當天已有排班</p>` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="respondSwap(${swap.id}, true)" class="flex-1 py-3 rounded-xl text-sm font-medium transition-all" style="background: rgba(34,197,94,0.2); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">
+                                <i class="fas fa-check mr-1"></i>同意
+                            </button>
+                            <button onclick="respondSwap(${swap.id}, false)" class="flex-1 py-3 rounded-xl text-sm font-medium transition-all" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">
+                                <i class="fas fa-times mr-1"></i>拒絕
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('載入待回應失敗:', error);
+            }
+        }
+
+        async function respondSwap(swapId, approved) {
+            const action = approved ? '同意' : '拒絕';
+            let note = '';
+            if (!approved) {
+                note = prompt('請輸入拒絕原因（可留空）：') || '';
+            }
+            if (!confirm(`確定要${action}這個換班申請嗎？`)) return;
+
+            const formData = new FormData();
+            formData.append('line_user_id', currentUser.lineUserId);
+            formData.append('swap_id', swapId);
+            formData.append('approved', approved);
+            if (note) formData.append('note', note);
+
+            try {
+                const response = await fetch('/duty/my/api/swap-respond', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert(result.error || '操作失敗');
+                }
+            } catch (error) {
+                alert('網路錯誤，請重試');
+            }
+        }
+
+        // ===== 歷史紀錄 =====
+        async function loadHistory() {
+            try {
+                const response = await fetch(`/duty/my/api/swap-history?line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+                const list = document.getElementById('history-list');
+
+                if (!data.swap_history || data.swap_history.length === 0) {
+                    document.getElementById('history-empty').classList.remove('hidden');
+                    return;
+                }
+
+                list.innerHTML = data.swap_history.map(swap => {
+                    const statusColors = {
+                        pending: { bg: 'rgba(212,168,83,0.15)', color: '#d4a853', icon: 'clock' },
+                        approved: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e', icon: 'check-circle' },
+                        rejected: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444', icon: 'times-circle' },
+                        cancelled: { bg: 'rgba(156,163,175,0.15)', color: '#9ca3af', icon: 'ban' }
+                    };
+                    const st = statusColors[swap.status] || statusColors.pending;
+                    const roleLabel = swap.role === 'requester' ? '我申請的' : '對我的申請';
+                    const otherLabel = swap.role === 'requester' ? `→ ${swap.other_name}` : `← ${swap.other_name}`;
+
+                    return `
+                        <div class="glass rounded-2xl p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    ${swap.other_picture
+                                        ? `<img src="${swap.other_picture}" class="w-8 h-8 rounded-full object-cover" style="border: 1px solid rgba(255,255,255,0.1);">`
+                                        : `<div class="w-8 h-8 icon-circle rounded-full flex items-center justify-center"><i class="fas fa-user text-xs" style="color: #d4a853;"></i></div>`
+                                    }
+                                    <div>
+                                        <p class="text-sm text-white">${otherLabel}</p>
+                                        <p class="text-xs" style="color: rgba(255,255,255,0.3);">${roleLabel}</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded-lg text-xs" style="background: ${st.bg}; color: ${st.color};">
+                                    <i class="fas fa-${st.icon} mr-1"></i>${swap.status_display}
+                                </span>
+                            </div>
+                            <div class="text-sm" style="color: rgba(255,255,255,0.4);">
+                                <span><i class="fas fa-calendar mr-1"></i>${swap.duty_date}（${swap.weekday}）</span>
+                                <span class="ml-3"><i class="fas fa-clock mr-1"></i>${swap.created_at}</span>
+                            </div>
+                            ${swap.reason ? `<p class="text-xs mt-1" style="color: rgba(255,255,255,0.3);">原因：${swap.reason}</p>` : ''}
+                            ${swap.response_note ? `<p class="text-xs mt-1" style="color: rgba(255,255,255,0.3);">回覆：${swap.response_note}</p>` : ''}
+                            ${swap.status === 'pending' && swap.role === 'requester' ? `
+                                <button onclick="cancelSwap(${swap.id})" class="mt-2 text-xs px-3 py-1.5 rounded-lg transition-all" style="background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);">
+                                    <i class="fas fa-times mr-1"></i>取消申請
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('載入歷史紀錄失敗:', error);
+            }
+        }
+
+        async function cancelSwap(swapId) {
+            if (!confirm('確定要取消這個換班申請嗎？')) return;
+
+            const formData = new FormData();
+            formData.append('line_user_id', currentUser.lineUserId);
+            formData.append('swap_id', swapId);
+
+            try {
+                const response = await fetch('/duty/my/api/swap-cancel', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    alert('已取消換班申請');
+                    location.reload();
+                } else {
+                    alert(result.error || '取消失敗');
+                }
+            } catch (error) {
+                alert('網路錯誤，請重試');
             }
         }
 

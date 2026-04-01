@@ -18,6 +18,8 @@ from app.config import get_settings
 from app.services.user_service import UserService
 from app.services.duty_service import DutyService
 from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
+from app.models.duty_rule import DutyRule
+from app.models.user import User
 
 # 設定模板目錄
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -87,6 +89,20 @@ async def duty_mobile_swap(
     return templates.TemplateResponse("duty_mobile_swap.html", {
         "request": request,
         "liff_id": get_duty_liff_id()
+    })
+
+
+@router.get("/swap/respond", response_class=HTMLResponse)
+async def duty_mobile_swap_respond(
+    request: Request,
+    swap_id: int = None,
+    db: Session = Depends(get_db)
+):
+    """換班回應頁面（對方審核用）"""
+    return templates.TemplateResponse("duty_mobile_swap_respond.html", {
+        "request": request,
+        "liff_id": get_duty_liff_id(),
+        "swap_id": swap_id
     })
 
 
@@ -337,19 +353,48 @@ async def get_swap_options(
         my_swappable.append({
             "id": schedule.id,
             "duty_date": schedule.duty_date.isoformat(),
-            "weekday": f"星期{weekday_names[weekday_idx]}"
+            "weekday": f"星期{weekday_names[weekday_idx]}",
+            "config_id": schedule.config_id
         })
 
-    # 其他值日生（可換班對象）
+    # 取得同 config 的排班人員作為可換對象（不只是所有值日生）
+    config_ids = list(set(s.config_id for s in my_schedules))
+    rule_user_ids = set()
+    if config_ids:
+        rules = db.query(DutyRule).filter(
+            DutyRule.rule_type == 'duty',
+            DutyRule.config_id.in_(config_ids)
+        ).all()
+        rule_user_ids = set(r.user_id for r in rules)
+
+    # 同時也包含所有值日生角色的人（確保兼容性）
     duty_members = duty_service.get_duty_members()
-    other_members = [
-        {
-            "id": m.id,
-            "display_name": m.display_name,
-            "picture_url": m.line_picture_url
-        }
-        for m in duty_members if m.id != user.id
-    ]
+    all_candidate_ids = rule_user_ids | set(m.id for m in duty_members)
+
+    other_members = []
+    added_ids = set()
+    for m in duty_members:
+        if m.id != user.id and m.id in all_candidate_ids:
+            other_members.append({
+                "id": m.id,
+                "display_name": m.nickname or m.real_name or m.display_name,
+                "real_name": m.real_name or "",
+                "nickname": m.nickname or "",
+                "picture_url": m.line_picture_url
+            })
+            added_ids.add(m.id)
+    # 也加入規則中有但不在 duty_members 的人
+    for uid in rule_user_ids:
+        if uid != user.id and uid not in added_ids:
+            u = db.query(User).filter(User.id == uid).first()
+            if u:
+                other_members.append({
+                    "id": u.id,
+                    "display_name": u.nickname or u.real_name or u.display_name,
+                    "real_name": u.real_name or "",
+                    "nickname": u.nickname or "",
+                    "picture_url": u.line_picture_url
+                })
 
     return {
         "my_schedules": my_swappable,
@@ -362,34 +407,214 @@ async def submit_swap_request(
     db: Session = Depends(get_db),
     line_user_id: str = Form(...),
     schedule_id: int = Form(...),
-    target_user_id: int = Form(...)
+    target_user_id: int = Form(...),
+    reason: str = Form(None)
 ):
-    """提交換班申請（直接換班，簡化版）"""
+    """提交換班申請（建立申請，等待對方審核）"""
+    user = get_user_by_line_id(line_user_id, db)
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    duty_service = DutyService(db)
+    result = duty_service.create_swap_request(
+        requester_id=user.id,
+        schedule_id=schedule_id,
+        target_user_id=target_user_id,
+        reason=reason
+    )
+
+    if not result["success"]:
+        return JSONResponse(status_code=400, content={"error": result["error"]})
+
+    return {
+        "success": True,
+        "message": "換班申請已送出，等待對方確認",
+        "conflict": result.get("conflict", False),
+        "swap_id": result["swap"].id
+    }
+
+
+@router.get("/api/swap-pending")
+async def get_swap_pending(
+    line_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """取得待我回應的換班申請"""
+    user = get_user_by_line_id(line_user_id, db)
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    duty_service = DutyService(db)
+    pending_swaps = duty_service.get_pending_swaps_for_user(user.id)
+
+    weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+    result = []
+    for swap in pending_swaps:
+        schedule = swap.schedule
+        requester = swap.requester
+        if not schedule or not requester:
+            continue
+        conflict = duty_service.check_swap_conflict(user.id, schedule.duty_date, schedule.config_id)
+        result.append({
+            "id": swap.id,
+            "requester_name": (requester.real_name or requester.display_name or "未知"),
+            "requester_picture": requester.line_picture_url,
+            "duty_date": schedule.duty_date.isoformat(),
+            "weekday": f"星期{weekday_names[schedule.duty_date.weekday()]}",
+            "reason": swap.reason,
+            "conflict": conflict,
+            "created_at": swap.created_at.strftime("%m/%d %H:%M") if swap.created_at else ""
+        })
+
+    return {"pending_swaps": result}
+
+
+@router.post("/api/swap-respond")
+async def respond_swap_request(
+    db: Session = Depends(get_db),
+    line_user_id: str = Form(...),
+    swap_id: int = Form(...),
+    approved: str = Form(...),
+    note: str = Form(None)
+):
+    """回應換班申請（同意/拒絕）"""
+    user = get_user_by_line_id(line_user_id, db)
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    duty_service = DutyService(db)
+    is_approved = approved.lower() in ("true", "1", "yes")
+
+    result = duty_service.respond_swap(
+        swap_id=swap_id,
+        responder_id=user.id,
+        approved=is_approved,
+        note=note
+    )
+
+    if not result["success"]:
+        return JSONResponse(status_code=400, content={"error": result["error"]})
+
+    status_text = "已同意" if is_approved else "已拒絕"
+    return {"success": True, "message": f"換班申請{status_text}"}
+
+
+@router.post("/api/swap-cancel")
+async def cancel_swap_request(
+    db: Session = Depends(get_db),
+    line_user_id: str = Form(...),
+    swap_id: int = Form(...)
+):
+    """取消我的換班申請"""
+    user = get_user_by_line_id(line_user_id, db)
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    duty_service = DutyService(db)
+    result = duty_service.cancel_swap(swap_id=swap_id, requester_id=user.id)
+
+    if not result["success"]:
+        return JSONResponse(status_code=400, content={"error": result["error"]})
+
+    return {"success": True, "message": "換班申請已取消"}
+
+
+@router.get("/api/swap-history")
+async def get_swap_history(
+    line_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """取得我的換班紀錄"""
     user = get_user_by_line_id(line_user_id, db)
     if not user:
         return JSONResponse(status_code=404, content={"error": "用戶不存在"})
 
     duty_service = DutyService(db)
 
-    # 驗證排班
-    schedule = db.query(DutySchedule).filter(
-        DutySchedule.id == schedule_id,
-        DutySchedule.user_id == user.id,
-        DutySchedule.status == DutyScheduleStatus.SCHEDULED.value
-    ).first()
+    # 我發起的申請
+    my_requests = duty_service.get_my_swap_requests(user.id)
+    # 別人對我的申請
+    pending = duty_service.get_pending_swaps_for_user(user.id)
 
-    if not schedule:
-        return JSONResponse(status_code=404, content={"error": "找不到該排班或無法換班"})
+    weekday_names = ['一', '二', '三', '四', '五', '六', '日']
 
-    # 執行換班
-    try:
-        updated = duty_service.update_schedule(schedule_id, user_id=target_user_id)
-        if updated:
-            return {"success": True, "message": "換班成功"}
-        else:
-            return JSONResponse(status_code=400, content={"error": "換班失敗"})
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
+    def swap_to_dict(swap, role):
+        schedule = swap.schedule
+        other = swap.target_user if role == "requester" else swap.requester
+        return {
+            "id": swap.id,
+            "role": role,
+            "other_name": (other.real_name or other.display_name or "未知") if other else "未知",
+            "other_picture": other.line_picture_url if other else None,
+            "duty_date": schedule.duty_date.isoformat() if schedule else "",
+            "weekday": (f"星期{weekday_names[schedule.duty_date.weekday()]}") if schedule else "",
+            "reason": swap.reason,
+            "status": swap.status,
+            "status_display": swap.status_display,
+            "response_note": swap.response_note,
+            "created_at": swap.created_at.strftime("%m/%d %H:%M") if swap.created_at else "",
+            "responded_at": swap.responded_at.strftime("%m/%d %H:%M") if swap.responded_at else ""
+        }
+
+    result = []
+    for swap in my_requests:
+        result.append(swap_to_dict(swap, "requester"))
+    for swap in pending:
+        result.append(swap_to_dict(swap, "target"))
+
+    # 按建立時間排序
+    result.sort(key=lambda x: x["created_at"], reverse=True)
+
+    return {"swap_history": result}
+
+
+@router.get("/api/swap-detail")
+async def get_swap_detail(
+    swap_id: int,
+    line_user_id: str,
+    db: Session = Depends(get_db)
+):
+    """取得單一換班申請詳情（回應頁面用）"""
+    user = get_user_by_line_id(line_user_id, db)
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    duty_service = DutyService(db)
+    swap = duty_service.get_swap_by_id(swap_id)
+    if not swap:
+        return JSONResponse(status_code=404, content={"error": "找不到該換班申請"})
+
+    # 驗證用戶是相關方
+    if swap.requester_id != user.id and swap.target_user_id != user.id:
+        return JSONResponse(status_code=403, content={"error": "無權查看此申請"})
+
+    schedule = swap.schedule
+    requester = swap.requester
+    target = swap.target_user
+    weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+
+    conflict = False
+    if swap.target_user_id == user.id and schedule:
+        conflict = duty_service.check_swap_conflict(user.id, schedule.duty_date, schedule.config_id)
+
+    return {
+        "id": swap.id,
+        "requester_name": (requester.real_name or requester.display_name or "未知") if requester else "未知",
+        "requester_picture": requester.line_picture_url if requester else None,
+        "target_name": (target.real_name or target.display_name or "未知") if target else "未知",
+        "target_picture": target.line_picture_url if target else None,
+        "duty_date": schedule.duty_date.isoformat() if schedule else "",
+        "weekday": (f"星期{weekday_names[schedule.duty_date.weekday()]}") if schedule else "",
+        "reason": swap.reason,
+        "status": swap.status,
+        "status_display": swap.status_display,
+        "response_note": swap.response_note,
+        "conflict": conflict,
+        "is_requester": swap.requester_id == user.id,
+        "is_target": swap.target_user_id == user.id,
+        "created_at": swap.created_at.strftime("%Y/%m/%d %H:%M") if swap.created_at else "",
+        "responded_at": swap.responded_at.strftime("%Y/%m/%d %H:%M") if swap.responded_at else ""
+    }
 
 
 @router.get("/api/complaint-targets")

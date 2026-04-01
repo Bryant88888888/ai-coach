@@ -10,6 +10,7 @@ from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 from app.models.duty_report import DutyReport, DutyReportStatus
 from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
 from app.models.duty_rule import DutyRule
+from app.models.duty_swap import DutySwap, DutySwapStatus
 
 
 class DutyService:
@@ -331,14 +332,17 @@ class DutyService:
 
             # 該天有規則才排班
             if weekday in rule_map:
-                # 跳過已有排班的日期
-                existing = self.db.query(DutySchedule).filter(
-                    DutySchedule.config_id == config_id,
-                    DutySchedule.duty_date == current_date
-                ).first()
+                # 查詢該日期已存在排班的 user_id 集合
+                existing_user_ids = set(
+                    uid for (uid,) in self.db.query(DutySchedule.user_id).filter(
+                        DutySchedule.config_id == config_id,
+                        DutySchedule.duty_date == current_date
+                    ).all()
+                )
 
-                if not existing:
-                    for uid in rule_map[weekday]:
+                # 只為規則中有但尚未排班的人員新增排班
+                for uid in rule_map[weekday]:
+                    if uid not in existing_user_ids:
                         schedule = DutySchedule(
                             config_id=config_id,
                             user_id=uid,
@@ -713,3 +717,333 @@ class DutyService:
             self.db.commit()
 
         return count
+
+    # ===== 換班申請管理 =====
+
+    def create_swap_request(
+        self,
+        requester_id: int,
+        schedule_id: int,
+        target_user_id: int,
+        reason: str = None
+    ) -> dict:
+        """
+        建立換班申請
+
+        Returns:
+            {"success": True, "swap": DutySwap} 或 {"success": False, "error": str, "conflict": bool}
+        """
+        # 驗證排班存在且屬於申請者、狀態為 SCHEDULED
+        schedule = self.db.query(DutySchedule).filter(
+            DutySchedule.id == schedule_id,
+            DutySchedule.user_id == requester_id,
+            DutySchedule.status == DutyScheduleStatus.SCHEDULED.value
+        ).first()
+        if not schedule:
+            return {"success": False, "error": "找不到該排班或無法換班"}
+
+        # 驗證排班日期在未來
+        if schedule.duty_date <= date.today():
+            return {"success": False, "error": "只能申請未來日期的換班"}
+
+        # 驗證對方存在
+        target_user = self.db.query(User).filter(User.id == target_user_id).first()
+        if not target_user:
+            return {"success": False, "error": "找不到換班對象"}
+
+        # 不能跟自己換
+        if requester_id == target_user_id:
+            return {"success": False, "error": "不能跟自己換班"}
+
+        # 檢查是否已有相同的 pending 申請
+        existing = self.db.query(DutySwap).filter(
+            DutySwap.schedule_id == schedule_id,
+            DutySwap.target_user_id == target_user_id,
+            DutySwap.status == DutySwapStatus.PENDING.value
+        ).first()
+        if existing:
+            return {"success": False, "error": "已有相同的換班申請正在等待審核"}
+
+        # 檢查衝突：對方當天是否已有排班
+        conflict = self.check_swap_conflict(target_user_id, schedule.duty_date, schedule.config_id)
+
+        # 建立換班申請
+        swap = DutySwap(
+            requester_id=requester_id,
+            target_user_id=target_user_id,
+            schedule_id=schedule_id,
+            reason=reason,
+            status=DutySwapStatus.PENDING.value
+        )
+        self.db.add(swap)
+        self.db.commit()
+        self.db.refresh(swap)
+
+        # 發送 LINE 通知給對方
+        self._notify_swap_request(swap, schedule)
+
+        return {"success": True, "swap": swap, "conflict": conflict}
+
+    def respond_swap(
+        self,
+        swap_id: int,
+        responder_id: int,
+        approved: bool,
+        note: str = None
+    ) -> dict:
+        """
+        對方回應換班申請（同意/拒絕）
+
+        Returns:
+            {"success": True, "swap": DutySwap} 或 {"success": False, "error": str}
+        """
+        swap = self.db.query(DutySwap).filter(DutySwap.id == swap_id).first()
+        if not swap:
+            return {"success": False, "error": "找不到該換班申請"}
+
+        if swap.status != DutySwapStatus.PENDING.value:
+            return {"success": False, "error": f"該申請已{swap.status_display}，無法操作"}
+
+        if swap.target_user_id != responder_id:
+            return {"success": False, "error": "只有被請求的對象才能回應"}
+
+        # 驗證排班仍然有效
+        schedule = self.db.query(DutySchedule).filter(
+            DutySchedule.id == swap.schedule_id
+        ).first()
+        if not schedule:
+            return {"success": False, "error": "原排班已不存在"}
+
+        if approved:
+            # 驗證排班仍屬於申請者且狀態為 SCHEDULED
+            if schedule.user_id != swap.requester_id:
+                return {"success": False, "error": "原排班已被變更，無法換班"}
+            if schedule.status != DutyScheduleStatus.SCHEDULED.value:
+                return {"success": False, "error": "原排班狀態已變更，無法換班"}
+
+            # 執行換班：將排班的 user_id 改為對方
+            schedule.user_id = swap.target_user_id
+            swap.status = DutySwapStatus.APPROVED.value
+        else:
+            swap.status = DutySwapStatus.REJECTED.value
+
+        swap.responded_at = datetime.now()
+        swap.response_note = note
+        self.db.commit()
+        self.db.refresh(swap)
+
+        # 發送 LINE 通知給申請者
+        self._notify_swap_response(swap, schedule)
+
+        return {"success": True, "swap": swap}
+
+    def cancel_swap(self, swap_id: int, requester_id: int) -> dict:
+        """申請者取消待審核的換班申請"""
+        swap = self.db.query(DutySwap).filter(DutySwap.id == swap_id).first()
+        if not swap:
+            return {"success": False, "error": "找不到該換班申請"}
+
+        if swap.requester_id != requester_id:
+            return {"success": False, "error": "只有申請者才能取消"}
+
+        if swap.status != DutySwapStatus.PENDING.value:
+            return {"success": False, "error": f"該申請已{swap.status_display}，無法取消"}
+
+        swap.status = DutySwapStatus.CANCELLED.value
+        swap.responded_at = datetime.now()
+        self.db.commit()
+        self.db.refresh(swap)
+
+        # 通知對方申請已取消
+        self._notify_swap_cancelled(swap)
+
+        return {"success": True, "swap": swap}
+
+    def get_pending_swaps_for_user(self, user_id: int) -> list[DutySwap]:
+        """取得某用戶待回應的換班申請（別人申請換給我的）"""
+        return self.db.query(DutySwap).filter(
+            DutySwap.target_user_id == user_id,
+            DutySwap.status == DutySwapStatus.PENDING.value
+        ).order_by(DutySwap.created_at.desc()).all()
+
+    def get_my_swap_requests(self, user_id: int) -> list[DutySwap]:
+        """取得我發起的所有換班申請"""
+        return self.db.query(DutySwap).filter(
+            DutySwap.requester_id == user_id
+        ).order_by(DutySwap.created_at.desc()).all()
+
+    def get_swap_by_id(self, swap_id: int) -> Optional[DutySwap]:
+        """取得單一換班申請"""
+        return self.db.query(DutySwap).filter(DutySwap.id == swap_id).first()
+
+    def get_all_swaps(self, status: str = None) -> list[DutySwap]:
+        """取得所有換班申請（後台管理用）"""
+        query = self.db.query(DutySwap)
+        if status:
+            query = query.filter(DutySwap.status == status)
+        return query.order_by(DutySwap.created_at.desc()).all()
+
+    def admin_force_swap(self, swap_id: int, approved: bool, note: str = None) -> dict:
+        """管理員強制核准/拒絕換班申請"""
+        swap = self.db.query(DutySwap).filter(DutySwap.id == swap_id).first()
+        if not swap:
+            return {"success": False, "error": "找不到該換班申請"}
+
+        if swap.status != DutySwapStatus.PENDING.value:
+            return {"success": False, "error": f"該申請已{swap.status_display}，無法操作"}
+
+        schedule = self.db.query(DutySchedule).filter(
+            DutySchedule.id == swap.schedule_id
+        ).first()
+        if not schedule:
+            return {"success": False, "error": "原排班已不存在"}
+
+        if approved:
+            if schedule.status != DutyScheduleStatus.SCHEDULED.value:
+                return {"success": False, "error": "原排班狀態已變更，無法換班"}
+            schedule.user_id = swap.target_user_id
+            swap.status = DutySwapStatus.APPROVED.value
+        else:
+            swap.status = DutySwapStatus.REJECTED.value
+
+        swap.responded_at = datetime.now()
+        swap.response_note = note or "（管理員操作）"
+        self.db.commit()
+        self.db.refresh(swap)
+
+        # 通知雙方
+        self._notify_swap_response(swap, schedule)
+
+        return {"success": True, "swap": swap}
+
+    def check_swap_conflict(self, target_user_id: int, duty_date: date, config_id: int) -> bool:
+        """檢查對方當天是否已有排班（衝突檢查）"""
+        existing = self.db.query(DutySchedule).filter(
+            DutySchedule.user_id == target_user_id,
+            DutySchedule.duty_date == duty_date,
+            DutySchedule.config_id == config_id,
+            DutySchedule.status == DutyScheduleStatus.SCHEDULED.value
+        ).first()
+        return existing is not None
+
+    def get_user_swap_history(self, user_id: int) -> list[DutySwap]:
+        """取得用戶相關的換班歷史（發起的 + 收到的）"""
+        return self.db.query(DutySwap).filter(
+            (DutySwap.requester_id == user_id) | (DutySwap.target_user_id == user_id)
+        ).order_by(DutySwap.created_at.desc()).all()
+
+    # ===== 換班 LINE 通知 =====
+
+    def _get_push_service(self):
+        """取得 LINE 推送服務"""
+        try:
+            from linebot.v3.messaging import (
+                Configuration, ApiClient, MessagingApi,
+                PushMessageRequest, TextMessage,
+            )
+            from app.config import get_settings
+            settings = get_settings()
+            config = Configuration(access_token=settings.line_channel_access_token)
+            return config, settings
+        except Exception:
+            return None, None
+
+    def _send_line_message(self, line_user_id: str, message: str) -> None:
+        """發送 LINE 推送訊息"""
+        try:
+            from linebot.v3.messaging import (
+                Configuration, ApiClient, MessagingApi,
+                PushMessageRequest, TextMessage,
+            )
+            config, settings = self._get_push_service()
+            if not config or not line_user_id:
+                return
+            with ApiClient(config) as api_client:
+                messaging_api = MessagingApi(api_client)
+                messaging_api.push_message(
+                    PushMessageRequest(
+                        to=line_user_id,
+                        messages=[TextMessage(text=message)]
+                    )
+                )
+        except Exception as e:
+            print(f"LINE 通知發送失敗: {e}")
+
+    def _notify_swap_request(self, swap: DutySwap, schedule: DutySchedule) -> None:
+        """通知對方有新的換班申請"""
+        requester = self.db.query(User).filter(User.id == swap.requester_id).first()
+        target = self.db.query(User).filter(User.id == swap.target_user_id).first()
+        if not requester or not target or not target.line_user_id:
+            return
+
+        requester_name = requester.real_name or requester.display_name or "同事"
+        weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+        weekday = f"星期{weekday_names[schedule.duty_date.weekday()]}"
+        date_str = schedule.duty_date.strftime("%m/%d")
+
+        reason_text = f"\n原因：{swap.reason}" if swap.reason else ""
+
+        try:
+            from app.config import get_settings
+            settings = get_settings()
+            liff_id = (settings.liff_id_duty or "") if settings else ""
+            respond_url = f"https://liff.line.me/{liff_id}/duty/my/swap/respond?swap_id={swap.id}" if liff_id else ""
+            link_text = f"\n\n👉 點擊查看並回應：\n{respond_url}" if respond_url else ""
+        except Exception:
+            link_text = ""
+
+        message = (
+            f"📋 換班申請通知\n\n"
+            f"{requester_name} 申請將 {date_str}（{weekday}）的值日班換給你。{reason_text}"
+            f"{link_text}"
+        )
+        self._send_line_message(target.line_user_id, message)
+
+    def _notify_swap_response(self, swap: DutySwap, schedule: DutySchedule) -> None:
+        """通知申請者換班結果"""
+        requester = self.db.query(User).filter(User.id == swap.requester_id).first()
+        target = self.db.query(User).filter(User.id == swap.target_user_id).first()
+        if not requester or not target or not requester.line_user_id:
+            return
+
+        target_name = target.real_name or target.display_name or "對方"
+        weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+        weekday = f"星期{weekday_names[schedule.duty_date.weekday()]}"
+        date_str = schedule.duty_date.strftime("%m/%d")
+
+        if swap.status == DutySwapStatus.APPROVED.value:
+            note_text = f"\n備註：{swap.response_note}" if swap.response_note and swap.response_note != "（管理員操作）" else ""
+            message = (
+                f"✅ 換班申請已通過\n\n"
+                f"{target_name} 已同意你 {date_str}（{weekday}）的換班申請。\n"
+                f"該日值日已更新為 {target_name}。{note_text}"
+            )
+        else:
+            note_text = f"\n拒絕原因：{swap.response_note}" if swap.response_note else ""
+            message = (
+                f"❌ 換班申請已拒絕\n\n"
+                f"{target_name} 已拒絕你 {date_str}（{weekday}）的換班申請。{note_text}"
+            )
+        self._send_line_message(requester.line_user_id, message)
+
+    def _notify_swap_cancelled(self, swap: DutySwap) -> None:
+        """通知對方換班申請已取消"""
+        requester = self.db.query(User).filter(User.id == swap.requester_id).first()
+        target = self.db.query(User).filter(User.id == swap.target_user_id).first()
+        if not requester or not target or not target.line_user_id:
+            return
+
+        schedule = self.db.query(DutySchedule).filter(
+            DutySchedule.id == swap.schedule_id
+        ).first()
+        if not schedule:
+            return
+
+        requester_name = requester.real_name or requester.display_name or "同事"
+        date_str = schedule.duty_date.strftime("%m/%d")
+
+        message = (
+            f"📋 換班申請已取消\n\n"
+            f"{requester_name} 已取消 {date_str} 的換班申請。"
+        )
+        self._send_line_message(target.line_user_id, message)

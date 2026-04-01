@@ -2153,10 +2153,13 @@ async def duty_dashboard(
     duty_stats = duty_service.get_duty_stats()
     duty_members = duty_service.get_duty_members()
 
+    pending_swaps = duty_service.get_all_swaps(status="pending")
+
     stats = {
         "duty_members": len(duty_members),
         "pending_reports": duty_stats.get("pending_reports", 0),
         "pending_complaints": duty_stats.get("pending_complaints", 0),
+        "pending_swaps": len(pending_swaps),
         "approved": duty_stats.get("approved", 0)
     }
 
@@ -2817,6 +2820,70 @@ async def duty_complaint_handle(
 
     return RedirectResponse(
         url="/dashboard/duty/complaints?error=處理失敗",
+        status_code=303
+    )
+
+
+# ========== 換班申請管理 ==========
+
+@router.get("/dashboard/duty/swaps", response_class=HTMLResponse)
+async def duty_swaps_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    status_filter: str = None,
+    success: str = None,
+    error: str = None
+):
+    """換班申請管理頁面"""
+    result = require_permission(request, db, "duty:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    duty_service = DutyService(db)
+    swaps = duty_service.get_all_swaps(status=status_filter if status_filter else None)
+
+    return templates.TemplateResponse("duty_swaps.html", build_template_context(
+        request, admin, db, "duty",
+        swaps=swaps,
+        status_filter=status_filter or "all",
+        success_message=success,
+        error_message=error
+    ))
+
+
+@router.post("/dashboard/duty/swaps/{swap_id}/force")
+async def duty_swap_force(
+    request: Request,
+    swap_id: int,
+    db: Session = Depends(get_db),
+    action: str = Form(...),
+    note: str = Form(None)
+):
+    """管理員強制核准/拒絕換班申請"""
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    duty_service = DutyService(db)
+    approved = action == "approve"
+
+    res = duty_service.admin_force_swap(
+        swap_id=swap_id,
+        approved=approved,
+        note=note
+    )
+
+    if res["success"]:
+        action_text = "核准" if approved else "拒絕"
+        return RedirectResponse(
+            url=f"/dashboard/duty/swaps?success=已{action_text}換班申請",
+            status_code=303
+        )
+
+    return RedirectResponse(
+        url=f"/dashboard/duty/swaps?error={res['error']}",
         status_code=303
     )
 

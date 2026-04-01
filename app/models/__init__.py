@@ -11,6 +11,7 @@ from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 from app.models.duty_report import DutyReport, DutyReportStatus
 from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
 from app.models.duty_rule import DutyRule
+from app.models.duty_swap import DutySwap, DutySwapStatus
 from app.models.info_form import InfoFormSubmission
 
 __all__ = [
@@ -32,5 +33,7 @@ __all__ = [
     "DutyComplaint",
     "DutyComplaintStatus",
     "DutyRule",
+    "DutySwap",
+    "DutySwapStatus",
     "InfoFormSubmission",
 ]

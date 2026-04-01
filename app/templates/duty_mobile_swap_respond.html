@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>換班回應 - 值日專區</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: { 400: '#d4a853', 500: '#c9952e', 600: '#b8841a' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/duty-dark.css">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="min-h-screen">
+    <!-- 背景光暈 -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <!-- 頂部導航 -->
+    <div class="nav-glass px-4 py-4 sticky top-0 z-10">
+        <div class="flex items-center gap-3 max-w-lg mx-auto">
+            <a href="/duty/my" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="text-lg font-light text-white" style="letter-spacing: 0.15em;">換 班 回 應</h1>
+        </div>
+    </div>
+
+    <div class="max-w-lg mx-auto p-4 relative z-10">
+        <!-- 載入中 -->
+        <div id="loading-section" class="glass rounded-2xl p-10 text-center">
+            <div class="inline-flex items-center justify-center w-14 h-14 mb-5">
+                <i class="fas fa-spinner fa-spin text-2xl" style="color: #d4a853;"></i>
+            </div>
+            <p style="color: rgba(255,255,255,0.35); letter-spacing: 0.08em;" class="text-sm">載入中...</p>
+        </div>
+
+        <!-- 錯誤 -->
+        <div id="error-section" class="hidden glass rounded-2xl p-10 text-center">
+            <i class="fas fa-exclamation-triangle text-5xl mb-4" style="color: #f87171;"></i>
+            <p id="error-message" class="mb-4" style="color: rgba(255,255,255,0.5);"></p>
+            <a href="/duty/my" class="btn-submit inline-block px-6 py-3 rounded-xl">返回首頁</a>
+        </div>
+
+        <!-- 換班詳情 -->
+        <div id="detail-section" class="hidden space-y-4">
+            <!-- 申請資訊卡 -->
+            <div class="glass rounded-2xl p-6">
+                <div class="text-center mb-5">
+                    <div id="requester-avatar" class="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden" style="border: 2px solid rgba(212,168,83,0.3);">
+                    </div>
+                    <h2 id="requester-name" class="text-lg text-white font-medium"></h2>
+                    <p class="text-sm" style="color: rgba(255,255,255,0.35);">申請換班給你</p>
+                </div>
+
+                <div class="space-y-3 p-4 rounded-xl" style="background: rgba(255,255,255,0.03);">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-calendar-day w-5 text-center" style="color: #d4a853;"></i>
+                        <div>
+                            <p class="text-xs" style="color: rgba(255,255,255,0.3);">排班日期</p>
+                            <p id="swap-date" class="text-white"></p>
+                        </div>
+                    </div>
+                    <div id="reason-row" class="hidden flex items-center gap-3">
+                        <i class="fas fa-comment w-5 text-center" style="color: #d4a853;"></i>
+                        <div>
+                            <p class="text-xs" style="color: rgba(255,255,255,0.3);">申請原因</p>
+                            <p id="swap-reason" class="text-white text-sm"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-clock w-5 text-center" style="color: #d4a853;"></i>
+                        <div>
+                            <p class="text-xs" style="color: rgba(255,255,255,0.3);">申請時間</p>
+                            <p id="swap-time" class="text-white text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 衝突警告 -->
+                <div id="conflict-warning" class="hidden mt-4 p-3 rounded-xl" style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2);">
+                    <p class="text-sm" style="color: #fbbf24;">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>你當天已有排班，同意後將額外承擔此值日
+                    </p>
+                </div>
+            </div>
+
+            <!-- 回應區域（僅待審核時顯示） -->
+            <div id="respond-section" class="space-y-3">
+                <!-- 拒絕原因 -->
+                <div id="reject-reason-section" class="hidden glass rounded-2xl p-5">
+                    <label class="field-label block mb-3">
+                        <i class="fas fa-comment mr-2" style="color: #d4a853;"></i>拒絕原因（選填）
+                    </label>
+                    <textarea id="reject-note" rows="2" placeholder="例如：當天我也有事..."
+                        class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);"></textarea>
+                </div>
+
+                <!-- 操作按鈕 -->
+                <div class="flex gap-3">
+                    <button id="approve-btn" onclick="respondSwap(true)" class="flex-1 py-4 rounded-2xl text-lg font-medium transition-all flex items-center justify-center min-h-[60px]" style="background: rgba(34,197,94,0.2); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">
+                        <i class="fas fa-check mr-2"></i>同意換班
+                    </button>
+                    <button id="reject-btn" onclick="toggleReject()" class="flex-1 py-4 rounded-2xl text-lg font-medium transition-all flex items-center justify-center min-h-[60px]" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">
+                        <i class="fas fa-times mr-2"></i>拒絕
+                    </button>
+                </div>
+                <button id="confirm-reject-btn" onclick="respondSwap(false)" class="hidden w-full py-4 rounded-2xl text-lg font-medium transition-all flex items-center justify-center min-h-[60px]" style="background: rgba(239,68,68,0.3); color: #ef4444; border: 1px solid rgba(239,68,68,0.4);">
+                    <i class="fas fa-times mr-2"></i>確認拒絕
+                </button>
+            </div>
+
+            <!-- 已處理狀態 -->
+            <div id="status-section" class="hidden glass rounded-2xl p-8 text-center">
+                <div id="status-icon" class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"></div>
+                <h2 id="status-title" class="text-xl font-light text-white mb-2"></h2>
+                <p id="status-desc" class="mb-4" style="color: rgba(255,255,255,0.35);"></p>
+                <a href="/duty/my" class="btn-submit inline-block px-6 py-3 rounded-xl">返回首頁</a>
+            </div>
+        </div>
+
+        <!-- 操作完成 -->
+        <div id="done-section" class="hidden glass rounded-2xl p-8 text-center">
+            <div id="done-icon" class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"></div>
+            <h2 id="done-title" class="text-xl font-light text-white mb-2"></h2>
+            <p id="done-desc" class="mb-6" style="color: rgba(255,255,255,0.35);"></p>
+            <a href="/duty/my" class="btn-submit inline-block px-6 py-3 rounded-xl">返回首頁</a>
+        </div>
+    </div>
+
+    <script>
+        const LIFF_ID = "{{ liff_id }}";
+        const SWAP_ID = {% if swap_id %}{{ swap_id }}{% else %}null{% endif %};
+        let currentUser = null;
+        let swapData = null;
+        let isRejectMode = false;
+
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+                const profile = await liff.getProfile();
+                currentUser = { lineUserId: profile.userId };
+
+                // 從 URL 或模板取得 swap_id
+                let swapId = SWAP_ID;
+                if (!swapId) {
+                    const params = new URLSearchParams(window.location.search);
+                    swapId = params.get('swap_id');
+                }
+
+                if (!swapId) {
+                    showError('缺少換班申請資訊');
+                    return;
+                }
+
+                await loadSwapDetail(swapId);
+            } catch (error) {
+                showError('載入失敗，請重試');
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loading-section').classList.add('hidden');
+            document.getElementById('error-message').textContent = msg;
+            document.getElementById('error-section').classList.remove('hidden');
+        }
+
+        async function loadSwapDetail(swapId) {
+            try {
+                const response = await fetch(`/duty/my/api/swap-detail?swap_id=${swapId}&line_user_id=${currentUser.lineUserId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                swapData = data;
+                document.getElementById('loading-section').classList.add('hidden');
+                document.getElementById('detail-section').classList.remove('hidden');
+
+                // 填充資料
+                const avatarEl = document.getElementById('requester-avatar');
+                if (data.requester_picture) {
+                    avatarEl.innerHTML = `<img src="${data.requester_picture}" class="w-full h-full object-cover">`;
+                } else {
+                    avatarEl.innerHTML = `<div class="w-full h-full icon-circle flex items-center justify-center"><i class="fas fa-user text-xl" style="color: #d4a853;"></i></div>`;
+                }
+
+                document.getElementById('requester-name').textContent = data.requester_name;
+                document.getElementById('swap-date').textContent = `${data.duty_date}（${data.weekday}）`;
+                document.getElementById('swap-time').textContent = data.created_at;
+
+                if (data.reason) {
+                    document.getElementById('reason-row').classList.remove('hidden');
+                    document.getElementById('swap-reason').textContent = data.reason;
+                }
+
+                if (data.conflict) {
+                    document.getElementById('conflict-warning').classList.remove('hidden');
+                }
+
+                // 根據狀態顯示不同區域
+                if (data.status === 'pending' && data.is_target) {
+                    document.getElementById('respond-section').classList.remove('hidden');
+                } else {
+                    document.getElementById('respond-section').classList.add('hidden');
+                    showStatusSection(data);
+                }
+            } catch (error) {
+                showError('載入失敗，請重試');
+            }
+        }
+
+        function showStatusSection(data) {
+            const section = document.getElementById('status-section');
+            const icon = document.getElementById('status-icon');
+            const title = document.getElementById('status-title');
+            const desc = document.getElementById('status-desc');
+
+            const config = {
+                approved: { bg: 'rgba(34,197,94,0.15)', iconClass: 'fa-check-circle', color: '#22c55e', titleText: '已同意換班', descText: '排班已更新' },
+                rejected: { bg: 'rgba(239,68,68,0.15)', iconClass: 'fa-times-circle', color: '#ef4444', titleText: '已拒絕換班', descText: data.response_note || '' },
+                cancelled: { bg: 'rgba(156,163,175,0.15)', iconClass: 'fa-ban', color: '#9ca3af', titleText: '申請已取消', descText: '此換班申請已被取消' },
+                pending: { bg: 'rgba(212,168,83,0.15)', iconClass: 'fa-clock', color: '#d4a853', titleText: '等待回應中', descText: '正在等待對方確認' }
+            };
+
+            const st = config[data.status] || config.pending;
+            icon.style.background = st.bg;
+            icon.innerHTML = `<i class="fas ${st.iconClass} text-3xl" style="color: ${st.color};"></i>`;
+            title.textContent = st.titleText;
+            desc.textContent = st.descText;
+            section.classList.remove('hidden');
+        }
+
+        function toggleReject() {
+            isRejectMode = !isRejectMode;
+            document.getElementById('reject-reason-section').classList.toggle('hidden', !isRejectMode);
+            document.getElementById('confirm-reject-btn').classList.toggle('hidden', !isRejectMode);
+            document.getElementById('reject-btn').classList.toggle('hidden', isRejectMode);
+            document.getElementById('approve-btn').classList.toggle('hidden', isRejectMode);
+        }
+
+        async function respondSwap(approved) {
+            const action = approved ? '同意' : '拒絕';
+            if (!confirm(`確定要${action}這個換班申請嗎？`)) return;
+
+            // disable buttons
+            const btns = document.querySelectorAll('#respond-section button');
+            btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+
+            const formData = new FormData();
+            formData.append('line_user_id', currentUser.lineUserId);
+            formData.append('swap_id', swapData.id);
+            formData.append('approved', approved);
+            if (!approved) {
+                const note = document.getElementById('reject-note').value.trim();
+                if (note) formData.append('note', note);
+            }
+
+            try {
+                const response = await fetch('/duty/my/api/swap-respond', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('detail-section').classList.add('hidden');
+                    const doneSection = document.getElementById('done-section');
+                    const doneIcon = document.getElementById('done-icon');
+                    const doneTitle = document.getElementById('done-title');
+                    const doneDesc = document.getElementById('done-desc');
+
+                    if (approved) {
+                        doneIcon.style.background = 'rgba(34,197,94,0.15)';
+                        doneIcon.innerHTML = '<i class="fas fa-check text-3xl" style="color: #22c55e;"></i>';
+                        doneTitle.textContent = '已同意換班！';
+                        doneDesc.textContent = '排班已自動更新，雙方都會收到通知';
+                    } else {
+                        doneIcon.style.background = 'rgba(239,68,68,0.15)';
+                        doneIcon.innerHTML = '<i class="fas fa-times text-3xl" style="color: #ef4444;"></i>';
+                        doneTitle.textContent = '已拒絕換班';
+                        doneDesc.textContent = '對方會收到拒絕通知';
+                    }
+                    doneSection.classList.remove('hidden');
+                } else {
+                    alert(result.error || '操作失敗');
+                    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                }
+            } catch (error) {
+                alert('網路錯誤，請重試');
+                btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+            }
+        }
+
+        if (LIFF_ID) {
+            initializeLiff();
+        }
+    </script>
+</body>
+</html>

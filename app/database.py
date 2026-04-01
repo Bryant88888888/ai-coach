@@ -36,7 +36,7 @@ def init_db():
     """初始化資料庫（建立所有表）"""
     from app.models import user, day, message, push_log, leave_request, manager  # noqa: F401
     from app.models import training_batch, user_training, course  # noqa: F401
-    from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule  # noqa: F401
+    from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule, duty_swap  # noqa: F401
     from app.models import info_form  # noqa: F401
     from app.models import morning_report  # noqa: F401
     from app.models import admin  # noqa: F401
@@ -360,6 +360,29 @@ def run_migrations():
                         print(f"Migration note: {e}")
 
                 conn.commit()
+
+        # 確保 duty_swaps 資料表存在（換班申請功能）
+        if 'duty_swaps' not in table_names:
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS duty_swaps (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            requester_id INTEGER NOT NULL REFERENCES users(id),
+                            target_user_id INTEGER NOT NULL REFERENCES users(id),
+                            schedule_id INTEGER NOT NULL REFERENCES duty_schedules(id),
+                            target_schedule_id INTEGER REFERENCES duty_schedules(id),
+                            reason TEXT,
+                            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                            responded_at DATETIME,
+                            response_note TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    conn.commit()
+                    print("Migration: Created 'duty_swaps' table")
+                except Exception as e:
+                    print(f"Migration note: {e}")
 
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動

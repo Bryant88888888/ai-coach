@@ -147,6 +147,23 @@
         </div>
         <p class="text-gray-600 dark:text-gray-400 text-sm">處理員工對值日生的檢舉</p>
     </a>
+
+    <!-- 換班管理 -->
+    <a href="/dashboard/duty/swaps" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 hover:shadow-lg transition group relative">
+        {% if stats.pending_swaps > 0 %}
+        <span class="absolute top-4 right-4 bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ stats.pending_swaps }}</span>
+        {% endif %}
+        <div class="flex items-center mb-4">
+            <div class="w-14 h-14 bg-cyan-100 dark:bg-cyan-900/50 rounded-full flex items-center justify-center group-hover:bg-cyan-200 dark:group-hover:bg-cyan-900 transition">
+                <i class="fas fa-exchange-alt text-cyan-600 dark:text-cyan-400 text-2xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">換班管理</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">管理換班申請</p>
+            </div>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-sm">查看與處理員工的換班申請</p>
+    </a>
 </div>
 
 <!-- 今日值日 -->
