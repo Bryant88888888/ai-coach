@@ -8,6 +8,7 @@
     <p class="text-gray-600 dark:text-gray-400 mt-1">管理接收請假通知的主管名單</p>
 </div>
 
+{% if "managers:edit" in admin_permissions %}
 <!-- 新增主管表單 -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
     <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -85,6 +86,7 @@
         </button>
     </form>
 </div>
+{% endif %}
 
 {% if success_message %}
 <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl mb-6 flex items-center">
@@ -112,47 +114,81 @@
     {% if managers %}
     <div class="divide-y dark:divide-gray-700">
         {% for manager in managers %}
-        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-                {% if manager.line_picture_url %}
-                <img src="{{ manager.line_picture_url }}" alt="" class="w-12 h-12 rounded-full object-cover flex-shrink-0">
-                {% else %}
-                <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-user-tie text-xl text-indigo-600 dark:text-indigo-400"></i>
+        <div class="p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    {% if manager.line_picture_url %}
+                    <img src="{{ manager.line_picture_url }}" alt="" class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                    {% else %}
+                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-960/50 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user-tie text-xl text-indigo-600 dark:text-indigo-400"></i>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <p class="font-semibold text-gray-800 dark:text-white">{{ manager.display_name }}</p>
+                        {% if manager.real_name and manager.real_name != manager.line_display_name %}
+                        <p class="text-xs text-gray-400 dark:text-gray-500">本名：{{ manager.real_name }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if "managers:edit" in admin_permissions %}
+                <div class="flex items-center gap-3">
+                    <form method="POST" action="/dashboard/managers/{{ manager.id }}/toggle" class="inline">
+                        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium transition min-h-[44px]
+                            {% if manager.manager_notification_enabled %}
+                            bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900
+                            {% else %}
+                            bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600
+                            {% endif %}">
+                            {% if manager.manager_notification_enabled %}
+                            <i class="fas fa-bell mr-1"></i>通知中
+                            {% else %}
+                            <i class="fas fa-bell-slash mr-1"></i>已停用
+                            {% endif %}
+                        </button>
+                    </form>
+                    <form method="POST" action="/dashboard/managers/{{ manager.id }}/delete"
+                          onsubmit="return confirm('確定要移除 {{ manager.display_name }} 的主管角色嗎？')">
+                        <button type="submit" class="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition min-h-[44px]">
+                            <i class="fas fa-user-minus"></i>
+                        </button>
+                    </form>
                 </div>
                 {% endif %}
-                <div>
-                    <p class="font-semibold text-gray-800 dark:text-white">{{ manager.display_name }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ manager.line_user_id }}</p>
-                    {% if manager.real_name and manager.real_name != manager.line_display_name %}
-                    <p class="text-xs text-gray-400 dark:text-gray-500">本名：{{ manager.real_name }}</p>
-                    {% endif %}
-                </div>
             </div>
-            <div class="flex items-center gap-3">
-                <!-- 啟用/停用開關 -->
-                <form method="POST" action="/dashboard/managers/{{ manager.id }}/toggle" class="inline">
-                    <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium transition min-h-[44px]
-                        {% if manager.manager_notification_enabled %}
-                        bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900
-                        {% else %}
-                        bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600
-                        {% endif %}">
-                        {% if manager.manager_notification_enabled %}
-                        <i class="fas fa-bell mr-1"></i>通知中
-                        {% else %}
-                        <i class="fas fa-bell-slash mr-1"></i>已停用
-                        {% endif %}
-                    </button>
-                </form>
-                <!-- 移除主管角色按鈕 -->
-                <form method="POST" action="/dashboard/managers/{{ manager.id }}/delete"
-                      onsubmit="return confirm('確定要移除 {{ manager.display_name }} 的主管角色嗎？\n（用戶不會被刪除，只會移除主管身份）')">
-                    <button type="submit" class="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition min-h-[44px]">
-                        <i class="fas fa-user-minus"></i>
-                    </button>
+            <!-- 通知類別設定 -->
+            {% if "managers:edit" in admin_permissions and manager.manager_notification_enabled %}
+            <div class="mt-3 ml-16">
+                <form method="POST" action="/dashboard/managers/{{ manager.id }}/categories" id="cat-form-{{ manager.id }}">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        <i class="fas fa-sliders-h mr-1"></i>接收通知類別：
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        {% set mgr_cats = manager.get_notification_categories() %}
+                        {% for key, label in notification_categories.items() %}
+                        <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer transition
+                            {% if key in mgr_cats %}
+                            bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400
+                            {% else %}
+                            bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500
+                            {% endif %}">
+                            <input type="checkbox" name="categories" value="{{ key }}"
+                                {% if key in mgr_cats %}checked{% endif %}
+                                class="w-3.5 h-3.5 text-indigo-600 rounded"
+                                onchange="document.getElementById('cat-form-{{ manager.id }}').submit()">
+                            {{ label }}
+                        </label>
+                        {% endfor %}
+                    </div>
                 </form>
             </div>
+            {% elif not manager.manager_notification_enabled %}
+            <div class="mt-3 ml-16">
+                <p class="text-xs text-gray-400 dark:text-gray-500">
+                    <i class="fas fa-bell-slash mr-1"></i>通知已關閉，開啟後可設定接收類別
+                </p>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

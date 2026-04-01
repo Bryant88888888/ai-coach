@@ -1390,10 +1390,12 @@ async def managers_list(
         ~User.roles.contains('"manager"')
     ).order_by(User.line_display_name).all()
 
+    from app.models.user import NOTIFICATION_CATEGORIES
     return templates.TemplateResponse("managers.html", build_template_context(
         request, admin, db, "managers",
         managers=managers,
         all_users=all_users,
+        notification_categories=NOTIFICATION_CATEGORIES,
     ))
 
 
@@ -1503,6 +1505,36 @@ async def manager_toggle(
         status = "啟用" if user.manager_notification_enabled else "停用"
         return RedirectResponse(
             url=f"/dashboard/managers?success=已{status}「{user.display_name}」的通知",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/managers", status_code=303)
+
+
+@router.post("/dashboard/managers/{user_id}/categories")
+async def manager_update_categories(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """更新主管通知類別"""
+    result = require_permission(request, db, "managers:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    form = await request.form()
+    categories = form.getlist("categories")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.has_role(UserRole.MANAGER.value):
+        user.set_notification_categories(categories)
+        if not categories:
+            user.manager_notification_enabled = False
+        else:
+            user.manager_notification_enabled = True
+        db.commit()
+        return RedirectResponse(
+            url=f"/dashboard/managers?success=已更新「{user.display_name}」的通知類別",
             status_code=303
         )
 

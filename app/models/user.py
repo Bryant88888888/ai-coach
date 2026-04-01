@@ -18,6 +18,17 @@ class Persona(str, enum.Enum):
     B_HAS_EXPERIENCE = "B_有經驗"     # 有經驗：做過制服/禮服店
 
 
+# 主管通知類別定義
+NOTIFICATION_CATEGORIES = {
+    "leave": "請假申請",
+    "interview": "面試通知",
+    "duty": "值日相關",
+    "swap": "換班申請",
+    "morning_report": "早會日報",
+}
+ALL_NOTIFICATION_CATEGORIES = list(NOTIFICATION_CATEGORIES.keys())
+
+
 class UserRole(str, enum.Enum):
     """用戶角色"""
     TRAINEE = "trainee"           # 受訓者（預設）
@@ -50,7 +61,8 @@ class User(Base):
     phone = Column(String(20), nullable=True)  # 電話號碼
     nickname = Column(String(100), nullable=True)  # 暱稱（綽號）
     registered_at = Column(DateTime(timezone=True), nullable=True)  # 正式註冊時間
-    manager_notification_enabled = Column(Boolean, default=True)  # 主管通知設定
+    manager_notification_enabled = Column(Boolean, default=True)  # 主管通知總開關
+    manager_notification_categories = Column(Text, nullable=True)  # JSON array: 訂閱的通知類別，NULL=全部
     position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
@@ -137,3 +149,25 @@ class User(Base):
     def is_staff(self) -> bool:
         """是否為員工"""
         return self.has_role(UserRole.STAFF.value)
+
+    # ===== 通知類別管理 =====
+
+    def get_notification_categories(self) -> list[str]:
+        """取得訂閱的通知類別，NULL = 全部"""
+        if not self.manager_notification_categories:
+            return ALL_NOTIFICATION_CATEGORIES[:]
+        try:
+            return json.loads(self.manager_notification_categories)
+        except (json.JSONDecodeError, TypeError):
+            return ALL_NOTIFICATION_CATEGORIES[:]
+
+    def set_notification_categories(self, categories: list[str]) -> None:
+        """設定通知類別"""
+        valid = [c for c in categories if c in NOTIFICATION_CATEGORIES]
+        self.manager_notification_categories = json.dumps(valid) if valid else "[]"
+
+    def has_notification_category(self, category: str) -> bool:
+        """檢查是否訂閱指定通知類別"""
+        if not self.manager_notification_enabled:
+            return False
+        return category in self.get_notification_categories()

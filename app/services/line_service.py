@@ -306,40 +306,44 @@ class LineService:
                 )
             )
 
-    def notify_managers_leave_request(self, leave_request, db=None) -> None:
-        """
-        通知主管有新的請假申請
-
-        使用統一用戶系統，從 users 表查詢有 manager 角色且開啟通知的用戶
-
-        Args:
-            leave_request: LeaveRequest 物件
-            db: 資料庫 Session（可選，如未提供則自行建立）
-        """
+    def _get_managers_for_category(self, category: str, db=None) -> list:
+        """取得訂閱指定通知類別的主管列表"""
         from app.database import SessionLocal
         from app.models.user import User
 
-        # 如果沒有傳入 db，自行建立
         should_close = False
         if db is None:
             db = SessionLocal()
             should_close = True
 
         try:
-            # 從 users 表取得有主管角色且開啟通知的用戶
-            managers = db.query(User).filter(
+            all_managers = db.query(User).filter(
                 User.roles.contains('"manager"'),
                 User.manager_notification_enabled == True
             ).all()
+            return [m for m in all_managers if m.has_notification_category(category)]
+        finally:
+            if should_close:
+                db.close()
+
+    def notify_managers_leave_request(self, leave_request, db=None) -> None:
+        """通知訂閱「請假」類別的主管有新的請假申請"""
+        from app.database import SessionLocal
+
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+
+        try:
+            managers = self._get_managers_for_category("leave", db)
 
             if not managers:
-                print("警告：未設定主管，無法發送通知")
+                print("警告：無主管訂閱請假通知")
                 return
 
-            # 建立 Flex Message 內容
             flex_content = self._build_leave_request_flex(leave_request)
 
-            # 發送給所有啟用通知的主管
             for manager in managers:
                 try:
                     self.send_flex_message(

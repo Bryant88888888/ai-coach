@@ -329,6 +329,20 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
+        # users 表加通知類別欄位
+        if 'users' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            if 'manager_notification_categories' not in columns:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS manager_notification_categories TEXT"
+                        ))
+                        print("Migration: Added 'manager_notification_categories' column to users table")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+                    conn.commit()
+
         # 檢查並加入 admin_accounts 新欄位（LINE 登入）
         if 'admin_accounts' in table_names:
             columns = [col['name'] for col in inspector.get_columns('admin_accounts')]
