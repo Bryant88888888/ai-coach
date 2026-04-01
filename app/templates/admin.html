@@ -281,8 +281,8 @@
                     onchange="onEmployeeSelect(this)">
                     <option value="">-- 請選擇員工 --</option>
                     {% for emp in employees %}
-                    <option value="{{ emp.line_user_id }}" data-name="{{ emp.real_name or emp.nickname }}">
-                        {{ emp.real_name or emp.nickname }}{% if emp.position %} ({{ emp.position }}){% endif %}
+                    <option value="{{ emp.line_user_id }}" data-name="{{ emp.nickname or emp.real_name }}">
+                        {{ emp.nickname or emp.real_name }}{% if emp.position %} ({{ emp.position }}){% endif %}
                     </option>
                     {% endfor %}
                 </select>
@@ -290,7 +290,7 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">顯示名稱</label>
-                <input type="text" name="display_name" id="acc-display-name" placeholder="留空則自動使用員工姓名"
+                <input type="text" name="display_name" id="acc-display-name" placeholder="留空則自動使用暱稱"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
             </div>
             <div>

@@ -160,7 +160,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
                     admin_account = AdminAccount(
                         username=f"line_{line_user_id}",
                         password_hash=secrets.token_hex(16),
-                        display_name=user.real_name or user.nickname or "員工",
+                        display_name=user.nickname or user.real_name or "員工",
                         role_id=employee_role.id if employee_role else None,
                         is_super_admin=False,
                         is_active=True,
@@ -3192,7 +3192,7 @@ async def admin_account_create(request: Request, db: Session = Depends(get_db)):
             status_code=303
         )
 
-    final_display_name = display_name.strip() or user.real_name or user.nickname or "管理員"
+    final_display_name = display_name.strip() or user.nickname or user.real_name or "管理員"
     username = f"line_{employee_line_id[:16]}"  # 自動生成 username
 
     try:
