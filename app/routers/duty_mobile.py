@@ -340,7 +340,6 @@ async def get_swap_options(
     today = date.today()
 
     # 我的排班（今日+未來，可申請換班）
-    from datetime import datetime
     now = datetime.now()
     my_schedules = db.query(DutySchedule).filter(
         DutySchedule.user_id == user.id,
@@ -424,7 +423,6 @@ async def submit_swap_request(
         return JSONResponse(status_code=404, content={"error": "用戶不存在"})
 
     # 檢查當日換班時間限制（下午 5 點前）
-    from datetime import datetime
     schedule = db.query(DutySchedule).filter(DutySchedule.id == schedule_id).first()
     if schedule and schedule.duty_date == date.today() and datetime.now().hour >= 17:
         return JSONResponse(status_code=400, content={"error": "當日換班需在下午 5 點前申請"})

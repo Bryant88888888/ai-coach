@@ -223,7 +223,7 @@
                             class="w-5 h-5" onchange="selectedScheduleId = ${s.id}">
                         <div>
                             <p class="font-light text-white">${s.duty_date}</p>
-                            <p class="text-sm" style="color: rgba(255,255,255,0.4);">${s.weekday}</p>
+                            <p class="text-sm" style="color: rgba(255,255,255,0.4);">${s.weekday}${s.deadline_note ? ' <span style="color:#d4a853;">(' + s.deadline_note + ')</span>' : ''}</p>
                         </div>
                     </label>
                 `).join('');
