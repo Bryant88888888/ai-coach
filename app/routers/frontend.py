@@ -1527,11 +1527,13 @@ async def manager_update_categories(
 
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.has_role(UserRole.MANAGER.value):
-        user.set_notification_categories(categories)
-        if not categories:
-            user.manager_notification_enabled = False
+        from app.models.user import ALL_NOTIFICATION_CATEGORIES
+        # 如果全部勾選，存 NULL（代表「全部」，未來新增類別自動包含）
+        if set(categories) >= set(ALL_NOTIFICATION_CATEGORIES):
+            user.manager_notification_categories = None
         else:
-            user.manager_notification_enabled = True
+            user.set_notification_categories(categories)
+        # 不自動關閉總開關（避免 UI 消失讓使用者困惑）
         db.commit()
         return RedirectResponse(
             url=f"/dashboard/managers?success=已更新「{user.display_name}」的通知類別",
