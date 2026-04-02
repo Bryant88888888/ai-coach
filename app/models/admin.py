@@ -84,6 +84,8 @@ PERMISSION_REGISTRY = {
     "managers:edit": {"label": "管理主管", "group": "人員管理"},
     "profiles:view": {"label": "檢視人事資料", "group": "人員管理"},
     "profiles:edit": {"label": "編輯人事資料", "group": "人員管理"},
+    "info_form:view": {"label": "檢視人事表單", "group": "人員管理"},
+    "info_form:edit": {"label": "管理人事表單", "group": "人員管理"},
     "courses:view": {"label": "檢視課程", "group": "教育訓練"},
     "courses:edit": {"label": "管理課程", "group": "教育訓練"},
     "training:view": {"label": "檢視訓練", "group": "教育訓練"},
@@ -104,10 +106,11 @@ ALL_PERMISSIONS = list(PERMISSION_REGISTRY.keys())
 # 側邊欄結構定義
 SIDEBAR_ITEMS = [
     {"key": "dashboard", "label": "儀表板", "icon": "fa-chart-line", "url": "/dashboard", "permission": "dashboard:view"},
-    {"group": "人員管理", "icon": "fa-people-group", "keys": ["users", "managers", "profiles"], "items": [
+    {"group": "人員管理", "icon": "fa-people-group", "keys": ["users", "managers", "profiles", "info_forms"], "items": [
         {"key": "users", "label": "用戶列表", "icon": "fa-users", "url": "/dashboard/users", "permission": "users:view"},
         {"key": "managers", "label": "主管設定", "icon": "fa-user-tie", "url": "/dashboard/managers", "permission": "managers:view"},
         {"key": "profiles", "label": "人事資料", "icon": "fa-id-card", "url": "/dashboard/profiles", "permission": "profiles:view"},
+        {"key": "info_forms", "label": "人事表單", "icon": "fa-file-alt", "url": "/dashboard/info-forms", "permission": "info_form:view"},
     ]},
     {"group": "教育訓練", "icon": "fa-book-open", "keys": ["days", "training", "messages"], "items": [
         {"key": "days", "label": "課程管理", "icon": "fa-calendar-alt", "url": "/dashboard/days", "permission": "courses:view"},
@@ -143,6 +146,7 @@ DEFAULT_ROLES = {
             "users:view",
             "managers:view",
             "profiles:view",
+            "info_form:view",
             "training:view",
             "messages:view",
             "duty:view",

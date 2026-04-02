@@ -2970,6 +2970,14 @@ async def submit_info_form(
     db.add(submission)
     db.commit()
 
+    # 通知訂閱「人事資料」的主管
+    try:
+        submitter_name = data.get("real_name") or data.get("nickname") or "未知"
+        line_service = LineService()
+        line_service.notify_managers_info_form(form_type, submitter_name, db)
+    except Exception as e:
+        print(f"人事資料通知發送失敗: {e}")
+
     # 公關版本：自動建立合約簽署任務
     signing_url = None
     if form_type == "公關版本":
@@ -3616,3 +3624,77 @@ async def morning_report_stats_page(
         "share_stats": share_stats,
     })
     return templates.TemplateResponse("morning_report_stats.html", ctx)
+
+
+# ===== 人事表單後台 =====
+
+@router.get("/dashboard/info-forms", response_class=HTMLResponse)
+async def info_forms_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    form_type: str = None,
+    search: str = None,
+):
+    """人事表單列表頁"""
+    result = require_permission(request, db, "info_form:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    import json as json_module
+
+    query = db.query(InfoFormSubmission).order_by(InfoFormSubmission.created_at.desc())
+
+    if form_type and form_type in ("公關版本", "經紀人版本", "異動資料"):
+        query = query.filter(InfoFormSubmission.form_type == form_type)
+
+    submissions = query.all()
+
+    # 解析 JSON 並篩選搜尋
+    parsed = []
+    for sub in submissions:
+        try:
+            data = json_module.loads(sub.form_data) if sub.form_data else {}
+        except (json_module.JSONDecodeError, TypeError):
+            data = {}
+
+        if search:
+            search_lower = search.lower()
+            searchable = " ".join(str(v) for v in data.values()).lower()
+            if search_lower not in searchable:
+                continue
+
+        parsed.append({
+            "id": sub.id,
+            "form_type": sub.form_type,
+            "data": data,
+            "created_at": sub.created_at,
+            "user": sub.user,
+        })
+
+    ctx = build_template_context(request, admin, db, "info_forms")
+    ctx.update({
+        "submissions": parsed,
+        "form_type_filter": form_type or "",
+        "search": search or "",
+    })
+    return templates.TemplateResponse("info_forms.html", ctx)
+
+
+@router.post("/dashboard/info-forms/{submission_id}/delete")
+async def info_form_delete(
+    submission_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """刪除人事表單"""
+    result = require_permission(request, db, "info_form:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    sub = db.query(InfoFormSubmission).filter(InfoFormSubmission.id == submission_id).first()
+    if sub:
+        db.delete(sub)
+        db.commit()
+        return RedirectResponse(url="/dashboard/info-forms?success=已刪除", status_code=303)
+    return RedirectResponse(url="/dashboard/info-forms?error=找不到記錄", status_code=303)

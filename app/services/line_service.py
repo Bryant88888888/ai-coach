@@ -358,6 +358,32 @@ class LineService:
             if should_close:
                 db.close()
 
+    def notify_managers_info_form(self, form_type: str, submitter_name: str, db=None) -> None:
+        """通知訂閱「人事資料」類別的主管有新的表單提交"""
+        from app.database import SessionLocal
+
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+
+        try:
+            managers = self._get_managers_for_category("info_form", db)
+            if not managers:
+                return
+
+            msg = f"📋 人事資料提交通知\n\n{submitter_name} 提交了「{form_type}」人事資料表單。\n\n請至後台查看詳情。"
+
+            for manager in managers:
+                try:
+                    self.send_push_message(manager.line_user_id, msg)
+                    print(f"✅ 已發送人事資料通知給 {manager.display_name}")
+                except Exception as e:
+                    print(f"❌ 發送人事資料通知失敗 ({manager.display_name}): {e}")
+        finally:
+            if should_close:
+                db.close()
+
     def notify_requester_result(self, leave_request) -> None:
         """
         通知請假者審核結果

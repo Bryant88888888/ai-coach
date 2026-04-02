@@ -25,6 +25,7 @@ NOTIFICATION_CATEGORIES = {
     "duty": "值日相關",
     "swap": "換班申請",
     "morning_report": "早會日報",
+    "info_form": "人事資料提交",
 }
 ALL_NOTIFICATION_CATEGORIES = list(NOTIFICATION_CATEGORIES.keys())
 
