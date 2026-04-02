@@ -339,22 +339,30 @@ async def get_swap_options(
     duty_service = DutyService(db)
     today = date.today()
 
-    # 我未來的排班（可申請換班）
+    # 我的排班（今日+未來，可申請換班）
+    from datetime import datetime
+    now = datetime.now()
     my_schedules = db.query(DutySchedule).filter(
         DutySchedule.user_id == user.id,
-        DutySchedule.duty_date > today,
+        DutySchedule.duty_date >= today,
         DutySchedule.status == DutyScheduleStatus.SCHEDULED.value
     ).order_by(DutySchedule.duty_date).all()
 
     weekday_names = ['一', '二', '三', '四', '五', '六', '日']
     my_swappable = []
     for schedule in my_schedules:
+        # 當日換班需在下午 5 點前
+        if schedule.duty_date == today and now.hour >= 17:
+            continue
         weekday_idx = schedule.duty_date.weekday()
+        is_today = schedule.duty_date == today
         my_swappable.append({
             "id": schedule.id,
             "duty_date": schedule.duty_date.isoformat(),
             "weekday": f"星期{weekday_names[weekday_idx]}",
-            "config_id": schedule.config_id
+            "config_id": schedule.config_id,
+            "is_today": is_today,
+            "deadline_note": "今日 17:00 前可換" if is_today else "",
         })
 
     # 取得同 config 的排班人員作為可換對象（不只是所有值日生）
@@ -414,6 +422,12 @@ async def submit_swap_request(
     user = get_user_by_line_id(line_user_id, db)
     if not user:
         return JSONResponse(status_code=404, content={"error": "用戶不存在"})
+
+    # 檢查當日換班時間限制（下午 5 點前）
+    from datetime import datetime
+    schedule = db.query(DutySchedule).filter(DutySchedule.id == schedule_id).first()
+    if schedule and schedule.duty_date == date.today() and datetime.now().hour >= 17:
+        return JSONResponse(status_code=400, content={"error": "當日換班需在下午 5 點前申請"})
 
     duty_service = DutyService(db)
     result = duty_service.create_swap_request(

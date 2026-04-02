@@ -77,14 +77,25 @@
         {% endif %}
 
         {% if liff_id %}
-        <!-- LINE 自動登入 -->
+        <!-- LINE 登入區 -->
         <div id="liff-login-section" class="glass rounded-2xl p-8 text-center">
+            <!-- 載入中 -->
             <div id="liff-loading">
                 <div class="inline-flex items-center justify-center w-14 h-14 mb-5">
                     <i class="fas fa-spinner fa-spin text-2xl" style="color: #d4a853;"></i>
                 </div>
-                <p class="text-sm" style="color: rgba(255,255,255,0.5); letter-spacing: 0.08em;">正在透過 LINE 驗證身份...</p>
+                <p class="text-sm" style="color: rgba(255,255,255,0.5); letter-spacing: 0.08em;">正在偵測 LINE 帳號...</p>
             </div>
+            <!-- 偵測成功：顯示用戶資訊 + 登入按鈕 -->
+            <div id="liff-ready" class="hidden">
+                <img id="liff-avatar" src="" class="w-20 h-20 rounded-full mx-auto mb-4 object-cover" style="border: 2px solid rgba(212,168,83,0.3);">
+                <p id="liff-name" class="text-lg font-light text-white mb-1" style="letter-spacing: 0.06em;"></p>
+                <p class="text-xs mb-6" style="color: rgba(255,255,255,0.35);">LINE 帳號已確認</p>
+                <button onclick="document.getElementById('line-login-form').submit()" class="btn-gold w-full py-3 px-4 rounded-xl min-h-[48px] flex items-center justify-center text-lg">
+                    <i class="fab fa-line mr-2"></i>LINE 登入
+                </button>
+            </div>
+            <!-- 錯誤 -->
             <div id="liff-error" class="hidden">
                 <div class="inline-flex items-center justify-center w-14 h-14 mb-5 rounded-full" style="background: rgba(239,68,68,0.12);">
                     <i class="fas fa-exclamation-triangle text-xl" style="color: #f87171;"></i>
@@ -96,7 +107,6 @@
             </div>
         </div>
 
-        <!-- 隱藏的表單，由 JS 自動提交 -->
         <form id="line-login-form" method="POST" action="/login" class="hidden">
             <input type="hidden" name="line_user_id" id="line_user_id">
         </form>
@@ -104,22 +114,12 @@
         <script>
             const LIFF_ID = "{{ liff_id }}";
             const HAS_ERROR = {{ 'true' if (error or request.query_params.get('error')) else 'false' }};
-            const PASSWORD_MODE = new URLSearchParams(window.location.search).get('mode') === 'password';
 
             async function initLiffLogin() {
-                // 帳密模式：跳過 LIFF 自動登入
-                if (PASSWORD_MODE) {
-                    document.getElementById('liff-login-section').classList.add('hidden');
-                    document.getElementById('password-login-section').classList.remove('hidden');
-                    document.getElementById('toggle-pwd-btn').classList.add('hidden');
-                    return;
-                }
-
-                // 如果已有錯誤訊息（登入被拒），不要自動重試，避免無限循環
                 if (HAS_ERROR) {
                     document.getElementById('liff-loading').classList.add('hidden');
                     document.getElementById('liff-error').classList.remove('hidden');
-                    document.getElementById('liff-error-msg').textContent = '如需重新驗證，請點擊下方按鈕';
+                    document.getElementById('liff-error-msg').textContent = '登入失敗，請點擊下方重試';
                     return;
                 }
 
@@ -133,7 +133,14 @@
 
                     const profile = await liff.getProfile();
                     document.getElementById('line_user_id').value = profile.userId;
-                    document.getElementById('line-login-form').submit();
+
+                    // 顯示用戶資訊 + 登入按鈕（不自動提交）
+                    document.getElementById('liff-loading').classList.add('hidden');
+                    document.getElementById('liff-ready').classList.remove('hidden');
+                    document.getElementById('liff-name').textContent = profile.displayName;
+                    if (profile.pictureUrl) {
+                        document.getElementById('liff-avatar').src = profile.pictureUrl;
+                    }
 
                 } catch (error) {
                     console.error('LIFF 初始化失敗:', error);
@@ -148,53 +155,37 @@
             }
         </script>
 
-        <!-- 帳密登入切換（LIFF 模式下也可切換） -->
-        <div class="text-center mt-4">
-            <button onclick="togglePasswordLogin()" id="toggle-pwd-btn" class="text-sm transition" style="color: rgba(255,255,255,0.3);">
-                <i class="fas fa-key mr-1"></i>使用帳號密碼登入
-            </button>
-        </div>
-        <div id="password-login-section" class="hidden mt-4">
-            <div class="glass rounded-2xl p-8">
-                <form method="POST" action="/login" class="space-y-6">
-                    <div>
-                        <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
-                            <i class="fas fa-user mr-2" style="color: #d4a853;"></i>帳號
-                        </label>
-                        <input type="text" name="username" required autocomplete="username"
-                            class="w-full px-4 py-3 rounded-xl min-h-[48px]"
-                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
-                            placeholder="請輸入帳號">
-                    </div>
-                    <div>
-                        <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.5); letter-spacing: 0.06em;">
-                            <i class="fas fa-lock mr-2" style="color: #d4a853;"></i>密碼
-                        </label>
-                        <input type="password" name="password" required autocomplete="current-password"
-                            class="w-full px-4 py-3 rounded-xl min-h-[48px]"
-                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
-                            placeholder="請輸入密碼">
-                    </div>
-                    <button type="submit" class="btn-gold w-full py-3 px-4 rounded-xl min-h-[48px] flex items-center justify-center text-lg">
-                        <i class="fas fa-sign-in-alt mr-2"></i>登入
-                    </button>
-                </form>
-            </div>
+        <!-- 分隔線 -->
+        <div class="flex items-center my-6">
+            <div class="flex-1 h-px" style="background: rgba(255,255,255,0.08);"></div>
+            <span class="px-4 text-xs" style="color: rgba(255,255,255,0.25);">或</span>
+            <div class="flex-1 h-px" style="background: rgba(255,255,255,0.08);"></div>
         </div>
 
-        <script>
-            function togglePasswordLogin() {
-                const section = document.getElementById('password-login-section');
-                const btn = document.getElementById('toggle-pwd-btn');
-                if (section.classList.contains('hidden')) {
-                    section.classList.remove('hidden');
-                    btn.innerHTML = '<i class="fas fa-times mr-1"></i>收起帳密登入';
-                } else {
-                    section.classList.add('hidden');
-                    btn.innerHTML = '<i class="fas fa-key mr-1"></i>使用帳號密碼登入';
-                }
-            }
-        </script>
+        <!-- 帳號密碼登入（直接顯示） -->
+        <div class="glass rounded-2xl p-8">
+            <p class="text-center text-xs mb-4" style="color: rgba(255,255,255,0.35);">
+                <i class="fas fa-key mr-1"></i>使用帳號密碼登入
+            </p>
+            <form method="POST" action="/login" class="space-y-4">
+                <div>
+                    <input type="text" name="username" required autocomplete="username"
+                        class="w-full px-4 py-3 rounded-xl min-h-[44px]"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                        placeholder="帳號">
+                </div>
+                <div>
+                    <input type="password" name="password" required autocomplete="current-password"
+                        class="w-full px-4 py-3 rounded-xl min-h-[44px]"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #fff;"
+                        placeholder="密碼">
+                </div>
+                <button type="submit" class="w-full py-3 px-4 rounded-xl min-h-[44px] flex items-center justify-center text-sm font-medium transition"
+                    style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6);">
+                    <i class="fas fa-sign-in-alt mr-2"></i>帳密登入
+                </button>
+            </form>
+        </div>
 
         {% else %}
         <!-- 傳統帳密登入（未設定 LIFF ID 時） -->
