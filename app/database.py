@@ -264,9 +264,9 @@ def run_migrations():
                     conn.execute(text(
                         "UPDATE admin_roles SET name = '組長', description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '主管'"
                     ))
-                    # 已改名的組長也更新權限
+                    # 組長權限更新（確保有 dashboard:view）
                     conn.execute(text(
-                        "UPDATE admin_roles SET description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '組長'"
+                        "UPDATE admin_roles SET description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"dashboard:view\", \"morning:view\", \"morning:edit\"]' WHERE name = '組長'"
                     ))
                     # 刪除訓練管理員（如果沒有帳號在用）
                     conn.execute(text(

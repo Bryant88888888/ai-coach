@@ -136,7 +136,7 @@ DEFAULT_ROLES = {
     "組長": {
         "description": "填寫早會日報、搜尋查看日報彙整",
         "permissions": [
-            "morning:view", "morning:edit",
+            "dashboard:view", "morning:view", "morning:edit",
         ],
     },
     "助理": {
