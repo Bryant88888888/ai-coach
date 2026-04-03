@@ -666,7 +666,7 @@ class LineService:
 
         # 如果有證明文件，加入查看按鈕
         if leave_request.leave_type == "病假" and leave_request.proof_file and settings.site_url:
-            proof_url = f"{settings.site_url.rstrip('/')}/static/uploads/{leave_request.proof_file}"
+            proof_url = leave_request.proof_file
             footer_contents.append({
                 "type": "button",
                 "style": "secondary",
