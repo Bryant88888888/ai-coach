@@ -1038,7 +1038,7 @@ class LineService:
                 except Exception as e:
                     print(f"發送值日公告失敗 ({contact.display_name}): {e}")
 
-            print(f"✅ 值日公告已發送給 {sent_count}/{len(all_users)} 人")
+            print(f"✅ 值日公告已發送給 {sent_count}/{len(all_contacts)} 人")
             return sent_count
 
         finally:
