@@ -2911,7 +2911,8 @@ async def info_form_page(request: Request):
 
     return templates.TemplateResponse("info_form.html", {
         "request": request,
-        "liff_id": liff_id
+        "liff_id": liff_id,
+        "today_date": date.today().isoformat(),
     })
 
 
