@@ -273,10 +273,7 @@ def run_migrations():
                         """DELETE FROM admin_roles WHERE name = '訓練管理員'
                            AND id NOT IN (SELECT DISTINCT role_id FROM admin_accounts WHERE role_id IS NOT NULL)"""
                     ))
-                    # 員工權限修正
-                    conn.execute(text(
-                        "UPDATE admin_roles SET permissions = '[\"morning:edit\"]' WHERE name = '員工'"
-                    ))
+                    # 員工權限已在後面的 migration 處理，這裡不再重置
                     conn.commit()
                 except Exception as e:
                     print(f"Migration note: {e}")

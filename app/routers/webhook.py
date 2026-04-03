@@ -12,6 +12,7 @@ from app.services.push_service import PushService
 from app.services.duty_service import DutyService
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
+from app.models.user import User
 
 router = APIRouter(prefix="/webhook", tags=["LINE Webhook"])
 
@@ -331,6 +332,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                         line_service.send_reply(event.reply_token, f"✅ 已開通「{name}」的帳號")
 
                     except Exception as e:
+                        db.rollback()
                         print(f"處理帳號開通失敗: {e}")
                         line_service.send_reply(event.reply_token, f"❌ 開通失敗：{str(e)}")
                 return
