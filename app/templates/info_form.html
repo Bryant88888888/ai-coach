@@ -276,10 +276,9 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">出生（民國） <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="birth_roc" required maxlength="9" placeholder="例：85/06/15" inputmode="numeric"
+                    <label class="field-label block mb-1.5">出生日期 <span style="color: #d4a853;">*</span></label>
+                    <input type="date" name="birth_roc" required
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
-                    <p class="hint-text mt-1">格式：民國年/月/日</p>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
@@ -375,10 +374,9 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">出生（民國） <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="birth_roc" required maxlength="9" placeholder="例：85/06/15" inputmode="numeric"
+                    <label class="field-label block mb-1.5">出生日期 <span style="color: #d4a853;">*</span></label>
+                    <input type="date" name="birth_roc" required
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
-                    <p class="hint-text mt-1">格式：民國年/月/日</p>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
@@ -642,24 +640,25 @@
     function validateTWID(id) {
         if (!id) return '請輸入身分證字號';
         id = id.toUpperCase();
-        if (!/^[A-Z][12]\d{8}$/.test(id)) return '格式錯誤：需 1 個英文字母 + 9 位數字，第二碼為 1 或 2';
+        if (!/^[A-Z]\d{9}$/.test(id)) return '格式錯誤：需 1 個英文字母 + 9 位數字';
         const m = {A:10,B:11,C:12,D:13,E:14,F:15,G:16,H:17,I:34,J:18,K:19,L:20,M:21,N:22,O:35,P:23,Q:24,R:25,S:26,T:27,U:28,V:29,W:32,X:30,Y:31,Z:33};
         const n1 = m[id[0]];
-        let sum = Math.floor(n1/10) + (n1%10)*9;
-        for (let i=1; i<9; i++) sum += parseInt(id[i])*(8-i+1);
-        sum += parseInt(id[9]);
+        if (n1 === undefined) return '首碼英文字母不正確';
+        // 標準驗證：首碼拆兩位，加權 1 和 9，接下來 8 碼加權 8~1，最後一碼加權 1
+        let sum = Math.floor(n1/10) * 1 + (n1%10) * 9;
+        const weights = [8, 7, 6, 5, 4, 3, 2, 1, 1];
+        for (let i = 0; i < 9; i++) sum += parseInt(id[i+1]) * weights[i];
         if (sum % 10 !== 0) return '身分證字號檢查碼錯誤，請確認是否輸入正確';
         return '';
     }
 
     function validateBirthROC(val) {
-        if (!val) return '請輸入出生日期';
-        if (!/^\d{2,3}\/\d{2}\/\d{2}$/.test(val)) return '格式錯誤：請輸入 民國年/月/日，例如 85/06/15';
-        const p = val.split('/');
-        const y = parseInt(p[0]), mo = parseInt(p[1]), d = parseInt(p[2]);
-        if (y < 1 || y > 115) return '民國年份範圍不合理';
-        if (mo < 1 || mo > 12) return '月份應為 01 ~ 12';
-        if (d < 1 || d > 31) return '日期應為 01 ~ 31';
+        if (!val) return '請選擇出生日期';
+        // type="date" 回傳 YYYY-MM-DD 格式
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return '日期格式錯誤';
+        if (d > new Date()) return '出生日期不能是未來';
+        if (d.getFullYear() < 1930) return '日期不合理';
         return '';
     }
 
