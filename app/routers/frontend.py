@@ -1131,8 +1131,6 @@ async def leave_apply_submit(
     request: Request,
     db: Session = Depends(get_db),
     line_user_id: str = Form(...),
-    line_user_name: str = Form(...),
-    line_picture_url: str = Form(""),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
     reason: str = Form(None),
@@ -1166,14 +1164,6 @@ async def leave_apply_submit(
 
         full_name = user.real_name
 
-        # 更新 LINE 資料（如果有變更）
-        if line_user_name and user.line_display_name != line_user_name:
-            user.line_display_name = line_user_name
-            db.commit()
-        if line_picture_url and user.line_picture_url != line_picture_url:
-            user.line_picture_url = line_picture_url
-            db.commit()
-
         # 處理檔案上傳到 Supabase Storage
         proof_url = None
         if proof_file and proof_file.filename:
@@ -1182,8 +1172,8 @@ async def leave_apply_submit(
         leave_request = LeaveRequest(
             user_id=user.id,
             applicant_name=full_name,
-            line_display_name=line_user_name,
-            line_picture_url=line_picture_url if line_picture_url else None,
+            line_display_name=user.line_display_name,
+            line_picture_url=user.line_picture_url,
             leave_type=leave_type,
             leave_date=leave_date,
             reason=reason if leave_type == "事假" else None,

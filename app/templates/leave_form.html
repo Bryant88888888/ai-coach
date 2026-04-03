@@ -237,8 +237,6 @@
             <form method="POST" action="/leave" enctype="multipart/form-data">
                 <!-- 隱藏欄位 -->
                 <input type="hidden" id="line_user_id" name="line_user_id" value="">
-                <input type="hidden" id="line_user_name" name="line_user_name" value="">
-                <input type="hidden" id="line_picture_url" name="line_picture_url" value="">
 
                 <div class="glass rounded-2xl p-6 space-y-6">
 
@@ -414,8 +412,6 @@
                 }
 
                 document.getElementById('line_user_id').value = profile.userId;
-                document.getElementById('line_user_name').value = profile.displayName;
-                document.getElementById('line_picture_url').value = profile.pictureUrl || '';
 
                 // 查詢員工資料，自動帶入姓名
                 try {
