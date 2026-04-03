@@ -117,9 +117,23 @@
 
             async function initLiffLogin() {
                 if (HAS_ERROR) {
+                    // 有錯誤時不自動重試，但仍然嘗試取得 LINE 資訊顯示
+                    try {
+                        await liff.init({ liffId: LIFF_ID });
+                        if (liff.isLoggedIn()) {
+                            const profile = await liff.getProfile();
+                            document.getElementById('line_user_id').value = profile.userId;
+                            document.getElementById('liff-loading').classList.add('hidden');
+                            document.getElementById('liff-ready').classList.remove('hidden');
+                            document.getElementById('liff-name').textContent = profile.displayName;
+                            if (profile.pictureUrl) {
+                                document.getElementById('liff-avatar').src = profile.pictureUrl;
+                            }
+                            return;
+                        }
+                    } catch (e) {}
                     document.getElementById('liff-loading').classList.add('hidden');
                     document.getElementById('liff-error').classList.remove('hidden');
-                    document.getElementById('liff-error-msg').textContent = '登入失敗，請點擊下方重試';
                     return;
                 }
 
