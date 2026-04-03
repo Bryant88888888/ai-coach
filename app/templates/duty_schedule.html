@@ -151,7 +151,7 @@
                         {% elif is_leader and schedule.status == 'scheduled' %}bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400
                         {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400{% endif %}"
                         onclick="openScheduleModal({{ schedule.id }}, '{{ schedule.user.display_name }}', '{{ schedule.duty_date }}', '{{ schedule.status }}', '{{ schedule.status_display }}')">
-                        {% if is_leader %}[組長] {% endif %}{{ schedule.user.display_name[:4] }}{% if schedule.user.display_name|length > 4 %}..{% endif %}
+                        {% if is_leader %}[組長] {% endif %}{{ schedule.user.display_name }}
                     </div>
                     {% endfor %}
                 </div>

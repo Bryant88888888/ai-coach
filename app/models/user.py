@@ -99,8 +99,8 @@ class User(Base):
 
     @property
     def display_name(self) -> str:
-        """取得顯示名稱（優先 LINE 名稱）"""
-        return self.line_display_name or self.real_name or self.name or "未命名"
+        """取得顯示名稱（暱稱優先）"""
+        return self.nickname or self.real_name or self.line_display_name or self.name or "未命名"
 
     # ===== 角色管理方法 =====
 
