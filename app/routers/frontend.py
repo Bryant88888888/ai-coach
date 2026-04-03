@@ -90,6 +90,23 @@ def build_template_context(request: Request, admin: AdminAccount, db: Session,
 
 
 
+@router.get("/debug/duty-rules")
+async def debug_duty_rules(db: Session = Depends(get_db)):
+    """臨時 debug：查看值日規則和店家狀態"""
+    from app.models.duty_rule import DutyRule
+    from app.models.duty_config import DutyConfig
+    rules = db.query(DutyRule).filter(DutyRule.rule_type == 'duty').all()
+    configs = db.query(DutyConfig).all()
+    weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+    return {
+        "configs": [{"id": c.id, "name": c.name, "is_active": c.is_active} for c in configs],
+        "rules": [{"id": r.id, "weekday": f"星期{weekday_names[r.weekday]}", "user_id": r.user_id, "user_name": r.user.real_name if r.user else None, "config_id": r.config_id} for r in rules],
+        "rules_count": len(rules),
+        "rules_with_config": len([r for r in rules if r.config_id]),
+        "rules_without_config": len([r for r in rules if not r.config_id]),
+    }
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, db: Session = Depends(get_db)):
     """登入頁面"""
