@@ -264,9 +264,9 @@ def run_migrations():
                     conn.execute(text(
                         "UPDATE admin_roles SET name = '組長', description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '主管'"
                     ))
-                    # 組長權限更新（確保有 dashboard:view）
+                    # 組長權限更新（移除 dashboard:view，不再需要）
                     conn.execute(text(
-                        "UPDATE admin_roles SET description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"dashboard:view\", \"morning:view\", \"morning:edit\"]' WHERE name = '組長'"
+                        "UPDATE admin_roles SET description = '填寫早會日報、搜尋查看日報彙整', permissions = '[\"morning:view\", \"morning:edit\"]' WHERE name = '組長'"
                     ))
                     # 刪除訓練管理員（如果沒有帳號在用）
                     conn.execute(text(
@@ -344,13 +344,14 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
-        # 更新「員工」角色加 dashboard:view
+        # 清理所有角色中的 dashboard:view（不再需要此權限）
         if 'admin_roles' in table_names:
             with engine.connect() as conn:
                 try:
+                    # 從員工角色移除 dashboard:view
                     conn.execute(text(
-                        """UPDATE admin_roles SET permissions = '["dashboard:view", "morning:edit"]'
-                           WHERE name = '員工' AND permissions = '["morning:edit"]'"""
+                        """UPDATE admin_roles SET permissions = '["morning:edit"]'
+                           WHERE name = '員工' AND permissions LIKE '%dashboard:view%'"""
                     ))
                     conn.commit()
                 except Exception as e:

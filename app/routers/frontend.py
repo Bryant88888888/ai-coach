@@ -69,10 +69,7 @@ def require_permission(request: Request, db: Session, permission: str) -> AdminA
     if not admin:
         return RedirectResponse(url="/login", status_code=303)
     if not admin.has_permission(permission):
-        if admin.has_permission("dashboard:view"):
-            return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
-        request.session.clear()
-        return RedirectResponse(url="/login?error=您的帳號沒有存取權限", status_code=303)
+        return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
     return admin
 
 
@@ -178,11 +175,10 @@ async def logout(request: Request):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
-    """儀表板首頁"""
-    result = require_permission(request, db, "dashboard:view")
-    if isinstance(result, RedirectResponse):
-        return result
-    admin = result
+    """儀表板首頁（所有登入用戶都能進入）"""
+    admin = get_current_admin(request, db)
+    if not admin:
+        return RedirectResponse(url="/login", status_code=303)
 
     user_service = UserService(db)
     message_service = MessageService(db)

@@ -214,10 +214,9 @@ class PermissionService:
 
         for item in SIDEBAR_ITEMS:
             if "group" in item:
-                # 群組項目：過濾子項目
                 visible_items = [
                     sub for sub in item["items"]
-                    if sub["permission"] in permissions
+                    if sub.get("permission") is None or sub["permission"] in permissions
                 ]
                 if visible_items:
                     visible.append({
@@ -227,8 +226,7 @@ class PermissionService:
                         "items": visible_items,
                     })
             else:
-                # 單一項目
-                if item["permission"] in permissions:
+                if item.get("permission") is None or item["permission"] in permissions:
                     visible.append(item)
 
         return visible

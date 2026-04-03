@@ -77,7 +77,6 @@ class AdminAccount(Base):
 
 # 所有可用權限（格式: page_key:action）
 PERMISSION_REGISTRY = {
-    "dashboard:view": {"label": "檢視儀表板", "group": "儀表板"},
     "users:view": {"label": "檢視用戶列表", "group": "人員管理"},
     "users:edit": {"label": "編輯用戶", "group": "人員管理"},
     "managers:view": {"label": "檢視主管設定", "group": "人員管理"},
@@ -105,7 +104,7 @@ ALL_PERMISSIONS = list(PERMISSION_REGISTRY.keys())
 
 # 側邊欄結構定義
 SIDEBAR_ITEMS = [
-    {"key": "dashboard", "label": "儀表板", "icon": "fa-chart-line", "url": "/dashboard", "permission": "dashboard:view"},
+    {"key": "dashboard", "label": "儀表板", "icon": "fa-chart-line", "url": "/dashboard", "permission": None},
     {"group": "人員管理", "icon": "fa-people-group", "keys": ["users", "managers", "profiles", "info_forms"], "items": [
         {"key": "users", "label": "用戶列表", "icon": "fa-users", "url": "/dashboard/users", "permission": "users:view"},
         {"key": "managers", "label": "主管設定", "icon": "fa-user-tie", "url": "/dashboard/managers", "permission": "managers:view"},
@@ -136,13 +135,13 @@ DEFAULT_ROLES = {
     "組長": {
         "description": "填寫早會日報、搜尋查看日報彙整",
         "permissions": [
-            "dashboard:view", "morning:view", "morning:edit",
+            "morning:view", "morning:edit",
         ],
     },
     "助理": {
         "description": "僅可檢視各頁面資料，無法進行編輯操作",
         "permissions": [
-            "dashboard:view",
+
             "users:view",
             "managers:view",
             "profiles:view",

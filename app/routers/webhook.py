@@ -310,7 +310,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                                 employee_role = AdminRole(
                                     name="員工",
                                     description="一般員工",
-                                    permissions=json_mod.dumps(["dashboard:view", "morning:edit"]),
+                                    permissions=json_mod.dumps(["morning:edit"]),
                                     is_system=True,
                                 )
                                 db.add(employee_role)
