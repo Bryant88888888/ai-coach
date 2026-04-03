@@ -1269,17 +1269,11 @@ async def proof_upload_submit(
         })
 
     try:
-        # 儲存檔案
-        ext = os.path.splitext(proof_file.filename)[1]
-        proof_filename = f"{uuid.uuid4()}{ext}"
-        file_path = UPLOAD_DIR / proof_filename
-
-        with open(file_path, "wb") as f:
-            content = await proof_file.read()
-            f.write(content)
+        # 上傳到 Supabase Storage
+        proof_url = await upload_proof_file(proof_file)
 
         # 更新資料庫
-        leave_request.proof_file = proof_filename
+        leave_request.proof_file = proof_url
         leave_request.status = LeaveStatus.PENDING.value  # 改回待審核，讓主管再次審核
         db.commit()
 

@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # 錯誤通知設定（接收系統錯誤通知的 LINE User ID）
     error_notify_line_id: str = ""
 
+    # Supabase Storage 設定（用於檔案上傳）
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

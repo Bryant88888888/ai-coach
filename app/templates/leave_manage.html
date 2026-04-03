@@ -112,10 +112,10 @@
                             <i class="fas fa-file-medical mr-1"></i>病假證明：
                         </p>
                         <div class="relative group">
-                            <img src="/static/uploads/{{ req.proof_file }}"
+                            <img src="{{ req.proof_file }}"
                                  alt="病假證明"
                                  class="max-w-full max-h-48 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-90 transition"
-                                 onclick="showImageModal('/static/uploads/{{ req.proof_file }}')">
+                                 onclick="showImageModal('{{ req.proof_file }}')">
                             <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition pointer-events-none">
                                 <span class="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
                                     <i class="fas fa-search-plus mr-1"></i>點擊放大
@@ -134,8 +134,8 @@
                 </div>
             </div>
 
-            <!-- 審核按鈕 (只有待審核顯示) -->
-            {% if req.status == 'pending' %}
+            <!-- 審核按鈕 (只有待審核且有編輯權限顯示) -->
+            {% if req.status == 'pending' and "leave:edit" in admin_permissions %}
             <div class="mt-4 pt-4 border-t dark:border-gray-700">
                 <form method="POST" action="/dashboard/leave/{{ req.id }}/review" class="space-y-3">
                     <div>
