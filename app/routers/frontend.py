@@ -175,10 +175,16 @@ async def logout(request: Request):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
-    """儀表板首頁（所有登入用戶都能進入）"""
+    """儀表板首頁（所有登入用戶都能進入，內容根據權限顯示）"""
     admin = get_current_admin(request, db)
     if not admin:
         return RedirectResponse(url="/login", status_code=303)
+
+    # 沒有 dashboard:view 權限 → 顯示空白歡迎頁
+    if not admin.has_permission("dashboard:view"):
+        ctx = build_template_context(request, admin, db, "dashboard")
+        ctx["no_dashboard_permission"] = True
+        return templates.TemplateResponse("dashboard.html", ctx)
 
     user_service = UserService(db)
     message_service = MessageService(db)

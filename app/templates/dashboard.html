@@ -20,6 +20,20 @@
 </style>
 
 <!-- 頁面標題 -->
+{% if no_dashboard_permission %}
+<!-- 無儀表板權限：空白歡迎頁 -->
+<div class="flex flex-col items-center justify-center py-20">
+    <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mb-6">
+        <i class="fas fa-hand-wave text-3xl text-indigo-500"></i>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">歡迎，{{ admin.display_name }}</h1>
+    <p class="text-gray-500 dark:text-gray-400 text-center max-w-md">
+        請從左側選單選擇您要使用的功能。<br>
+        如需更多功能權限，請聯繫管理者。
+    </p>
+</div>
+{% else %}
+<!-- 有儀表板權限：完整統計內容 -->
 <div class="mb-6">
     <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
         <i class="fas fa-chart-line text-indigo-600 dark:text-indigo-400"></i>招募績效儀表板
@@ -798,4 +812,5 @@ function toggleDetail(btn) {
     if (icon) icon.classList.toggle('rotate-180');
 }
 </script>
+{% endif %}
 {% endblock %}
