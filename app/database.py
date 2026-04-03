@@ -38,6 +38,7 @@ def init_db():
     from app.models import training_batch, user_training, course  # noqa: F401
     from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule, duty_swap  # noqa: F401
     from app.models import info_form  # noqa: F401
+    from app.models import line_contact  # noqa: F401
     from app.models import morning_report  # noqa: F401
     from app.models import admin  # noqa: F401
 
@@ -425,6 +426,53 @@ def run_migrations():
                     print("Migration: Created 'duty_swaps' table")
                 except Exception as e:
                     print(f"Migration note: {e}")
+
+        # ===== line_contacts 表：從 users 遷移 webhook 建立的記錄 =====
+        # 檢查表是否為空（create_all 可能已建表但未填資料）
+        with engine.connect() as conn:
+            line_contacts_count = conn.execute(text("SELECT COUNT(*) FROM line_contacts")).scalar() if 'line_contacts' in inspector.get_table_names() else 0
+        if line_contacts_count == 0:
+            print("Migration: Populating line_contacts from existing webhook users...")
+            with engine.connect() as conn:
+                try:
+                    # 複製 webhook 建立的用戶（registered_at IS NULL）到 line_contacts
+                    conn.execute(text("""
+                        INSERT INTO line_contacts (line_user_id, line_display_name, line_picture_url, is_manager, manager_notification_enabled, manager_notification_categories, created_at)
+                        SELECT line_user_id, line_display_name, line_picture_url,
+                               CASE WHEN roles LIKE '%"manager"%' THEN TRUE ELSE FALSE END,
+                               manager_notification_enabled,
+                               manager_notification_categories,
+                               created_at
+                        FROM users
+                        WHERE registered_at IS NULL
+                    """))
+                    conn.commit()
+                    print("Migration: Copied webhook users to line_contacts")
+
+                    # 自動比對：用 line_display_name 配對已註冊用戶的 real_name / nickname / line_display_name
+                    conn.execute(text("""
+                        UPDATE line_contacts SET user_id = (
+                            SELECT u.id FROM users u
+                            WHERE u.registered_at IS NOT NULL
+                            AND (
+                                u.real_name = line_contacts.line_display_name
+                                OR u.nickname = line_contacts.line_display_name
+                                OR u.line_display_name = line_contacts.line_display_name
+                            )
+                            LIMIT 1
+                        )
+                        WHERE user_id IS NULL
+                    """))
+                    conn.commit()
+
+                    # 統計結果
+                    result = conn.execute(text("SELECT COUNT(*) FROM line_contacts"))
+                    total = result.scalar()
+                    result = conn.execute(text("SELECT COUNT(*) FROM line_contacts WHERE user_id IS NOT NULL"))
+                    linked = result.scalar()
+                    print(f"Migration: line_contacts total={total}, linked to users={linked}")
+                except Exception as e:
+                    print(f"Migration note (line_contacts populate): {e}")
 
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動

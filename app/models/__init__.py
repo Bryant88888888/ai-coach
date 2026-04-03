@@ -13,6 +13,7 @@ from app.models.duty_complaint import DutyComplaint, DutyComplaintStatus
 from app.models.duty_rule import DutyRule
 from app.models.duty_swap import DutySwap, DutySwapStatus
 from app.models.info_form import InfoFormSubmission
+from app.models.line_contact import LineContact
 
 __all__ = [
     "User",
@@ -36,4 +37,5 @@ __all__ = [
     "DutySwap",
     "DutySwapStatus",
     "InfoFormSubmission",
+    "LineContact",
 ]

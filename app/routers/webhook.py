@@ -13,6 +13,7 @@ from app.services.duty_service import DutyService
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
 from app.models.user import User
+from app.models.line_contact import LineContact
 
 router = APIRouter(prefix="/webhook", tags=["LINE Webhook"])
 
@@ -54,13 +55,37 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
             display_name = profile.get("displayName") if profile else None
             picture_url = profile.get("pictureUrl") if profile else None
 
-            # 建立用戶
+            # 建立或更新 LineContact（用於推播）
+            contact = db.query(LineContact).filter(LineContact.line_user_id == line_user_id).first()
+            is_new = contact is None
+            if is_new:
+                contact = LineContact(
+                    line_user_id=line_user_id,
+                    line_display_name=display_name,
+                    line_picture_url=picture_url,
+                )
+                db.add(contact)
+                db.commit()
+                db.refresh(contact)
+            else:
+                if display_name and contact.line_display_name != display_name:
+                    contact.line_display_name = display_name
+                if picture_url and contact.line_picture_url != picture_url:
+                    contact.line_picture_url = picture_url
+                db.commit()
+
+            # 同時維護 users 表的記錄（向下相容，訓練/值日等功能需要）
             user_service = UserService(db)
-            user, is_new = user_service.get_or_create_user(
+            user, _ = user_service.get_or_create_user(
                 line_user_id,
                 line_display_name=display_name,
                 line_picture_url=picture_url
             )
+
+            # 如果 LineContact 尚未連結到 User，自動連結
+            if not contact.user_id and user:
+                contact.user_id = user.id
+                db.commit()
 
             # 發送歡迎訊息
             welcome_message = "歡迎加入！您的帳號已建立，請等待管理員為您安排訓練課程。"
@@ -70,9 +95,8 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                 print(f"✅ 新用戶加入: {line_user_id} ({display_name})")
             else:
                 # 舊用戶回歸：檢查是否有進行中的訓練
-                active_training = user.active_training
+                active_training = user.active_training if user else None
                 if active_training:
-                    # 有進行中的訓練，推送當前進度
                     push_service = PushService(db)
                     push_service.push_to_training(active_training)
                     print(f"👋 舊用戶回歸: {line_user_id} ({display_name}), Day {active_training.current_day}")
@@ -248,7 +272,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                         db.commit()
 
                         # 通知請假者審核結果
-                        line_service.notify_requester_result(leave_request)
+                        line_service.notify_requester_result(leave_request, db)
 
                     elif action == "reject_leave":
                         leave_request.status = LeaveStatus.REJECTED.value
@@ -257,7 +281,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                         db.commit()
 
                         # 通知請假者審核結果
-                        line_service.notify_requester_result(leave_request)
+                        line_service.notify_requester_result(leave_request, db)
 
                     elif action == "pending_proof":
                         # 設定待補件狀態和 7 天期限
@@ -267,7 +291,7 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                         db.commit()
 
                         # 通知請假者需要補件
-                        line_service.notify_requester_pending_proof(leave_request)
+                        line_service.notify_requester_pending_proof(leave_request, db)
 
                     # 回覆主管
                     line_service.send_reply(

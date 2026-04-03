@@ -1331,7 +1331,7 @@ async def leave_review(
     return RedirectResponse(url="/dashboard/leave", status_code=303)
 
 
-# ========== 主管管理（統一用戶系統） ==========
+# ========== 主管管理（使用 LineContact） ==========
 
 @router.get("/dashboard/managers", response_class=HTMLResponse)
 async def managers_list(
@@ -1340,21 +1340,22 @@ async def managers_list(
     success: str = None,
     error: str = None
 ):
-    """主管管理頁面 - 使用統一用戶系統"""
+    """主管管理頁面 - 使用 LineContact（可推播的 LINE 聯絡人）"""
+    from app.models.line_contact import LineContact
     result = require_permission(request, db, "managers:view")
     if isinstance(result, RedirectResponse):
         return result
     admin = result
 
-    # 從 users 表查詢有 manager 角色的用戶
-    managers = db.query(User).filter(
-        User.roles.contains('"manager"')
-    ).order_by(User.created_at.desc()).all()
+    # 從 line_contacts 查詢主管
+    managers = db.query(LineContact).filter(
+        LineContact.is_manager == True
+    ).order_by(LineContact.created_at.desc()).all()
 
-    # 取得所有用戶（用於新增主管時選擇）
-    all_users = db.query(User).filter(
-        ~User.roles.contains('"manager"')
-    ).order_by(User.line_display_name).all()
+    # 取得所有非主管的 LineContact（用於新增主管時選擇）
+    all_users = db.query(LineContact).filter(
+        LineContact.is_manager == False
+    ).order_by(LineContact.line_display_name).all()
 
     from app.models.user import NOTIFICATION_CATEGORIES
     return templates.TemplateResponse("managers.html", build_template_context(
@@ -1373,33 +1374,34 @@ async def manager_add(
     name: str = Form(None),
     line_user_id: str = Form(None)
 ):
-    """新增主管 - 可從現有用戶選擇或輸入新的 LINE ID"""
+    """新增主管 - 從 LineContact 選擇或輸入新的 LINE ID"""
+    from app.models.line_contact import LineContact
     result = require_permission(request, db, "managers:edit")
     if isinstance(result, RedirectResponse):
         return result
     admin = result
 
     if user_id:
-        # 從現有用戶添加主管角色
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
+        # 從現有 LineContact 設為主管
+        contact = db.query(LineContact).filter(LineContact.id == user_id).first()
+        if not contact:
             return RedirectResponse(
-                url="/dashboard/managers?error=用戶不存在",
+                url="/dashboard/managers?error=聯絡人不存在",
                 status_code=303
             )
 
-        if user.has_role(UserRole.MANAGER.value):
+        if contact.is_manager:
             return RedirectResponse(
-                url=f"/dashboard/managers?error=此用戶已是主管",
+                url=f"/dashboard/managers?error=此聯絡人已是主管",
                 status_code=303
             )
 
-        user.add_role(UserRole.MANAGER.value)
-        user.manager_notification_enabled = True
+        contact.is_manager = True
+        contact.manager_notification_enabled = True
         db.commit()
 
         return RedirectResponse(
-            url=f"/dashboard/managers?success=已將「{user.display_name}」設為主管",
+            url=f"/dashboard/managers?success=已將「{contact.display_name}」設為主管",
             status_code=303
         )
 
@@ -1412,34 +1414,30 @@ async def manager_add(
                 status_code=303
             )
 
-        # 檢查用戶是否已存在
-        existing_user = db.query(User).filter(User.line_user_id == line_user_id).first()
-        if existing_user:
-            if existing_user.has_role(UserRole.MANAGER.value):
+        # 檢查是否已存在於 line_contacts
+        existing = db.query(LineContact).filter(LineContact.line_user_id == line_user_id).first()
+        if existing:
+            if existing.is_manager:
                 return RedirectResponse(
-                    url=f"/dashboard/managers?error=此用戶已是主管（{existing_user.display_name}）",
+                    url=f"/dashboard/managers?error=此聯絡人已是主管（{existing.display_name}）",
                     status_code=303
                 )
-            # 添加主管角色
-            existing_user.add_role(UserRole.MANAGER.value)
-            existing_user.manager_notification_enabled = True
-            if name and not existing_user.real_name:
-                existing_user.real_name = name.strip()
+            existing.is_manager = True
+            existing.manager_notification_enabled = True
             db.commit()
             return RedirectResponse(
-                url=f"/dashboard/managers?success=已將「{existing_user.display_name}」設為主管",
+                url=f"/dashboard/managers?success=已將「{existing.display_name}」設為主管",
                 status_code=303
             )
         else:
-            # 創建新用戶
-            import json
-            new_user = User(
+            # 建立新的 LineContact
+            new_contact = LineContact(
                 line_user_id=line_user_id,
-                real_name=name.strip() if name else None,
-                roles=json.dumps([UserRole.TRAINEE.value, UserRole.MANAGER.value]),
-                manager_notification_enabled=True
+                line_display_name=name.strip() if name else None,
+                is_manager=True,
+                manager_notification_enabled=True,
             )
-            db.add(new_user)
+            db.add(new_contact)
             db.commit()
             return RedirectResponse(
                 url=f"/dashboard/managers?success=已成功新增主管「{name or line_user_id[:10]}...」",
@@ -1447,43 +1445,44 @@ async def manager_add(
             )
 
     return RedirectResponse(
-        url="/dashboard/managers?error=請選擇用戶或輸入 LINE User ID",
+        url="/dashboard/managers?error=請選擇聯絡人或輸入 LINE User ID",
         status_code=303
     )
 
 
-@router.post("/dashboard/managers/{user_id}/toggle")
+@router.post("/dashboard/managers/{contact_id}/toggle")
 async def manager_toggle(
     request: Request,
-    user_id: int,
+    contact_id: int,
     db: Session = Depends(get_db)
 ):
     """切換主管通知狀態"""
+    from app.models.line_contact import LineContact
     result = require_permission(request, db, "managers:edit")
     if isinstance(result, RedirectResponse):
         return result
-    admin = result
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.has_role(UserRole.MANAGER.value):
-        user.manager_notification_enabled = not user.manager_notification_enabled
+    contact = db.query(LineContact).filter(LineContact.id == contact_id).first()
+    if contact and contact.is_manager:
+        contact.manager_notification_enabled = not contact.manager_notification_enabled
         db.commit()
-        status = "啟用" if user.manager_notification_enabled else "停用"
+        status = "啟用" if contact.manager_notification_enabled else "停用"
         return RedirectResponse(
-            url=f"/dashboard/managers?success=已{status}「{user.display_name}」的通知",
+            url=f"/dashboard/managers?success=已{status}「{contact.display_name}」的通知",
             status_code=303
         )
 
     return RedirectResponse(url="/dashboard/managers", status_code=303)
 
 
-@router.post("/dashboard/managers/{user_id}/categories")
+@router.post("/dashboard/managers/{contact_id}/categories")
 async def manager_update_categories(
     request: Request,
-    user_id: int,
+    contact_id: int,
     db: Session = Depends(get_db),
 ):
     """更新主管通知類別"""
+    from app.models.line_contact import LineContact
     result = require_permission(request, db, "managers:edit")
     if isinstance(result, RedirectResponse):
         return result
@@ -1491,40 +1490,38 @@ async def manager_update_categories(
     form = await request.form()
     categories = form.getlist("categories")
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.has_role(UserRole.MANAGER.value):
+    contact = db.query(LineContact).filter(LineContact.id == contact_id).first()
+    if contact and contact.is_manager:
         from app.models.user import ALL_NOTIFICATION_CATEGORIES
-        # 如果全部勾選，存 NULL（代表「全部」，未來新增類別自動包含）
         if set(categories) >= set(ALL_NOTIFICATION_CATEGORIES):
-            user.manager_notification_categories = None
+            contact.manager_notification_categories = None
         else:
-            user.set_notification_categories(categories)
-        # 不自動關閉總開關（避免 UI 消失讓使用者困惑）
+            contact.set_notification_categories(categories)
         db.commit()
         return RedirectResponse(
-            url=f"/dashboard/managers?success=已更新「{user.display_name}」的通知類別",
+            url=f"/dashboard/managers?success=已更新「{contact.display_name}」的通知類別",
             status_code=303
         )
 
     return RedirectResponse(url="/dashboard/managers", status_code=303)
 
 
-@router.post("/dashboard/managers/{user_id}/delete")
+@router.post("/dashboard/managers/{contact_id}/delete")
 async def manager_delete(
     request: Request,
-    user_id: int,
+    contact_id: int,
     db: Session = Depends(get_db)
 ):
-    """移除主管角色（不刪除用戶）"""
+    """移除主管角色"""
+    from app.models.line_contact import LineContact
     result = require_permission(request, db, "managers:edit")
     if isinstance(result, RedirectResponse):
         return result
-    admin = result
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.has_role(UserRole.MANAGER.value):
-        name = user.display_name
-        user.remove_role(UserRole.MANAGER.value)
+    contact = db.query(LineContact).filter(LineContact.id == contact_id).first()
+    if contact and contact.is_manager:
+        name = contact.display_name
+        contact.is_manager = False
         db.commit()
         return RedirectResponse(
             url=f"/dashboard/managers?success=已移除「{name}」的主管角色",
@@ -2109,8 +2106,15 @@ async def user_send_any_training(
             )
 
         try:
+            from app.services.line_service import get_pushable_line_id
+            pushable_id = get_pushable_line_id(user, db)
+            if not pushable_id:
+                return RedirectResponse(
+                    url=f"/dashboard/users/{line_user_id}?error=此用戶無可推播的 LINE ID",
+                    status_code=303
+                )
             push_service._send_push_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 message=opening_message
             )
 

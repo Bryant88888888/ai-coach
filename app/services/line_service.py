@@ -18,6 +18,16 @@ from app.services.user_service import UserService
 from app.services.training_service import TrainingService
 
 
+def get_pushable_line_id(user, db) -> str | None:
+    """從 User 找到可推播的 LINE ID（透過 LineContact 連結）"""
+    from app.models.line_contact import LineContact
+    contact = db.query(LineContact).filter(LineContact.user_id == user.id).first()
+    if contact:
+        return contact.line_user_id
+    # fallback: 如果沒有 LineContact 連結，嘗試用 user 本身的 line_user_id
+    return user.line_user_id if user.line_user_id else None
+
+
 class LineService:
     """LINE 訊息處理服務"""
 
@@ -307,9 +317,9 @@ class LineService:
             )
 
     def _get_managers_for_category(self, category: str, db=None) -> list:
-        """取得訂閱指定通知類別的主管列表"""
+        """取得訂閱指定通知類別的主管列表（從 line_contacts 查詢）"""
         from app.database import SessionLocal
-        from app.models.user import User
+        from app.models.line_contact import LineContact
 
         should_close = False
         if db is None:
@@ -317,9 +327,9 @@ class LineService:
             should_close = True
 
         try:
-            all_managers = db.query(User).filter(
-                User.roles.contains('"manager"'),
-                User.manager_notification_enabled == True
+            all_managers = db.query(LineContact).filter(
+                LineContact.is_manager == True,
+                LineContact.manager_notification_enabled == True
             ).all()
             return [m for m in all_managers if m.has_notification_category(category)]
         finally:
@@ -462,18 +472,23 @@ class LineService:
             if should_close:
                 db.close()
 
-    def notify_requester_result(self, leave_request) -> None:
+    def notify_requester_result(self, leave_request, db=None) -> None:
         """
         通知請假者審核結果
 
         Args:
             leave_request: LeaveRequest 物件
+            db: 資料庫 session（用於查詢 LineContact）
         """
-        if not leave_request.user or not leave_request.user.line_user_id:
-            print("警告：找不到請假者的 LINE ID")
+        if not leave_request.user:
+            print("警告：找不到請假者")
             return
 
-        user_line_id = leave_request.user.line_user_id
+        user_line_id = get_pushable_line_id(leave_request.user, db) if db else leave_request.user.line_user_id
+        if not user_line_id:
+            print(f"警告：請假者 {leave_request.applicant_name} 無可推播的 LINE ID")
+            return
+
         flex_content = self._build_leave_result_flex(leave_request)
 
         try:
@@ -486,18 +501,22 @@ class LineService:
         except Exception as e:
             print(f"❌ 發送審核結果失敗: {e}")
 
-    def notify_requester_pending_proof(self, leave_request) -> None:
+    def notify_requester_pending_proof(self, leave_request, db=None) -> None:
         """
         通知請假者需要補上證明文件
 
         Args:
             leave_request: LeaveRequest 物件
+            db: 資料庫 session
         """
-        if not leave_request.user or not leave_request.user.line_user_id:
-            print("警告：找不到請假者的 LINE ID")
+        if not leave_request.user:
+            print("警告：找不到請假者")
             return
 
-        user_line_id = leave_request.user.line_user_id
+        user_line_id = get_pushable_line_id(leave_request.user, db) if db else leave_request.user.line_user_id
+        if not user_line_id:
+            print(f"警告：請假者 {leave_request.applicant_name} 無可推播的 LINE ID")
+            return
         settings = get_settings()
 
         # 計算補件期限
@@ -935,20 +954,25 @@ class LineService:
             }
         }
 
-    def send_duty_reminder(self, schedule) -> bool:
+    def send_duty_reminder(self, schedule, db=None) -> bool:
         """
         發送值日提醒
 
         Args:
             schedule: DutySchedule 物件
+            db: 資料庫 session
 
         Returns:
             是否發送成功
         """
         try:
+            user_line_id = get_pushable_line_id(schedule.user, db) if db else schedule.user.line_user_id
+            if not user_line_id:
+                print(f"值日提醒跳過：{schedule.user.display_name} 無可推播的 LINE ID")
+                return False
             flex_content = self.build_duty_reminder_flex(schedule)
             self.send_flex_message(
-                user_id=schedule.user.line_user_id,
+                user_id=user_line_id,
                 alt_text=f"🧹 值日提醒 - {schedule.duty_date}",
                 flex_content=flex_content
             )
@@ -999,20 +1023,20 @@ class LineService:
             lines.append("\n請各位同仁知悉！")
             message = "\n".join(lines)
 
-            # 取得所有已開通的員工
-            all_users = db.query(User).filter(
-                User.is_approved == True,
-                User.line_user_id.isnot(None),
-                User.line_user_id != "",
+            # 取得所有可推播的 LINE 聯絡人
+            from app.models.line_contact import LineContact
+            all_contacts = db.query(LineContact).filter(
+                LineContact.line_user_id.isnot(None),
+                LineContact.line_user_id != "",
             ).all()
 
             sent_count = 0
-            for user in all_users:
+            for contact in all_contacts:
                 try:
-                    self.send_push_message(user.line_user_id, message)
+                    self.send_push_message(contact.line_user_id, message)
                     sent_count += 1
                 except Exception as e:
-                    print(f"發送值日公告失敗 ({user.real_name or user.line_user_id}): {e}")
+                    print(f"發送值日公告失敗 ({contact.display_name}): {e}")
 
             print(f"✅ 值日公告已發送給 {sent_count}/{len(all_users)} 人")
             return sent_count

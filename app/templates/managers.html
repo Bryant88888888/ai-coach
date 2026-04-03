@@ -126,8 +126,8 @@
                     {% endif %}
                     <div>
                         <p class="font-semibold text-gray-800 dark:text-white">{{ manager.display_name }}</p>
-                        {% if manager.real_name and manager.real_name != manager.line_display_name %}
-                        <p class="text-xs text-gray-400 dark:text-gray-500">本名：{{ manager.real_name }}</p>
+                        {% if manager.user and manager.user.real_name %}
+                        <p class="text-xs text-gray-400 dark:text-gray-500">本名：{{ manager.user.real_name }}</p>
                         {% endif %}
                     </div>
                 </div>

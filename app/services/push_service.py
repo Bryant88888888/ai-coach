@@ -13,6 +13,7 @@ from linebot.v3.messaging import (
 )
 
 from app.config import get_settings
+from app.services.line_service import get_pushable_line_id
 from app.models.user import User, UserStatus
 from app.models.user_training import UserTraining, TrainingStatus
 from app.models.push_log import PushLog
@@ -294,9 +295,13 @@ class PushService:
                 course_version
             )
 
-            # 發送 LINE 訊息
+            # 發送 LINE 訊息（透過 LineContact 取得可推播的 LINE ID）
+            pushable_id = get_pushable_line_id(user, self.db)
+            if not pushable_id:
+                print(f"跳過推送：{user.display_name} 無可推播的 LINE ID")
+                return None
             self._send_push_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 message=opening_message
             )
 
@@ -388,8 +393,12 @@ class PushService:
                 lesson_content=lesson_content
             )
 
+            pushable_id = get_pushable_line_id(user, self.db)
+            if not pushable_id:
+                print(f"跳過推送：{user.display_name} 無可推播的 LINE ID")
+                return None
             self._send_flex_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 alt_text=f"📚 Day {user_training.current_day} - {course_title}",
                 flex_content=card
             )
@@ -486,8 +495,12 @@ class PushService:
             )
 
             # 發送開場訊息
+            pushable_id = get_pushable_line_id(user, self.db)
+            if not pushable_id:
+                print(f"跳過推送：{user.display_name} 無可推播的 LINE ID")
+                return None
             self._send_push_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 message=opening_message
             )
 
@@ -576,8 +589,12 @@ class PushService:
             )
 
             # 發送開場訊息
+            pushable_id = get_pushable_line_id(user, self.db)
+            if not pushable_id:
+                print(f"跳過推送：{user.display_name} 無可推播的 LINE ID")
+                return None
             self._send_push_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 message=opening_message
             )
 
@@ -646,8 +663,12 @@ class PushService:
                 lesson_content=lesson_content
             )
 
+            pushable_id = get_pushable_line_id(user, self.db)
+            if not pushable_id:
+                print(f"跳過推送：{user.display_name} 無可推播的 LINE ID")
+                return None
             self._send_flex_message(
-                user_id=user.line_user_id,
+                user_id=pushable_id,
                 alt_text=f"📚 Day {target_day} - {course_title}",
                 flex_content=card
             )

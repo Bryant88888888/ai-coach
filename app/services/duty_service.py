@@ -971,9 +971,13 @@ class DutyService:
 
     def _notify_swap_request(self, swap: DutySwap, schedule: DutySchedule) -> None:
         """通知對方有新的換班申請"""
+        from app.services.line_service import get_pushable_line_id
         requester = self.db.query(User).filter(User.id == swap.requester_id).first()
         target = self.db.query(User).filter(User.id == swap.target_user_id).first()
-        if not requester or not target or not target.line_user_id:
+        if not requester or not target:
+            return
+        target_line_id = get_pushable_line_id(target, self.db)
+        if not target_line_id:
             return
 
         requester_name = requester.real_name or requester.display_name or "同事"
@@ -997,13 +1001,17 @@ class DutyService:
             f"{requester_name} 申請將 {date_str}（{weekday}）的值日班換給你。{reason_text}"
             f"{link_text}"
         )
-        self._send_line_message(target.line_user_id, message)
+        self._send_line_message(target_line_id, message)
 
     def _notify_swap_response(self, swap: DutySwap, schedule: DutySchedule) -> None:
         """通知申請者換班結果"""
+        from app.services.line_service import get_pushable_line_id
         requester = self.db.query(User).filter(User.id == swap.requester_id).first()
         target = self.db.query(User).filter(User.id == swap.target_user_id).first()
-        if not requester or not target or not requester.line_user_id:
+        if not requester or not target:
+            return
+        requester_line_id = get_pushable_line_id(requester, self.db)
+        if not requester_line_id:
             return
 
         target_name = target.real_name or target.display_name or "對方"
@@ -1024,13 +1032,17 @@ class DutyService:
                 f"❌ 換班申請已拒絕\n\n"
                 f"{target_name} 已拒絕你 {date_str}（{weekday}）的換班申請。{note_text}"
             )
-        self._send_line_message(requester.line_user_id, message)
+        self._send_line_message(requester_line_id, message)
 
     def _notify_swap_cancelled(self, swap: DutySwap) -> None:
         """通知對方換班申請已取消"""
+        from app.services.line_service import get_pushable_line_id
         requester = self.db.query(User).filter(User.id == swap.requester_id).first()
         target = self.db.query(User).filter(User.id == swap.target_user_id).first()
-        if not requester or not target or not target.line_user_id:
+        if not requester or not target:
+            return
+        target_line_id = get_pushable_line_id(target, self.db)
+        if not target_line_id:
             return
 
         schedule = self.db.query(DutySchedule).filter(
@@ -1046,4 +1058,4 @@ class DutyService:
             f"📋 換班申請已取消\n\n"
             f"{requester_name} 已取消 {date_str} 的換班申請。"
         )
-        self._send_line_message(target.line_user_id, message)
+        self._send_line_message(target_line_id, message)

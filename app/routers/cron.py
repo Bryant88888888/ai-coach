@@ -252,7 +252,7 @@ def run_duty_reminder_background():
         sent_count = 0
         for schedule in schedules:
             try:
-                success = line_service.send_duty_reminder(schedule)
+                success = line_service.send_duty_reminder(schedule, db)
                 if success:
                     duty_service.mark_as_notified(schedule.id)
                     sent_count += 1
