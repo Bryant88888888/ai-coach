@@ -27,6 +27,7 @@ from app.models.training_batch import TrainingBatch
 from app.models.user_training import UserTraining, TrainingStatus
 from app.models.info_form import InfoFormSubmission
 from app.services.training_batch_service import TrainingBatchService
+from app.services.storage_service import upload_proof_file
 
 # 設定模板目錄
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -1074,9 +1075,6 @@ async def seed_courses_route(
 
 # ========== 請假管理 ==========
 
-# 建立上傳目錄
-UPLOAD_DIR = Path(__file__).parent.parent / "static" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.get("/dashboard/leave", response_class=HTMLResponse)
@@ -1170,18 +1168,10 @@ async def leave_apply_submit(
             user.line_picture_url = line_picture_url
             db.commit()
 
-        # 處理檔案上傳
-        proof_filename = None
+        # 處理檔案上傳到 Supabase Storage
+        proof_url = None
         if proof_file and proof_file.filename:
-            # 產生唯一檔名
-            ext = os.path.splitext(proof_file.filename)[1]
-            proof_filename = f"{uuid.uuid4()}{ext}"
-            file_path = UPLOAD_DIR / proof_filename
-
-            # 儲存檔案
-            with open(file_path, "wb") as f:
-                content = await proof_file.read()
-                f.write(content)
+            proof_url = await upload_proof_file(proof_file)
 
         leave_request = LeaveRequest(
             user_id=user.id,
@@ -1191,7 +1181,7 @@ async def leave_apply_submit(
             leave_type=leave_type,
             leave_date=leave_date,
             reason=reason if leave_type == "事假" else None,
-            proof_file=proof_filename if leave_type == "病假" else None,
+            proof_file=proof_url if leave_type == "病假" else None,
             status=LeaveStatus.PENDING.value
         )
         db.add(leave_request)
@@ -2564,12 +2554,15 @@ async def duty_schedule_generate(
 
     try:
         total = 0
+        details = []
         for sc in store_configs:
             if sc.is_active:
                 schedules = duty_service.auto_generate_schedule(sc.id, start_date, end_date)
                 total += len(schedules)
+                details.append(f"{sc.name}:{len(schedules)}筆")
+        detail_str = "，".join(details) if details else ""
         return RedirectResponse(
-            url=f"/dashboard/duty/schedule?success=已生成 {total} 筆排班（{len([s for s in store_configs if s.is_active])} 間店家）",
+            url=f"/dashboard/duty/schedule?success=已生成 {total} 筆排班（{detail_str}）",
             status_code=303
         )
     except ValueError as e:
