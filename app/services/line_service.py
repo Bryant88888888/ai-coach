@@ -956,3 +956,67 @@ class LineService:
         except Exception as e:
             print(f"發送值日提醒失敗: {e}")
             return False
+
+    def send_daily_duty_announcement(self, schedules, db=None) -> int:
+        """
+        發送今日值日生公告給所有員工
+
+        Args:
+            schedules: 今日所有 DutySchedule 物件列表
+            db: 資料庫 Session
+
+        Returns:
+            成功發送的人數
+        """
+        from app.database import SessionLocal
+        from app.models.user import User, UserStatus
+        from datetime import date
+
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+
+        try:
+            if not schedules:
+                print("今日無值日排班，跳過公告")
+                return 0
+
+            # 組裝公告內容（按店家分組）
+            today = date.today()
+            weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+            weekday = f"星期{weekday_names[today.weekday()]}"
+
+            store_duties = {}
+            for s in schedules:
+                store_name = s.config.name if s.config else "未分類"
+                user_name = s.user.real_name or s.user.nickname or "未知"
+                store_duties.setdefault(store_name, []).append(user_name)
+
+            lines = [f"📋 今日值日生公告\n📅 {today.isoformat()}（{weekday}）\n"]
+            for store, names in store_duties.items():
+                lines.append(f"🏪 {store}：{'、'.join(names)}")
+            lines.append("\n請各位同仁知悉！")
+            message = "\n".join(lines)
+
+            # 取得所有已開通的員工
+            all_users = db.query(User).filter(
+                User.is_approved == True,
+                User.line_user_id.isnot(None),
+                User.line_user_id != "",
+            ).all()
+
+            sent_count = 0
+            for user in all_users:
+                try:
+                    self.send_push_message(user.line_user_id, message)
+                    sent_count += 1
+                except Exception as e:
+                    print(f"發送值日公告失敗 ({user.real_name or user.line_user_id}): {e}")
+
+            print(f"✅ 值日公告已發送給 {sent_count}/{len(all_users)} 人")
+            return sent_count
+
+        finally:
+            if should_close:
+                db.close()

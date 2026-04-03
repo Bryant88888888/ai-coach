@@ -292,3 +292,50 @@ async def duty_reminder(
         "message": "值日提醒已在背景執行",
         "started_at": datetime.now().isoformat()
     }
+
+
+def run_duty_announcement_background():
+    """背景執行今日值日生全員公告"""
+    db = SessionLocal()
+    try:
+        from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
+        from datetime import date
+
+        today = date.today()
+        line_service = LineService()
+
+        # 取得今日所有排班（不限狀態，包含已換班的）
+        schedules = db.query(DutySchedule).filter(
+            DutySchedule.duty_date == today,
+        ).all()
+
+        if schedules:
+            sent = line_service.send_daily_duty_announcement(schedules, db)
+            print(f"✅ 值日公告完成: 發送給 {sent} 人")
+        else:
+            print("ℹ️ 今日無值日排班，跳過公告")
+
+    except Exception as e:
+        print(f"❌ 值日公告失敗: {e}")
+    finally:
+        db.close()
+
+
+@router.post("/duty-announcement")
+async def duty_announcement(
+    background_tasks: BackgroundTasks,
+    _: None = Depends(verify_cron_secret)
+):
+    """
+    今日值日生全員公告（台灣時間 17:00 觸發）
+
+    發送今日值日生名單給所有已開通的員工
+    Cron Job 設定: UTC 09:00 = 台灣 17:00
+    """
+    background_tasks.add_task(run_duty_announcement_background)
+
+    return {
+        "status": "started",
+        "message": "值日公告已在背景執行",
+        "started_at": datetime.now().isoformat()
+    }
