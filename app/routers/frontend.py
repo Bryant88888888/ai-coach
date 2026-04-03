@@ -1116,6 +1116,16 @@ async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/api/leave/profile")
+async def leave_profile_lookup(line_user_id: str, db: Session = Depends(get_db)):
+    """根據 LINE ID 查詢員工資料（供請假表單自動帶入）"""
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+    if not user or not user.real_name:
+        return {"found": False}
+    return {"found": True, "real_name": user.real_name}
+
+
 @router.post("/leave")
 async def leave_apply_submit(
     request: Request,
@@ -1123,7 +1133,6 @@ async def leave_apply_submit(
     line_user_id: str = Form(...),
     line_user_name: str = Form(...),
     line_picture_url: str = Form(""),
-    full_name: str = Form(...),
     leave_type: str = Form(...),
     leave_date: date = Form(...),
     reason: str = Form(None),
@@ -1139,26 +1148,23 @@ async def leave_apply_submit(
     if leave_date == today and now.hour >= 17:
         return templates.TemplateResponse("leave_form.html", {
             "request": request,
-            "liff_id": settings.liff_id,
+            "liff_id": settings.liff_id_leave or settings.liff_id,
             "is_public": True,
             "error": "當日請假需在下午 5 點前提出申請，請選擇其他日期"
         })
 
     try:
-        # 根據 LINE ID 查找或建立使用者
+        # 根據 LINE ID 查找使用者（必須已註冊）
         user = user_service.get_user_by_line_id(line_user_id)
-        if not user:
-            # 如果使用者不存在，建立新使用者
-            user = user_service.create_user(
-                line_user_id=line_user_id,
-                line_display_name=line_user_name,
-                line_picture_url=line_picture_url if line_picture_url else None
-            )
+        if not user or not user.real_name:
+            return templates.TemplateResponse("leave_form.html", {
+                "request": request,
+                "liff_id": settings.liff_id_leave or settings.liff_id,
+                "is_public": True,
+                "error": "您尚未完成員工註冊，請先完成註冊後再申請請假"
+            })
 
-        # 更新本名（如果有填寫且不同）
-        if full_name and user.real_name != full_name:
-            user.real_name = full_name
-            db.commit()
+        full_name = user.real_name
 
         # 更新 LINE 資料（如果有變更）
         if line_user_name and user.line_display_name != line_user_name:

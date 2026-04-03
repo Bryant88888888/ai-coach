@@ -242,19 +242,12 @@
 
                 <div class="glass rounded-2xl p-6 space-y-6">
 
-                    <!-- 姓名 -->
+                    <!-- 姓名（自動帶入，唯讀） -->
                     <div>
-                        <label for="full_name" class="field-label block mb-2">
-                            姓名 <span style="color: #d4a853;">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            id="full_name"
-                            name="full_name"
-                            required
-                            placeholder="請輸入您的全名"
-                            class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]"
-                        >
+                        <label class="field-label block mb-2">申請人</label>
+                        <div id="applicant-name" class="form-input w-full px-4 py-3 rounded-lg min-h-[48px] flex items-center" style="opacity: 0.7; cursor: not-allowed;">
+                            載入中...
+                        </div>
                     </div>
 
                     <div class="divider"></div>
@@ -424,10 +417,36 @@
                 document.getElementById('line_user_name').value = profile.displayName;
                 document.getElementById('line_picture_url').value = profile.pictureUrl || '';
 
-                loadingSection.classList.add('hidden');
-                formSection.classList.remove('hidden');
-
-                initFormFeatures();
+                // 查詢員工資料，自動帶入姓名
+                try {
+                    const resp = await fetch(`/api/leave/profile?line_user_id=${profile.userId}`);
+                    const data = await resp.json();
+                    if (data.found) {
+                        document.getElementById('applicant-name').textContent = data.real_name;
+                        document.getElementById('applicant-name').style.opacity = '1';
+                        loadingSection.classList.add('hidden');
+                        formSection.classList.remove('hidden');
+                        initFormFeatures();
+                    } else {
+                        loadingSection.innerHTML = `
+                            <div class="text-center">
+                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);">
+                                    <i class="fas fa-user-slash text-xl text-red-400"></i>
+                                </div>
+                                <h2 class="text-lg font-light text-white mb-2" style="letter-spacing: 0.1em;">尚未註冊</h2>
+                                <p class="text-gray-500 text-sm">請先完成員工註冊後，再使用請假功能</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                } catch (e) {
+                    console.error('查詢員工資料失敗:', e);
+                    document.getElementById('applicant-name').textContent = profile.displayName;
+                    document.getElementById('applicant-name').style.opacity = '1';
+                    loadingSection.classList.add('hidden');
+                    formSection.classList.remove('hidden');
+                    initFormFeatures();
+                }
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
                 let errorMsg = error.message || '未知錯誤';
