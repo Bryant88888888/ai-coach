@@ -329,6 +329,36 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
+        # users 表加 is_approved 欄位（帳號開通）
+        if 'users' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            if 'is_approved' not in columns:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE"
+                        ))
+                        # 現有用戶全部設為已開通（向後兼容）
+                        conn.execute(text(
+                            "UPDATE users SET is_approved = TRUE WHERE is_approved IS NULL OR is_approved = FALSE"
+                        ))
+                        print("Migration: Added 'is_approved' column and set existing users to approved")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+                    conn.commit()
+
+        # 更新「員工」角色加 dashboard:view
+        if 'admin_roles' in table_names:
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text(
+                        """UPDATE admin_roles SET permissions = '["dashboard:view", "morning:edit"]'
+                           WHERE name = '員工' AND permissions = '["morning:edit"]'"""
+                    ))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Migration note: {e}")
+
         # users 表加通知類別欄位
         if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]

@@ -69,20 +69,10 @@ def require_permission(request: Request, db: Session, permission: str) -> AdminA
     if not admin:
         return RedirectResponse(url="/login", status_code=303)
     if not admin.has_permission(permission):
-        if permission == "dashboard:view":
-            # 員工沒有 dashboard 權限，導向表單頁
-            if admin.has_permission("morning:edit"):
-                return RedirectResponse(url="/dashboard/morning-report", status_code=303)
-            request.session.clear()
-            return RedirectResponse(url="/login?error=您的帳號沒有任何頁面存取權限", status_code=303)
-        # 沒有特定頁面權限，導回有權限的地方
         if admin.has_permission("dashboard:view"):
             return RedirectResponse(url="/dashboard?error=您沒有此頁面的權限", status_code=303)
-        elif admin.has_permission("morning:edit"):
-            return RedirectResponse(url="/dashboard/morning-report?error=您沒有此頁面的權限", status_code=303)
-        else:
-            request.session.clear()
-            return RedirectResponse(url="/login?error=您沒有任何頁面存取權限", status_code=303)
+        request.session.clear()
+        return RedirectResponse(url="/login?error=您的帳號沒有存取權限", status_code=303)
     return admin
 
 
@@ -133,61 +123,24 @@ async def login(request: Request, db: Session = Depends(get_db)):
         # LINE 登入模式
         admin = perm_service.get_admin_by_line_user_id(line_user_id)
         if not admin:
-            # 檢查是否為員工 → 自動建立帳號（僅早會日報權限）
+            # 檢查 User 表
             user = db.query(User).filter(User.line_user_id == line_user_id).first()
-            if user and user.real_name:
-                try:
-                    # 找到或建立「員工」角色
-                    from app.models.admin import AdminRole
-                    import json as json_module
-                    employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
-                    if not employee_role:
-                        try:
-                            employee_role = AdminRole(
-                                name="員工",
-                                description="一般員工，僅可填寫早會日報",
-                                permissions=json_module.dumps(["morning:edit"]),
-                                is_system=True,
-                            )
-                            db.add(employee_role)
-                            db.commit()
-                            db.refresh(employee_role)
-                        except Exception:
-                            db.rollback()
-                            employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
-
-                    # 自動建立 AdminAccount（用完整 line_user_id 避免碰撞）
-                    admin_account = AdminAccount(
-                        username=f"line_{line_user_id}",
-                        password_hash=secrets.token_hex(16),
-                        display_name=user.nickname or user.real_name or "員工",
-                        role_id=employee_role.id if employee_role else None,
-                        is_super_admin=False,
-                        is_active=True,
-                        line_user_id=line_user_id,
-                    )
-                    db.add(admin_account)
-                    db.commit()
-                    db.refresh(admin_account)
-                    admin = admin_account
-                except Exception:
-                    db.rollback()
-                    # 可能是重複建立，重新查詢
-                    admin = perm_service.get_admin_by_line_user_id(line_user_id)
-                    if not admin:
-                        return templates.TemplateResponse("login.html", {
-                            "request": request, "error": "帳號建立失敗，請重試", "liff_id": liff_id,
-                        })
-            elif user:
-                error_msg = "請先填寫員工資料（真實姓名）後再登入"
+            if not user:
                 return templates.TemplateResponse("login.html", {
-                    "request": request, "error": error_msg, "liff_id": liff_id,
+                    "request": request, "error": "您不是本公司員工，無法登入", "liff_id": liff_id,
                 })
-            else:
-                error_msg = "您不是本公司員工，無法登入"
+            if not user.real_name:
                 return templates.TemplateResponse("login.html", {
-                    "request": request, "error": error_msg, "liff_id": liff_id,
+                    "request": request, "error": "請先填寫員工資料後再登入", "liff_id": liff_id,
                 })
+            if not user.is_approved:
+                return templates.TemplateResponse("login.html", {
+                    "request": request, "error": "您的帳號尚在審核中，請等待主管開通", "liff_id": liff_id,
+                })
+            # 已開通但沒有 AdminAccount（理論上不應該，開通時就建了）→ 補建
+            return templates.TemplateResponse("login.html", {
+                "request": request, "error": "帳號異常，請聯繫管理者", "liff_id": liff_id,
+            })
         if not admin.is_active:
             return templates.TemplateResponse("login.html", {
                 "request": request, "error": "您的帳號已停用，請聯繫管理者", "liff_id": liff_id,
@@ -213,11 +166,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     admin.last_login_at = datetime.now(timezone.utc)
     db.commit()
 
-    # 員工（沒有 dashboard:view 權限）直接導向表單頁
-    if admin.has_permission("dashboard:view"):
-        return RedirectResponse(url="/dashboard", status_code=303)
-    else:
-        return RedirectResponse(url="/dashboard/morning-report", status_code=303)
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 
 @router.get("/logout")
@@ -3146,7 +3095,18 @@ async def save_profile(
     if not user.registered_at:
         user.registered_at = datetime.now(timezone.utc)
 
+    # 新人預設未開通
+    user.is_approved = False
+
     db.commit()
+    db.refresh(user)
+
+    # 通知主管有新人報到
+    try:
+        line_service = LineService()
+        line_service.notify_managers_new_employee(user, db)
+    except Exception as e:
+        print(f"新人通知發送失敗: {e}")
 
     return {"success": True}
 

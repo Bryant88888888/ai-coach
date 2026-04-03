@@ -278,6 +278,63 @@ async def line_webhook(request: Request, db: Session = Depends(get_db)):
                     print(f"處理請假審核失敗: {e}")
                     line_service.send_reply(event.reply_token, f"❌ 處理失敗：{str(e)}")
 
+            # 處理新人帳號開通
+            if action == "approve_employee":
+                user_id_raw = data.get("user_id", [None])[0]
+                if user_id_raw:
+                    try:
+                        from app.models.admin import AdminAccount, AdminRole
+                        import secrets as secrets_mod
+                        import json as json_mod
+
+                        target_user = db.query(User).filter(User.id == int(user_id_raw)).first()
+                        if not target_user:
+                            line_service.send_reply(event.reply_token, "❌ 找不到此員工")
+                            return
+
+                        if target_user.is_approved:
+                            line_service.send_reply(event.reply_token, f"ℹ️ {target_user.real_name or '員工'} 已經開通過了")
+                            return
+
+                        # 開通帳號
+                        target_user.is_approved = True
+
+                        # 建立 AdminAccount（員工角色）
+                        existing_admin = db.query(AdminAccount).filter(
+                            AdminAccount.line_user_id == target_user.line_user_id
+                        ).first()
+                        if not existing_admin:
+                            employee_role = db.query(AdminRole).filter(AdminRole.name == "員工").first()
+                            if not employee_role:
+                                employee_role = AdminRole(
+                                    name="員工",
+                                    description="一般員工",
+                                    permissions=json_mod.dumps(["dashboard:view", "morning:edit"]),
+                                    is_system=True,
+                                )
+                                db.add(employee_role)
+                                db.flush()
+
+                            admin_account = AdminAccount(
+                                username=f"line_{target_user.line_user_id}",
+                                password_hash=secrets_mod.token_hex(16),
+                                display_name=target_user.real_name or target_user.nickname or "員工",
+                                role_id=employee_role.id,
+                                is_super_admin=False,
+                                is_active=True,
+                                line_user_id=target_user.line_user_id,
+                            )
+                            db.add(admin_account)
+
+                        db.commit()
+                        name = target_user.real_name or target_user.nickname or "員工"
+                        line_service.send_reply(event.reply_token, f"✅ 已開通「{name}」的帳號")
+
+                    except Exception as e:
+                        print(f"處理帳號開通失敗: {e}")
+                        line_service.send_reply(event.reply_token, f"❌ 開通失敗：{str(e)}")
+                return
+
             # 處理值日回報開始按鈕
             if action == "start_duty_report":
                 schedule_id = data.get("schedule_id", [None])[0]

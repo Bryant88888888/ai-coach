@@ -26,6 +26,7 @@ NOTIFICATION_CATEGORIES = {
     "swap": "換班申請",
     "morning_report": "早會日報",
     "info_form": "人事資料提交",
+    "new_employee": "新人註冊",
 }
 ALL_NOTIFICATION_CATEGORIES = list(NOTIFICATION_CATEGORIES.keys())
 
@@ -65,6 +66,7 @@ class User(Base):
     manager_notification_enabled = Column(Boolean, default=True)  # 主管通知總開關
     manager_notification_categories = Column(Text, nullable=True)  # JSON array: 訂閱的通知類別，NULL=全部
     position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
+    is_approved = Column(Boolean, default=False)  # 帳號是否已被主管開通
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
     # 關聯

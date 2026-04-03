@@ -358,6 +358,84 @@ class LineService:
             if should_close:
                 db.close()
 
+    def notify_managers_new_employee(self, user, db=None) -> None:
+        """通知訂閱「新人註冊」的主管，發送 Flex Message 含開通按鈕"""
+        from app.database import SessionLocal
+
+        should_close = False
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+
+        try:
+            managers = self._get_managers_for_category("new_employee", db)
+            if not managers:
+                print("警告：無主管訂閱新人註冊通知")
+                return
+
+            flex_content = self._build_new_employee_flex(user)
+
+            for manager in managers:
+                try:
+                    self.send_flex_message(
+                        user_id=manager.line_user_id,
+                        alt_text=f"新人報到 - {user.real_name or user.nickname}",
+                        flex_content=flex_content
+                    )
+                    print(f"✅ 已發送新人通知給 {manager.display_name}")
+                except Exception as e:
+                    print(f"❌ 發送新人通知失敗 ({manager.display_name}): {e}")
+        finally:
+            if should_close:
+                db.close()
+
+    def _build_new_employee_flex(self, user) -> dict:
+        """建立新人報到 Flex Message"""
+        info_rows = []
+
+        def add_row(label, value):
+            info_rows.append({
+                "type": "box", "layout": "horizontal", "margin": "md",
+                "contents": [
+                    {"type": "text", "text": label, "size": "sm", "color": "#AAAAAA", "flex": 2},
+                    {"type": "text", "text": str(value or "-"), "size": "sm", "color": "#333333", "flex": 5, "wrap": True},
+                ]
+            })
+
+        add_row("姓名", user.real_name)
+        add_row("暱稱", user.nickname)
+        add_row("電話", user.phone)
+        add_row("LINE", user.line_display_name)
+
+        return {
+            "type": "bubble",
+            "header": {
+                "type": "box", "layout": "vertical",
+                "backgroundColor": "#10B981", "paddingAll": "15px",
+                "contents": [
+                    {"type": "text", "text": "🆕 新人報到通知", "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                    {"type": "text", "text": "有新員工完成資料填寫", "color": "#D1FAE5", "size": "xs", "margin": "sm"},
+                ]
+            },
+            "body": {
+                "type": "box", "layout": "vertical", "paddingAll": "15px",
+                "contents": info_rows
+            },
+            "footer": {
+                "type": "box", "layout": "vertical", "spacing": "sm", "paddingAll": "15px",
+                "contents": [
+                    {
+                        "type": "button", "style": "primary", "color": "#10B981",
+                        "action": {
+                            "type": "postback",
+                            "label": "✓ 開通帳號",
+                            "data": f"action=approve_employee&user_id={user.id}"
+                        }
+                    }
+                ]
+            }
+        }
+
     def notify_managers_info_form(self, form_type: str, submitter_name: str, db=None) -> None:
         """通知訂閱「人事資料」類別的主管有新的表單提交"""
         from app.database import SessionLocal
