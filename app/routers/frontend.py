@@ -95,15 +95,33 @@ async def debug_duty_rules(db: Session = Depends(get_db)):
     """臨時 debug：查看值日規則和店家狀態"""
     from app.models.duty_rule import DutyRule
     from app.models.duty_config import DutyConfig
+    from app.models.duty_schedule import DutySchedule
     rules = db.query(DutyRule).filter(DutyRule.rule_type == 'duty').all()
     configs = db.query(DutyConfig).all()
     weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+
+    # 查看本月排班
+    today = date.today()
+    month_start = date(today.year, today.month, 1)
+    schedules = db.query(DutySchedule).filter(
+        DutySchedule.duty_date >= month_start,
+        DutySchedule.duty_date <= today,
+    ).order_by(DutySchedule.duty_date).limit(30).all()
+
     return {
         "configs": [{"id": c.id, "name": c.name, "is_active": c.is_active} for c in configs],
         "rules": [{"id": r.id, "weekday": f"星期{weekday_names[r.weekday]}", "user_id": r.user_id, "user_name": r.user.real_name if r.user else None, "config_id": r.config_id} for r in rules],
         "rules_count": len(rules),
-        "rules_with_config": len([r for r in rules if r.config_id]),
-        "rules_without_config": len([r for r in rules if not r.config_id]),
+        "recent_schedules": [{
+            "id": s.id,
+            "date": s.duty_date.isoformat(),
+            "weekday": f"星期{weekday_names[s.duty_date.weekday()]}",
+            "user_id": s.user_id,
+            "user_name": s.user.real_name if s.user else None,
+            "config_id": s.config_id,
+            "config_name": s.config.name if s.config else None,
+            "status": s.status,
+        } for s in schedules],
     }
 
 
