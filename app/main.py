@@ -59,7 +59,7 @@ app.add_middleware(
 
 # 註冊路由
 app.include_router(webhook_router)
-app.include_router(admin_router)
+# admin_router 已被 frontend_router 的 /dashboard/* 路由取代，不再掛載（舊 API 無認證保護）
 app.include_router(frontend_router)
 app.include_router(cron_router)
 app.include_router(duty_mobile_router)
