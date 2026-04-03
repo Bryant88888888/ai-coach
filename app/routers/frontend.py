@@ -2974,9 +2974,6 @@ async def submit_info_form(
                         json={
                             "template_id": TEMPLATE_ID,
                             "signer_name": signer_name,
-                            "prefill_data": {
-                                "Applicants_Name": signer_name
-                            }
                         }
                     )
                     if resp.status_code == 200:
