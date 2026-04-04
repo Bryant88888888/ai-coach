@@ -31,6 +31,18 @@ NOTIFICATION_CATEGORIES = {
 ALL_NOTIFICATION_CATEGORIES = list(NOTIFICATION_CATEGORIES.keys())
 
 
+# PDF 簽署系統權限定義（每個頁面一個權限）
+PDF_PERMISSIONS = {
+    "pdf:home": "首頁",
+    "pdf:template_builder": "建立模板",
+    "pdf:templates": "模板列表",
+    "pdf:fingerprints": "指紋管理",
+    "pdf:documents": "已簽署文件",
+    "pdf:tasks": "簽署任務",
+    "pdf:sign": "簽署頁面",
+}
+
+
 class UserRole(str, enum.Enum):
     """用戶角色"""
     TRAINEE = "trainee"           # 受訓者（預設）
@@ -67,7 +79,7 @@ class User(Base):
     manager_notification_categories = Column(Text, nullable=True)  # JSON array: 訂閱的通知類別，NULL=全部
     position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
     is_approved = Column(Boolean, default=False)  # 帳號是否已被主管開通
-    pdf_signing_role = Column(String(20), nullable=True)  # PDF 簽署角色：admin / signer / NULL（無權限）
+    pdf_signing_permissions = Column(Text, nullable=True)  # PDF 簽署權限 JSON array，NULL=無權限
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
     # 關聯
@@ -175,3 +187,23 @@ class User(Base):
         if not self.manager_notification_enabled:
             return False
         return category in self.get_notification_categories()
+
+    # ===== PDF 簽署權限管理 =====
+
+    def get_pdf_permissions(self) -> list[str]:
+        """取得 PDF 簽署權限列表"""
+        if not self.pdf_signing_permissions:
+            return []
+        try:
+            return json.loads(self.pdf_signing_permissions)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def set_pdf_permissions(self, permissions: list[str]) -> None:
+        """設定 PDF 簽署權限"""
+        valid = [p for p in permissions if p in PDF_PERMISSIONS]
+        self.pdf_signing_permissions = json.dumps(valid) if valid else None
+
+    def has_pdf_permission(self, permission: str) -> bool:
+        """檢查是否有指定的 PDF 權限"""
+        return permission in self.get_pdf_permissions()

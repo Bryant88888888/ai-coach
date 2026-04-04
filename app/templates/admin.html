@@ -236,65 +236,59 @@
             </div>
 
             {% if pdf_users %}
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">員工姓名</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">暱稱</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">角色</th>
-                            {% if "admin:edit" in admin_permissions %}
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">操作</th>
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for user in pdf_users %}
+                {% set user_perms = user.get_pdf_permissions() %}
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <span class="font-semibold text-gray-800 dark:text-white">{{ user.real_name }}</span>
+                            {% if user.nickname %}
+                            <span class="text-sm text-gray-500 dark:text-gray-400 ml-1">({{ user.nickname }})</span>
                             {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        {% for user in pdf_users %}
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                            <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ loop.index }}</td>
-                            <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-white">{{ user.real_name }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ user.nickname or '-' }}</td>
-                            <td class="px-6 py-4 text-center">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    {% if user.pdf_signing_role == 'admin' %}
-                                    bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400
-                                    {% else %}
-                                    bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400
-                                    {% endif %}">
-                                    {% if user.pdf_signing_role == 'admin' %}
-                                    <i class="fas fa-crown mr-1"></i>管理員
-                                    {% else %}
-                                    <i class="fas fa-pen-nib mr-1"></i>簽署者
-                                    {% endif %}
-                                </span>
-                            </td>
-                            {% if "admin:edit" in admin_permissions %}
-                            <td class="px-6 py-4 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                    <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/update" class="inline">
-                                        <input type="hidden" name="pdf_role" value="{% if user.pdf_signing_role == 'admin' %}signer{% else %}admin{% endif %}">
-                                        <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg transition min-h-[32px]
-                                            bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                                            title="切換為{% if user.pdf_signing_role == 'admin' %}簽署者{% else %}管理員{% endif %}">
-                                            <i class="fas fa-exchange-alt mr-1"></i>
-                                            {% if user.pdf_signing_role == 'admin' %}改為簽署者{% else %}改為管理員{% endif %}
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/remove"
-                                          onsubmit="return confirm('確定要移除「{{ user.real_name }}」的 PDF 簽署權限嗎？')" class="inline">
-                                        <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg transition min-h-[32px]
-                                            bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                            {% endif %}
-                        </tr>
+                        </div>
+                        {% if "admin:edit" in admin_permissions %}
+                        <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/remove"
+                              onsubmit="return confirm('確定要移除「{{ user.real_name }}」的所有 PDF 權限嗎？')" class="inline">
+                            <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg transition min-h-[32px]
+                                bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900">
+                                <i class="fas fa-trash-alt mr-1"></i>移除
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% if "admin:edit" in admin_permissions %}
+                    <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/update" id="pdf-form-{{ user.id }}">
+                        <div class="flex flex-wrap gap-2">
+                            {% for key, label in pdf_permissions.items() %}
+                            <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer transition
+                                {% if key in user_perms %}
+                                bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400
+                                {% else %}
+                                bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500
+                                {% endif %}">
+                                <input type="checkbox" name="permissions" value="{{ key }}"
+                                    {% if key in user_perms %}checked{% endif %}
+                                    class="w-3.5 h-3.5 text-indigo-600 rounded"
+                                    onchange="document.getElementById('pdf-form-{{ user.id }}').submit()">
+                                {{ label }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="flex flex-wrap gap-2">
+                        {% for key, label in pdf_permissions.items() %}
+                        {% if key in user_perms %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400">
+                            {{ label }}
+                        </span>
+                        {% endif %}
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
             </div>
             {% else %}
             <div class="p-12 text-center">
@@ -331,14 +325,21 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        <i class="fas fa-user-tag mr-1 text-indigo-400"></i>角色 <span class="text-red-500">*</span>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-key mr-1 text-indigo-400"></i>頁面權限 <span class="text-red-500">*</span>
                     </label>
-                    <select name="pdf_role" required
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
-                        <option value="signer">簽署者 — 僅可簽署文件</option>
-                        <option value="admin">管理員 — 完整管理權限</option>
-                    </select>
+                    <div class="space-y-2">
+                        {% for key, label in pdf_permissions.items() %}
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="permissions" value="{{ key }}"
+                                class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ label }}</span>
+                            <code class="text-xs text-gray-400 ml-auto">{{ key }}</code>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <button type="button" onclick="this.closest('form').querySelectorAll('input[name=permissions]').forEach(cb => cb.checked = true)"
+                        class="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">全選</button>
                 </div>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('pdf-modal').classList.add('hidden')"

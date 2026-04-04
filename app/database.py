@@ -345,20 +345,25 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
-        # 新增 pdf_signing_role 欄位（取代舊的 pdf_signing_access boolean）
+        # 新增 pdf_signing_permissions 欄位（JSON array，取代舊的 boolean/role）
         if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]
-            if 'pdf_signing_role' not in columns:
+            if 'pdf_signing_permissions' not in columns:
                 with engine.connect() as conn:
                     try:
                         conn.execute(text(
-                            "ALTER TABLE users ADD COLUMN pdf_signing_role VARCHAR(20)"
+                            "ALTER TABLE users ADD COLUMN pdf_signing_permissions TEXT"
                         ))
-                        # 遷移舊資料：pdf_signing_access=True → pdf_signing_role='signer'
-                        if 'pdf_signing_access' in columns:
-                            conn.execute(text(
-                                "UPDATE users SET pdf_signing_role = 'signer' WHERE pdf_signing_access = TRUE"
-                            ))
+                        # 遷移舊資料：pdf_signing_role → pdf_signing_permissions
+                        if 'pdf_signing_role' in columns:
+                            conn.execute(text("""
+                                UPDATE users SET pdf_signing_permissions = '["pdf:sign"]'
+                                WHERE pdf_signing_role = 'signer'
+                            """))
+                            conn.execute(text("""
+                                UPDATE users SET pdf_signing_permissions = '["pdf:home","pdf:template_builder","pdf:templates","pdf:fingerprints","pdf:documents","pdf:tasks","pdf:sign"]'
+                                WHERE pdf_signing_role = 'admin'
+                            """))
                         conn.commit()
                         print("Migration: Added 'pdf_signing_role' column to users")
                     except Exception as e:
