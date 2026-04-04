@@ -3123,6 +3123,27 @@ async def save_profile(
     db.commit()
     db.refresh(user)
 
+    # 自動連結 LineContact（用 line_display_name 比對加好友時建立的記錄）
+    try:
+        from app.models.line_contact import LineContact
+        names_to_match = [n for n in [
+            real_name.strip() if real_name else "",
+            nickname.strip() if nickname else "",
+            line_display_name.strip() if line_display_name else "",
+        ] if n]
+
+        if names_to_match:
+            # 找名稱吻合的 LineContact（未連結，或連結到未註冊的舊帳號）
+            contact = db.query(LineContact).filter(
+                LineContact.line_display_name.in_(names_to_match)
+            ).first()
+            if contact and contact.user_id != user.id:
+                contact.user_id = user.id
+                db.commit()
+                print(f"✅ 自動連結 LineContact: {contact.line_display_name} → {user.real_name}")
+    except Exception as e:
+        print(f"LineContact 連結失敗（不影響註冊）: {e}")
+
     # 通知主管有新人報到
     try:
         line_service = LineService()
