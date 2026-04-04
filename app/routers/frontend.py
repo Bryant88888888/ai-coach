@@ -3079,7 +3079,7 @@ async def profiles_toggle_pdf(
     db: Session = Depends(get_db)
 ):
     """切換員工 PDF 簽署工具存取權限"""
-    result = require_permission(request, db, "profiles:edit")
+    result = require_permission(request, db, "admin:edit")
     if isinstance(result, RedirectResponse):
         return result
 
@@ -3089,11 +3089,11 @@ async def profiles_toggle_pdf(
         db.commit()
         status = "開通" if user.pdf_signing_access else "關閉"
         return RedirectResponse(
-            url=f"/dashboard/profiles?success=已{status}「{user.real_name}」的 PDF 簽署權限",
+            url=f"/dashboard/admin?success=已{status}「{user.real_name}」的 PDF 簽署權限&tab=apps",
             status_code=303
         )
 
-    return RedirectResponse(url="/dashboard/profiles?error=找不到該用戶", status_code=303)
+    return RedirectResponse(url="/dashboard/admin?error=找不到該用戶&tab=apps", status_code=303)
 
 
 # ========== 員工資料（Profile LIFF）==========
