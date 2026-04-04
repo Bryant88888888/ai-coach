@@ -1117,12 +1117,22 @@ async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/api/verify-employee")
-async def verify_employee(line_user_id: str, db: Session = Depends(get_db)):
-    """驗證 LINE ID 是否為已註冊且已開通的員工（供外部專案呼叫）"""
+async def verify_employee(line_user_id: str, app: str = None, db: Session = Depends(get_db)):
+    """驗證 LINE ID 是否為已註冊且已開通的員工（供外部專案呼叫）
+
+    參數:
+        line_user_id: LINE User ID
+        app: 要驗證的應用名稱（如 pdf_signing），會額外檢查該應用的存取權限
+    """
     user_service = UserService(db)
     user = user_service.get_user_by_line_id(line_user_id)
     if not user or not user.real_name or not user.is_approved:
         return {"authorized": False}
+
+    # 如果指定了 app，檢查該應用的存取權限
+    if app == "pdf_signing" and not user.pdf_signing_access:
+        return {"authorized": False, "reason": "no_app_access"}
+
     return {
         "authorized": True,
         "name": user.real_name,
@@ -3060,6 +3070,30 @@ async def profiles_edit(
     db.commit()
 
     return RedirectResponse(url="/dashboard/profiles?success=已更新員工資料", status_code=303)
+
+
+@router.post("/dashboard/profiles/{user_id}/toggle-pdf")
+async def profiles_toggle_pdf(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """切換員工 PDF 簽署工具存取權限"""
+    result = require_permission(request, db, "profiles:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.pdf_signing_access = not user.pdf_signing_access
+        db.commit()
+        status = "開通" if user.pdf_signing_access else "關閉"
+        return RedirectResponse(
+            url=f"/dashboard/profiles?success=已{status}「{user.real_name}」的 PDF 簽署權限",
+            status_code=303
+        )
+
+    return RedirectResponse(url="/dashboard/profiles?error=找不到該用戶", status_code=303)
 
 
 # ========== 員工資料（Profile LIFF）==========

@@ -345,6 +345,20 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
+        # 新增 pdf_signing_access 欄位
+        if 'users' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            if 'pdf_signing_access' not in columns:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN pdf_signing_access BOOLEAN DEFAULT FALSE"
+                        ))
+                        conn.commit()
+                        print("Migration: Added 'pdf_signing_access' column to users")
+                    except Exception as e:
+                        print(f"Migration note: {e}")
+
         # 清理所有角色中的 dashboard:view（不再需要此權限）
         if 'admin_roles' in table_names:
             with engine.connect() as conn:
