@@ -222,12 +222,20 @@
     <!-- ===== Tab 3: 應用權限 ===== -->
     <div id="tab-apps" class="tab-content hidden">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
-            <div class="p-4 border-b dark:border-gray-700">
+            <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
                     <i class="fas fa-file-signature text-indigo-500 mr-2"></i>PDF 簽署工具
-                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">管理員工的外部應用存取權限</span>
+                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({{ pdf_users|length }} 人)</span>
                 </h2>
+                {% if "admin:edit" in admin_permissions %}
+                <button onclick="document.getElementById('pdf-modal').classList.remove('hidden')"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition min-h-[40px]">
+                    <i class="fas fa-plus mr-1"></i>新增權限
+                </button>
+                {% endif %}
             </div>
+
+            {% if pdf_users %}
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 dark:bg-gray-700">
@@ -235,44 +243,114 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">員工姓名</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">暱稱</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PDF 簽署</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">角色</th>
+                            {% if "admin:edit" in admin_permissions %}
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">操作</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        {% for user in employees %}
+                        {% for user in pdf_users %}
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ loop.index }}</td>
                             <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-white">{{ user.real_name }}</td>
                             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ user.nickname or '-' }}</td>
                             <td class="px-6 py-4 text-center">
-                                {% if "admin:edit" in admin_permissions %}
-                                <form method="POST" action="/dashboard/profiles/{{ user.id }}/toggle-pdf" class="inline">
-                                    <button type="submit" class="px-4 py-1.5 rounded-full text-xs font-medium transition min-h-[32px]
-                                        {% if user.pdf_signing_access %}
-                                        bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 hover:bg-green-200
-                                        {% else %}
-                                        bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 hover:bg-gray-200
-                                        {% endif %}">
-                                        {% if user.pdf_signing_access %}
-                                        <i class="fas fa-check mr-1"></i>已開通
-                                        {% else %}
-                                        <i class="fas fa-times mr-1"></i>未開通
-                                        {% endif %}
-                                    </button>
-                                </form>
-                                {% else %}
-                                    {% if user.pdf_signing_access %}
-                                    <span class="text-green-600 text-xs"><i class="fas fa-check"></i> 已開通</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if user.pdf_signing_role == 'admin' %}
+                                    bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400
                                     {% else %}
-                                    <span class="text-gray-400 text-xs"><i class="fas fa-times"></i> 未開通</span>
+                                    bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400
+                                    {% endif %}">
+                                    {% if user.pdf_signing_role == 'admin' %}
+                                    <i class="fas fa-crown mr-1"></i>管理員
+                                    {% else %}
+                                    <i class="fas fa-pen-nib mr-1"></i>簽署者
                                     {% endif %}
-                                {% endif %}
+                                </span>
                             </td>
+                            {% if "admin:edit" in admin_permissions %}
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/update" class="inline">
+                                        <input type="hidden" name="pdf_role" value="{% if user.pdf_signing_role == 'admin' %}signer{% else %}admin{% endif %}">
+                                        <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg transition min-h-[32px]
+                                            bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                            title="切換為{% if user.pdf_signing_role == 'admin' %}簽署者{% else %}管理員{% endif %}">
+                                            <i class="fas fa-exchange-alt mr-1"></i>
+                                            {% if user.pdf_signing_role == 'admin' %}改為簽署者{% else %}改為管理員{% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="/dashboard/admin/pdf/{{ user.id }}/remove"
+                                          onsubmit="return confirm('確定要移除「{{ user.real_name }}」的 PDF 簽署權限嗎？')" class="inline">
+                                        <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg transition min-h-[32px]
+                                            bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="p-12 text-center">
+                <i class="fas fa-file-signature text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
+                <p class="text-gray-500 dark:text-gray-400">尚未授權任何人使用 PDF 簽署工具</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PDF 權限新增 Modal -->
+    <div id="pdf-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white">
+                    <i class="fas fa-plus-circle text-indigo-500 mr-2"></i>新增 PDF 簽署權限
+                </h3>
+                <button onclick="document.getElementById('pdf-modal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form method="POST" action="/dashboard/admin/pdf/add" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <i class="fas fa-user mr-1 text-indigo-400"></i>選擇員工 <span class="text-red-500">*</span>
+                    </label>
+                    <select name="user_id" required
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        <option value="">-- 請選擇員工 --</option>
+                        {% for emp in pdf_available_employees %}
+                        <option value="{{ emp.id }}">{{ emp.real_name }}{% if emp.nickname %} ({{ emp.nickname }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <i class="fas fa-user-tag mr-1 text-indigo-400"></i>角色 <span class="text-red-500">*</span>
+                    </label>
+                    <select name="pdf_role" required
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
+                        <option value="signer">簽署者 — 僅可簽署文件</option>
+                        <option value="admin">管理員 — 完整管理權限</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('pdf-modal').classList.add('hidden')"
+                        class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition min-h-[44px]">
+                        取消
+                    </button>
+                    <button type="submit"
+                        class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition min-h-[44px]">
+                        <i class="fas fa-plus mr-1"></i>授權
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

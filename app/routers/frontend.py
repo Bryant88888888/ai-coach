@@ -1130,8 +1130,16 @@ async def verify_employee(line_user_id: str, app: str = None, db: Session = Depe
         return {"authorized": False}
 
     # 如果指定了 app，檢查該應用的存取權限
-    if app == "pdf_signing" and not user.pdf_signing_access:
-        return {"authorized": False, "reason": "no_app_access"}
+    if app == "pdf_signing":
+        if not user.pdf_signing_role:
+            return {"authorized": False, "reason": "no_app_access"}
+        return {
+            "authorized": True,
+            "name": user.real_name,
+            "nickname": user.nickname,
+            "phone": user.phone,
+            "role": user.pdf_signing_role,
+        }
 
     return {
         "authorized": True,
@@ -3072,28 +3080,90 @@ async def profiles_edit(
     return RedirectResponse(url="/dashboard/profiles?success=已更新員工資料", status_code=303)
 
 
-@router.post("/dashboard/profiles/{user_id}/toggle-pdf")
-async def profiles_toggle_pdf(
+@router.post("/dashboard/admin/pdf/add")
+async def pdf_permission_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: int = Form(...),
+    pdf_role: str = Form(...)
+):
+    """新增員工 PDF 簽署權限"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    if pdf_role not in ("admin", "signer"):
+        return RedirectResponse(url="/dashboard/admin?error=無效的角色&tab=apps", status_code=303)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/dashboard/admin?error=找不到該員工&tab=apps", status_code=303)
+
+    if user.pdf_signing_role:
+        return RedirectResponse(
+            url=f"/dashboard/admin?error=「{user.real_name}」已有 PDF 權限&tab=apps",
+            status_code=303
+        )
+
+    user.pdf_signing_role = pdf_role
+    db.commit()
+    role_label = "管理員" if pdf_role == "admin" else "簽署者"
+    return RedirectResponse(
+        url=f"/dashboard/admin?success=已授予「{user.real_name}」PDF {role_label}權限&tab=apps",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/admin/pdf/{user_id}/update")
+async def pdf_permission_update(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    pdf_role: str = Form(...)
+):
+    """變更員工 PDF 簽署角色"""
+    result = require_permission(request, db, "admin:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    if pdf_role not in ("admin", "signer"):
+        return RedirectResponse(url="/dashboard/admin?error=無效的角色&tab=apps", status_code=303)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/dashboard/admin?error=找不到該員工&tab=apps", status_code=303)
+
+    user.pdf_signing_role = pdf_role
+    db.commit()
+    role_label = "管理員" if pdf_role == "admin" else "簽署者"
+    return RedirectResponse(
+        url=f"/dashboard/admin?success=已將「{user.real_name}」的 PDF 角色改為{role_label}&tab=apps",
+        status_code=303
+    )
+
+
+@router.post("/dashboard/admin/pdf/{user_id}/remove")
+async def pdf_permission_remove(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """切換員工 PDF 簽署工具存取權限"""
+    """移除員工 PDF 簽署權限"""
     result = require_permission(request, db, "admin:edit")
     if isinstance(result, RedirectResponse):
         return result
 
     user = db.query(User).filter(User.id == user_id).first()
-    if user:
-        user.pdf_signing_access = not user.pdf_signing_access
-        db.commit()
-        status = "開通" if user.pdf_signing_access else "關閉"
-        return RedirectResponse(
-            url=f"/dashboard/admin?success=已{status}「{user.real_name}」的 PDF 簽署權限&tab=apps",
-            status_code=303
-        )
+    if not user:
+        return RedirectResponse(url="/dashboard/admin?error=找不到該員工&tab=apps", status_code=303)
 
-    return RedirectResponse(url="/dashboard/admin?error=找不到該用戶&tab=apps", status_code=303)
+    name = user.real_name
+    user.pdf_signing_role = None
+    db.commit()
+    return RedirectResponse(
+        url=f"/dashboard/admin?success=已移除「{name}」的 PDF 簽署權限&tab=apps",
+        status_code=303
+    )
 
 
 # ========== 員工資料（Profile LIFF）==========
@@ -3239,6 +3309,18 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         User.line_user_id.isnot(None),
     ).order_by(User.real_name).all()
 
+    # 取得有 PDF 簽署權限的員工
+    pdf_users = db.query(User).filter(
+        User.pdf_signing_role.isnot(None),
+    ).order_by(User.real_name).all()
+
+    # 取得沒有 PDF 權限的已註冊員工（用於新增時選擇）
+    pdf_available_employees = db.query(User).filter(
+        User.real_name.isnot(None),
+        User.real_name != "",
+        User.pdf_signing_role.is_(None),
+    ).order_by(User.real_name).all()
+
     return templates.TemplateResponse("admin.html", build_template_context(
         request, admin, db, "admin",
         all_admins=all_admins,
@@ -3247,6 +3329,8 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         permission_groups=permission_groups,
         permission_registry=PERMISSION_REGISTRY,
         employees=employees,
+        pdf_users=pdf_users,
+        pdf_available_employees=pdf_available_employees,
     ))
 
 

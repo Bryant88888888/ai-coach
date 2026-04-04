@@ -345,17 +345,22 @@ def run_migrations():
                         print(f"Migration note: {e}")
                     conn.commit()
 
-        # 新增 pdf_signing_access 欄位
+        # 新增 pdf_signing_role 欄位（取代舊的 pdf_signing_access boolean）
         if 'users' in table_names:
             columns = [col['name'] for col in inspector.get_columns('users')]
-            if 'pdf_signing_access' not in columns:
+            if 'pdf_signing_role' not in columns:
                 with engine.connect() as conn:
                     try:
                         conn.execute(text(
-                            "ALTER TABLE users ADD COLUMN pdf_signing_access BOOLEAN DEFAULT FALSE"
+                            "ALTER TABLE users ADD COLUMN pdf_signing_role VARCHAR(20)"
                         ))
+                        # 遷移舊資料：pdf_signing_access=True → pdf_signing_role='signer'
+                        if 'pdf_signing_access' in columns:
+                            conn.execute(text(
+                                "UPDATE users SET pdf_signing_role = 'signer' WHERE pdf_signing_access = TRUE"
+                            ))
                         conn.commit()
-                        print("Migration: Added 'pdf_signing_access' column to users")
+                        print("Migration: Added 'pdf_signing_role' column to users")
                     except Exception as e:
                         print(f"Migration note: {e}")
 

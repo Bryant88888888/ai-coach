@@ -67,7 +67,7 @@ class User(Base):
     manager_notification_categories = Column(Text, nullable=True)  # JSON array: 訂閱的通知類別，NULL=全部
     position = Column(String(50), nullable=True)  # 職位：組長、老闆、工程師、助理
     is_approved = Column(Boolean, default=False)  # 帳號是否已被主管開通
-    pdf_signing_access = Column(Boolean, default=False)  # PDF 簽署工具存取權限
+    pdf_signing_role = Column(String(20), nullable=True)  # PDF 簽署角色：admin / signer / NULL（無權限）
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 所屬組長
 
     # 關聯
