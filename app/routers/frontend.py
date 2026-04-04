@@ -1116,6 +1116,21 @@ async def leave_apply_form(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/api/verify-employee")
+async def verify_employee(line_user_id: str, db: Session = Depends(get_db)):
+    """驗證 LINE ID 是否為已註冊且已開通的員工（供外部專案呼叫）"""
+    user_service = UserService(db)
+    user = user_service.get_user_by_line_id(line_user_id)
+    if not user or not user.real_name or not user.is_approved:
+        return {"authorized": False}
+    return {
+        "authorized": True,
+        "name": user.real_name,
+        "nickname": user.nickname,
+        "phone": user.phone,
+    }
+
+
 @router.get("/api/leave/profile")
 async def leave_profile_lookup(line_user_id: str, db: Session = Depends(get_db)):
     """根據 LINE ID 查詢員工資料（供請假表單自動帶入）"""
