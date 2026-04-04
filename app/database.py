@@ -365,7 +365,7 @@ def run_migrations():
                                 WHERE pdf_signing_role = 'admin'
                             """))
                         conn.commit()
-                        print("Migration: Added 'pdf_signing_role' column to users")
+                        print("Migration: Added 'pdf_signing_permissions' column to users")
                     except Exception as e:
                         print(f"Migration note: {e}")
 
