@@ -2986,34 +2986,50 @@ async def submit_info_form(
     except Exception as e:
         print(f"人事資料通知發送失敗: {e}")
 
-    # 公關版本：自動建立合約簽署任務
-    signing_url = None
-    if form_type == "公關版本":
-        try:
-            import httpx
-            SIGNING_API = "https://pdf-signing-tool.onrender.com"
-            TEMPLATE_ID = "2f81eedd-fdf8-4399-9b73-19a3b1b1e469"
+    # 根據版本建立 PDF 簽署任務
+    SIGNING_API = "https://pdf-signing-tool.onrender.com"
+    FORM_TEMPLATES = {
+        "公關版本": [
+            {"id": "2f81eedd-fdf8-4399-9b73-19a3b1b1e469", "name": "人力媒合暨合作契約書"},
+            {"id": "f328a610-7264-4e4b-8492-99ffc8640a75", "name": "應徵人事資料"},
+            {"id": "7b8e6f7b-891a-43e1-86a5-3ca25416007c", "name": "合約封面"},
+        ],
+        "經紀人版本": [
+            {"id": "7b8e6f7b-891a-43e1-86a5-3ca25416007c", "name": "合約封面"},
+            {"id": "cdc4f5fa-b58e-47ee-be09-0450b4bc3536", "name": "開發部切結書"},
+            {"id": "cf822e17-dade-4a4d-b500-b787f53d5f20", "name": "開發部契約書（正職）"},
+        ],
+    }
 
-            signer_name = data.get("real_name", "").strip()
-            if signer_name:
+    signing_tasks = []
+    templates = FORM_TEMPLATES.get(form_type, [])
+    if templates:
+        signer_name = data.get("real_name", "").strip() or data.get("nickname", "").strip()
+        if signer_name:
+            try:
+                import httpx
                 async with httpx.AsyncClient(timeout=30) as client:
-                    resp = await client.post(
-                        f"{SIGNING_API}/api/signing-tasks",
-                        json={
-                            "template_id": TEMPLATE_ID,
-                            "signer_name": signer_name,
-                        }
-                    )
-                    if resp.status_code == 200:
-                        result = resp.json()
-                        signing_url = f"{SIGNING_API}{result.get('signing_url', '')}"
-                        print(f"合約簽署任務已建立: {result.get('id')} for {signer_name}")
-                    else:
-                        print(f"建立合約失敗: {resp.status_code} {resp.text}")
-        except Exception as e:
-            print(f"建立合約簽署任務失敗: {e}")
+                    for tmpl in templates:
+                        try:
+                            resp = await client.post(
+                                f"{SIGNING_API}/api/signing-tasks",
+                                json={"template_id": tmpl["id"], "signer_name": signer_name}
+                            )
+                            if resp.status_code == 200:
+                                result = resp.json()
+                                signing_tasks.append({
+                                    "name": tmpl["name"],
+                                    "url": f"{SIGNING_API}{result.get('signing_url', '')}",
+                                })
+                                print(f"簽署任務已建立: {tmpl['name']} for {signer_name}")
+                            else:
+                                print(f"建立 {tmpl['name']} 失敗: {resp.status_code}")
+                        except Exception as e:
+                            print(f"建立 {tmpl['name']} 失敗: {e}")
+            except Exception as e:
+                print(f"建立簽署任務失敗: {e}")
 
-    return {"success": True, "id": submission.id, "signing_url": signing_url}
+    return {"success": True, "id": submission.id, "signing_tasks": signing_tasks}
 
 
 # ========== 人事資料（後台）==========
