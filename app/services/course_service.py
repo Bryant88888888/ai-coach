@@ -28,7 +28,11 @@ class CourseService:
         max_rounds: int = 5,
         teaching_content: str = None,
         lesson_content: str = None,
-        system_prompt: str = None
+        system_prompt: str = None,
+        concept_content: str = None,
+        script_content: str = None,
+        task_content: str = None,
+        passing_score: int = 60,
     ) -> Course:
         """建立新課程"""
         course = Course(
@@ -45,6 +49,10 @@ class CourseService:
             teaching_content=teaching_content,
             lesson_content=lesson_content,
             system_prompt=system_prompt,
+            concept_content=concept_content,
+            script_content=script_content,
+            task_content=task_content,
+            passing_score=passing_score,
             is_active=True
         )
         self.db.add(course)
@@ -153,6 +161,10 @@ class CourseService:
                 teaching_content=course.teaching_content,
                 lesson_content=course.lesson_content,
                 system_prompt=course.system_prompt,
+                concept_content=course.concept_content,
+                script_content=course.script_content,
+                task_content=course.task_content,
+                passing_score=course.passing_score,
                 is_active=True
             )
             self.db.add(new_course)

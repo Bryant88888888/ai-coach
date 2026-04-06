@@ -39,6 +39,8 @@ def init_db():
     from app.models import duty_config, duty_schedule, duty_report, duty_complaint, duty_rule, duty_swap  # noqa: F401
     from app.models import info_form  # noqa: F401
     from app.models import line_contact  # noqa: F401
+    from app.models import scenario_persona, course_scenario, scoring_rubric, scoring_result  # noqa: F401
+    from app.models import course_material, quiz  # noqa: F401
     from app.models import morning_report  # noqa: F401
     from app.models import admin  # noqa: F401
 
@@ -497,6 +499,66 @@ def run_migrations():
                     print(f"Migration: line_contacts total={total}, linked to users={linked}")
                 except Exception as e:
                     print(f"Migration note (line_contacts populate): {e}")
+
+        # === AI 教練系統改版：新增欄位與新 Table ===
+
+        # courses 表新增欄位
+        if 'courses' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('courses')]
+            with engine.connect() as conn:
+                for col_name, col_sql in [
+                    ('concept_content', "ALTER TABLE courses ADD COLUMN concept_content TEXT"),
+                    ('script_content', "ALTER TABLE courses ADD COLUMN script_content TEXT"),
+                    ('task_content', "ALTER TABLE courses ADD COLUMN task_content TEXT"),
+                    ('passing_score', "ALTER TABLE courses ADD COLUMN passing_score INTEGER DEFAULT 60"),
+                ]:
+                    if col_name not in columns:
+                        try:
+                            conn.execute(text(col_sql))
+                            conn.commit()
+                            print(f"Migration: Added '{col_name}' column to courses table")
+                        except Exception as e:
+                            print(f"Migration note (courses.{col_name}): {e}")
+
+        # user_trainings 表新增欄位
+        if 'user_trainings' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('user_trainings')]
+            with engine.connect() as conn:
+                if 'current_persona_id' not in columns:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE user_trainings ADD COLUMN current_persona_id INTEGER"
+                        ))
+                        conn.commit()
+                        print("Migration: Added 'current_persona_id' column to user_trainings table")
+                    except Exception as e:
+                        print(f"Migration note (user_trainings.current_persona_id): {e}")
+
+        # messages 表新增欄位
+        if 'messages' in table_names:
+            columns = [col['name'] for col in inspector.get_columns('messages')]
+            with engine.connect() as conn:
+                for col_name, col_sql in [
+                    ('persona_id', "ALTER TABLE messages ADD COLUMN persona_id INTEGER"),
+                    ('scoring_result_id', "ALTER TABLE messages ADD COLUMN scoring_result_id INTEGER"),
+                ]:
+                    if col_name not in columns:
+                        try:
+                            conn.execute(text(col_sql))
+                            conn.commit()
+                            print(f"Migration: Added '{col_name}' column to messages table")
+                        except Exception as e:
+                            print(f"Migration note (messages.{col_name}): {e}")
+
+        # 新 Table 由 create_all 自動建立（checkfirst=True），這裡只需確認
+        new_tables = [
+            'scenario_personas', 'course_scenarios', 'scoring_rubrics',
+            'scoring_results', 'course_materials', 'quizzes',
+            'quiz_questions', 'quiz_attempts'
+        ]
+        created_tables = [t for t in new_tables if t not in table_names]
+        if created_tables:
+            print(f"Migration: New tables created by create_all: {', '.join(created_tables)}")
 
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動

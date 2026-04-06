@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}編輯人設 - {{ persona.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-4">
+        <a href="/dashboard/personas?version={{ persona.course_version }}" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center">
+            <i class="fas fa-arrow-left text-gray-600 dark:text-gray-400"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">編輯人設 - {{ persona.name }}</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">修改模擬人設的設定</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="/dashboard/personas/{{ persona.id }}/edit" class="space-y-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-info-circle mr-2 text-indigo-500"></i>基本資訊
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">人設名稱</label>
+                <input type="text" name="name" value="{{ persona.name }}" required
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">代碼</label>
+                <input type="text" name="code" value="{{ persona.code }}" required
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">難度</label>
+                <select name="difficulty_level"
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+                    <option value="1" {% if persona.difficulty_level == 1 %}selected{% endif %}>簡單</option>
+                    <option value="2" {% if persona.difficulty_level == 2 %}selected{% endif %}>中等</option>
+                    <option value="3" {% if persona.difficulty_level == 3 %}selected{% endif %}>困難</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-4 flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">狀態</label>
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="hidden" name="is_active" value="false">
+                <input type="checkbox" name="is_active" value="true" {% if persona.is_active %}checked{% endif %}
+                       class="sr-only peer">
+                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-500 peer-checked:bg-indigo-600"></div>
+                <span class="ms-3 text-sm text-gray-700 dark:text-gray-300">啟用</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-comment-alt mr-2 text-purple-500"></i>人設內容
+        </h2>
+
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">人設描述（AI prompt 用）</label>
+            <textarea name="description" rows="6" required
+                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{{ persona.description }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">行為特徵（每行一個）</label>
+                <textarea name="behavior_traits" rows="5"
+                          class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{% for trait in persona.traits_list %}{{ trait }}{% if not loop.last %}
+{% endif %}{% endfor %}</textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">開場白模板（每行一個）</label>
+                <textarea name="opening_templates" rows="5"
+                          class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">{% for opening in persona.openings_list %}{{ opening }}{% if not loop.last %}
+{% endif %}{% endfor %}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-4">
+        <button type="submit"
+                class="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-semibold rounded-xl transition min-h-[48px] flex items-center justify-center">
+            <i class="fas fa-save mr-2"></i>儲存變更
+        </button>
+        <a href="/dashboard/personas?version={{ persona.course_version }}"
+           class="flex-1 sm:flex-none px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition min-h-[48px] flex items-center justify-center">
+            <i class="fas fa-times mr-2"></i>取消
+        </a>
+        <form method="POST" action="/dashboard/personas/{{ persona.id }}/delete" class="sm:ml-auto"
+              onsubmit="return confirm('確定要刪除此人設嗎？')">
+            <button type="submit"
+                    class="w-full px-6 py-3 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-xl transition min-h-[48px] flex items-center justify-center">
+                <i class="fas fa-trash mr-2"></i>刪除人設
+            </button>
+        </form>
+    </div>
+</form>
+{% endblock %}

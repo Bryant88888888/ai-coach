@@ -29,8 +29,16 @@ class Course(Base):
     teaching_content = Column(Text, nullable=True)  # 完整教學內容（純教學日用）
     lesson_content = Column(Text, nullable=True)    # 當日重點（顯示在卡片上，測驗前閱讀）
 
+    # 知識庫三區塊（新版結構化內容）
+    concept_content = Column(Text, nullable=True)   # 今日觀念
+    script_content = Column(Text, nullable=True)    # 標準話術/範例
+    task_content = Column(Text, nullable=True)      # 今日任務說明
+
     # AI Prompt（進階自訂）
     system_prompt = Column(Text, nullable=True)  # 自訂系統 prompt
+
+    # 通過門檻
+    passing_score = Column(Integer, default=60)  # 通過最低總分
 
     # 狀態
     is_active = Column(Boolean, default=True)  # 是否啟用
@@ -71,4 +79,8 @@ class Course(Base):
             "lesson_content": self.lesson_content,
             "system_prompt": self.system_prompt,
             "course_version": self.course_version,
+            "concept_content": self.concept_content,
+            "script_content": self.script_content,
+            "task_content": self.task_content,
+            "passing_score": self.passing_score,
         }

@@ -74,20 +74,65 @@
         </div>
     </div>
 
-    <!-- 當日重點教學（顯示在卡片上） -->
+    <!-- 知識庫內容（三區塊） -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-            <i class="fas fa-lightbulb mr-2 text-yellow-500"></i>當日重點教學
-            <span class="text-sm font-normal text-gray-500 dark:text-gray-400">（選填）</span>
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-book mr-2 text-emerald-500"></i>知識庫內容
         </h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            這段內容會顯示在訓練卡片上，讓學員在開始測驗前先閱讀重點知識
+            AI 教官會根據這三個區塊的內容來教學和評分
         </p>
-        <div>
-            <textarea name="lesson_content" rows="8"
+
+        <!-- 今日觀念 -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <i class="fas fa-lightbulb mr-1 text-yellow-500"></i>今日觀念
+                <span class="text-gray-400 font-normal">— 新人應該學會的核心觀念</span>
+            </label>
+            <textarea name="concept_content" rows="6"
                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                      placeholder="例如：&#10;今天學習「安全回話三原則」：&#10;&#10;1. 不否定對方感受&#10;2. 不保證任何事情&#10;3. 不急著解釋">{{ day.lesson_content or '' }}</textarea>
+                      placeholder="例如：&#10;- 交友軟體不是要談戀愛，是找適合的女生聊工作&#10;- 好開場要素：輕鬆、生活感、有一點好奇心&#10;- 不要一開始就講工作">{{ day.concept_content or '' }}</textarea>
         </div>
+
+        <!-- 標準話術 -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <i class="fas fa-comment-dots mr-1 text-blue-500"></i>標準話術 / 範例
+                <span class="text-gray-400 font-normal">— 新人可以直接複製使用的說法</span>
+            </label>
+            <textarea name="script_content" rows="6"
+                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="例如：&#10;- 「最近工作蠻累的，常常聊天聊到半夜哈哈。」&#10;- 「今天又被工作電到，整天在跟女生聊天排班。」">{{ day.script_content or '' }}</textarea>
+        </div>
+
+        <!-- 今日任務 -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <i class="fas fa-tasks mr-1 text-purple-500"></i>今日任務
+                <span class="text-gray-400 font-normal">— AI 教官如何測試新人</span>
+            </label>
+            <textarea name="task_content" rows="6"
+                      class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="例如：&#10;- AI 教官給 5 個情境，要新人選最適合的開場句&#10;- AI 教官回饋哪句太硬/太像廣告、哪句最自然">{{ day.task_content or '' }}</textarea>
+        </div>
+    </div>
+
+    <!-- 當日重點教學（舊版，向下相容） -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <details>
+            <summary class="text-lg font-semibold text-gray-800 dark:text-white cursor-pointer">
+                <i class="fas fa-lightbulb mr-2 text-yellow-500"></i>當日重點教學
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">（舊版欄位，選填）</span>
+            </summary>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 mb-4">
+                這段內容會顯示在訓練卡片上，讓學員在開始測驗前先閱讀重點知識
+            </p>
+            <div>
+                <textarea name="lesson_content" rows="6"
+                          class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                          placeholder="例如：&#10;今天學習「安全回話三原則」：&#10;&#10;1. 不否定對方感受&#10;2. 不保證任何事情&#10;3. 不急著解釋">{{ day.lesson_content or '' }}</textarea>
+            </div>
+        </details>
     </div>
 
     <!-- 測驗設定 -->
@@ -137,8 +182,8 @@
 {% endif %}{% endfor %}{% endif %}</textarea>
         </div>
 
-        <!-- 輪數設定 -->
-        <div class="grid grid-cols-2 gap-6">
+        <!-- 輪數與通過門檻設定 -->
+        <div class="grid grid-cols-3 gap-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <i class="fas fa-repeat mr-2 text-purple-500"></i>最少輪數
@@ -150,6 +195,14 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">最多輪數</label>
                 <input type="number" name="max_rounds" value="{{ day.max_rounds or 5 }}" min="1" max="20"
                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-trophy mr-2 text-yellow-500"></i>通過門檻
+                </label>
+                <input type="number" name="passing_score" value="{{ day.passing_score or 60 }}" min="0" max="100"
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">四面向總分達此分數即通過</p>
             </div>
         </div>
     </div>

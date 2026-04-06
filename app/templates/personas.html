@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}模擬人設管理 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">模擬人設管理</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">管理 AI 教官在訓練中扮演的角色人設</p>
+        </div>
+    </div>
+
+    {% if success_message %}
+    <div class="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg">
+        <i class="fas fa-check-circle mr-2"></i>{{ success_message }}
+    </div>
+    {% endif %}
+    {% if error_message %}
+    <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+        <i class="fas fa-exclamation-circle mr-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    {% if "courses:edit" in admin_permissions %}
+    <!-- 新增人設表單 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i class="fas fa-plus-circle mr-2 text-indigo-500"></i>新增模擬人設
+        </h2>
+        <form method="POST" action="/dashboard/personas/create" class="space-y-4">
+            <input type="hidden" name="course_version" value="{{ current_version }}">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">人設名稱</label>
+                    <input type="text" name="name" required placeholder="好奇型女生"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">代碼</label>
+                    <input type="text" name="code" required placeholder="curious"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">難度</label>
+                    <select name="difficulty_level"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 min-h-[48px]">
+                        <option value="1">簡單</option>
+                        <option value="2">中等</option>
+                        <option value="3">困難</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">人設描述（AI prompt 用）</label>
+                <textarea name="description" rows="4" required
+                          class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                          placeholder="年齡約20歲，對工作很好奇，會問很多問題&#10;語氣輕鬆、不會太緊張&#10;對經紀人這個職業有興趣但不太了解"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">行為特徵（每行一個）</label>
+                    <textarea name="behavior_traits" rows="3"
+                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                              placeholder="會主動追問&#10;語氣輕鬆&#10;對薪水話題感興趣"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">開場白模板（每行一個）</label>
+                    <textarea name="opening_templates" rows="3"
+                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                              placeholder="真的假的，聽起來很酷&#10;你們那邊是做什麼的啊"></textarea>
+                </div>
+            </div>
+
+            <button type="submit"
+                    class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-semibold rounded-xl transition min-h-[48px]">
+                <i class="fas fa-plus mr-2"></i>建立人設
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- 人設列表 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700">
+        <div class="p-6 border-b dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-theater-masks mr-2 text-purple-500"></i>現有人設（{{ personas|length }}）
+            </h2>
+        </div>
+
+        {% if personas %}
+        <div class="divide-y dark:divide-gray-700">
+            {% for persona in personas %}
+            <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">{{ persona.name }}</h3>
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-mono">{{ persona.code }}</span>
+                            {% if persona.difficulty_level == 1 %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">簡單</span>
+                            {% elif persona.difficulty_level == 2 %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400">中等</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400">困難</span>
+                            {% endif %}
+                            {% if not persona.is_active %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400">已停用</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-3">{{ persona.description }}</p>
+
+                        {% if persona.traits_list %}
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            {% for trait in persona.traits_list %}
+                            <span class="px-2 py-0.5 text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded">{{ trait }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if persona.openings_list %}
+                        <div class="mt-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">開場白：</span>
+                            {% for opening in persona.openings_list %}
+                            <span class="text-sm text-gray-700 dark:text-gray-300 italic">{{ opening }}</span>{% if not loop.last %}、{% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if "courses:edit" in admin_permissions %}
+                    <div class="flex gap-2 lg:flex-col">
+                        <a href="/dashboard/personas/{{ persona.id }}/edit"
+                           class="px-3 py-2 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition min-h-[40px] flex items-center">
+                            <i class="fas fa-edit mr-1"></i>編輯
+                        </a>
+                        <form method="POST" action="/dashboard/personas/{{ persona.id }}/toggle" class="inline">
+                            <button type="submit"
+                                    class="px-3 py-2 text-sm rounded-lg transition min-h-[40px] flex items-center w-full
+                                    {% if persona.is_active %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100{% else %}bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100{% endif %}">
+                                <i class="fas fa-{% if persona.is_active %}pause{% else %}play{% endif %} mr-1"></i>
+                                {% if persona.is_active %}停用{% else %}啟用{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-gray-500 dark:text-gray-400">
+            <i class="fas fa-theater-masks text-4xl mb-3"></i>
+            <p>尚無人設資料，請建立第一個模擬人設</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

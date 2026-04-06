@@ -734,7 +734,11 @@ async def day_create_save(
     lesson_content: str = Form(None),
     teaching_content: str = Form(None),
     system_prompt: str = Form(None),
-    course_version: str = Form("v1")
+    course_version: str = Form("v1"),
+    concept_content: str = Form(None),
+    script_content: str = Form(None),
+    task_content: str = Form(None),
+    passing_score: int = Form(60),
 ):
     """儲存新課程"""
     result = require_permission(request, db, "courses:edit")
@@ -773,7 +777,11 @@ async def day_create_save(
             max_rounds=max_rounds,
             lesson_content=lesson_content.strip() if lesson_content else None,
             teaching_content=teaching_content.strip() if teaching_content else None,
-            system_prompt=system_prompt.strip() if system_prompt else None
+            system_prompt=system_prompt.strip() if system_prompt else None,
+            concept_content=concept_content.strip() if concept_content else None,
+            script_content=script_content.strip() if script_content else None,
+            task_content=task_content.strip() if task_content else None,
+            passing_score=passing_score,
         )
 
         return RedirectResponse(
@@ -837,7 +845,11 @@ async def day_edit_save(
     lesson_content: str = Form(None),
     teaching_content: str = Form(None),
     system_prompt: str = Form(None),
-    course_version: str = Form("v1")
+    course_version: str = Form("v1"),
+    concept_content: str = Form(None),
+    script_content: str = Form(None),
+    task_content: str = Form(None),
+    passing_score: int = Form(60),
 ):
     """儲存課程編輯"""
     result = require_permission(request, db, "courses:edit")
@@ -874,7 +886,11 @@ async def day_edit_save(
             max_rounds=max_rounds,
             lesson_content=lesson_content.strip() if lesson_content else None,
             teaching_content=teaching_content.strip() if teaching_content else None,
-            system_prompt=system_prompt.strip() if system_prompt else None
+            system_prompt=system_prompt.strip() if system_prompt else None,
+            concept_content=concept_content.strip() if concept_content else None,
+            script_content=script_content.strip() if script_content else None,
+            task_content=task_content.strip() if task_content else None,
+            passing_score=passing_score,
         )
 
         # 重新取得更新後的課程資料
@@ -3869,3 +3885,214 @@ async def info_form_delete(
         db.commit()
         return RedirectResponse(url="/dashboard/info-forms?success=已刪除", status_code=303)
     return RedirectResponse(url="/dashboard/info-forms?error=找不到記錄", status_code=303)
+
+
+# ==================== 模擬人設管理 ====================
+
+@router.get("/dashboard/personas", response_class=HTMLResponse)
+async def personas_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    success: str = None,
+    error: str = None,
+    version: str = "v1",
+):
+    """模擬人設管理頁面"""
+    result = require_permission(request, db, "courses:view")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    from app.models.scenario_persona import ScenarioPersona
+    personas = (
+        db.query(ScenarioPersona)
+        .filter(ScenarioPersona.course_version == version)
+        .order_by(ScenarioPersona.sort_order, ScenarioPersona.id)
+        .all()
+    )
+
+    return templates.TemplateResponse("personas.html", build_template_context(
+        request, admin, db, "personas",
+        personas=personas,
+        current_version=version,
+        success_message=success,
+        error_message=error,
+    ))
+
+
+@router.post("/dashboard/personas/create")
+async def persona_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    code: str = Form(...),
+    description: str = Form(...),
+    behavior_traits: str = Form(None),
+    opening_templates: str = Form(None),
+    difficulty_level: int = Form(1),
+    course_version: str = Form("v1"),
+):
+    """建立模擬人設"""
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    import json
+    from app.models.scenario_persona import ScenarioPersona
+
+    try:
+        # 將換行分隔的文字轉為 JSON 陣列
+        traits_json = None
+        if behavior_traits and behavior_traits.strip():
+            traits_list = [t.strip() for t in behavior_traits.strip().split('\n') if t.strip()]
+            traits_json = json.dumps(traits_list, ensure_ascii=False)
+
+        openings_json = None
+        if opening_templates and opening_templates.strip():
+            openings_list = [o.strip() for o in opening_templates.strip().split('\n') if o.strip()]
+            openings_json = json.dumps(openings_list, ensure_ascii=False)
+
+        persona = ScenarioPersona(
+            name=name.strip(),
+            code=code.strip(),
+            description=description.strip(),
+            behavior_traits=traits_json,
+            opening_templates=openings_json,
+            difficulty_level=difficulty_level,
+            course_version=course_version,
+        )
+        db.add(persona)
+        db.commit()
+
+        return RedirectResponse(
+            url=f"/dashboard/personas?version={course_version}&success=已建立人設「{name}」",
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/personas?version={course_version}&error=建立失敗：{str(e)}",
+            status_code=303,
+        )
+
+
+@router.get("/dashboard/personas/{persona_id}/edit", response_class=HTMLResponse)
+async def persona_edit_page(
+    request: Request,
+    persona_id: int,
+    db: Session = Depends(get_db),
+):
+    """編輯人設頁面"""
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+    admin = result
+
+    from app.models.scenario_persona import ScenarioPersona
+    persona = db.query(ScenarioPersona).filter(ScenarioPersona.id == persona_id).first()
+    if not persona:
+        return RedirectResponse(url="/dashboard/personas?error=人設不存在", status_code=303)
+
+    return templates.TemplateResponse("persona_edit.html", build_template_context(
+        request, admin, db, "personas",
+        persona=persona,
+    ))
+
+
+@router.post("/dashboard/personas/{persona_id}/edit")
+async def persona_edit_save(
+    request: Request,
+    persona_id: int,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    code: str = Form(...),
+    description: str = Form(...),
+    behavior_traits: str = Form(None),
+    opening_templates: str = Form(None),
+    difficulty_level: int = Form(1),
+    is_active: bool = Form(True),
+):
+    """儲存人設編輯"""
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    import json
+    from app.models.scenario_persona import ScenarioPersona
+    persona = db.query(ScenarioPersona).filter(ScenarioPersona.id == persona_id).first()
+    if not persona:
+        return RedirectResponse(url="/dashboard/personas?error=人設不存在", status_code=303)
+
+    try:
+        traits_json = None
+        if behavior_traits and behavior_traits.strip():
+            traits_list = [t.strip() for t in behavior_traits.strip().split('\n') if t.strip()]
+            traits_json = json.dumps(traits_list, ensure_ascii=False)
+
+        openings_json = None
+        if opening_templates and opening_templates.strip():
+            openings_list = [o.strip() for o in opening_templates.strip().split('\n') if o.strip()]
+            openings_json = json.dumps(openings_list, ensure_ascii=False)
+
+        persona.name = name.strip()
+        persona.code = code.strip()
+        persona.description = description.strip()
+        persona.behavior_traits = traits_json
+        persona.opening_templates = openings_json
+        persona.difficulty_level = difficulty_level
+        persona.is_active = is_active
+        db.commit()
+
+        return RedirectResponse(
+            url=f"/dashboard/personas?version={persona.course_version}&success=已更新人設「{name}」",
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/personas?version={persona.course_version}&error=更新失敗：{str(e)}",
+            status_code=303,
+        )
+
+
+@router.post("/dashboard/personas/{persona_id}/delete")
+async def persona_delete(
+    request: Request,
+    persona_id: int,
+    db: Session = Depends(get_db),
+):
+    """刪除人設"""
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    from app.models.scenario_persona import ScenarioPersona
+    persona = db.query(ScenarioPersona).filter(ScenarioPersona.id == persona_id).first()
+    if persona:
+        version = persona.course_version
+        db.delete(persona)
+        db.commit()
+        return RedirectResponse(url=f"/dashboard/personas?version={version}&success=已刪除人設", status_code=303)
+    return RedirectResponse(url="/dashboard/personas?error=找不到人設", status_code=303)
+
+
+@router.post("/dashboard/personas/{persona_id}/toggle")
+async def persona_toggle(
+    request: Request,
+    persona_id: int,
+    db: Session = Depends(get_db),
+):
+    """切換人設啟用狀態"""
+    result = require_permission(request, db, "courses:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    from app.models.scenario_persona import ScenarioPersona
+    persona = db.query(ScenarioPersona).filter(ScenarioPersona.id == persona_id).first()
+    if persona:
+        persona.is_active = not persona.is_active
+        db.commit()
+        status = "啟用" if persona.is_active else "停用"
+        return RedirectResponse(
+            url=f"/dashboard/personas?version={persona.course_version}&success=已{status}「{persona.name}」",
+            status_code=303,
+        )
+    return RedirectResponse(url="/dashboard/personas?error=找不到人設", status_code=303)

@@ -23,6 +23,10 @@ class Message(Base):
     score = Column(Integer, default=0)              # 分數 (0-100)
     reason = Column(Text, nullable=True)            # 評分原因
 
+    # 新版關聯（不加 ForeignKey 避免 migration 順序問題，由應用層維護一致性）
+    persona_id = Column(Integer, ForeignKey("scenario_personas.id"), nullable=True)
+    scoring_result_id = Column(Integer, ForeignKey("scoring_results.id"), nullable=True)
+
     # 時間戳記
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

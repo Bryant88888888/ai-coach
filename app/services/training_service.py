@@ -4,6 +4,7 @@ from app.models.user_training import UserTraining, TrainingStatus
 from app.services.user_service import UserService
 from app.services.ai_service import AIService
 from app.services.message_service import MessageService
+from app.services.scoring_service import ScoringService
 from app.services.course_service import get_course_data
 from app.schemas.ai_response import AIResponse, TrainingResult
 
@@ -19,6 +20,7 @@ class TrainingService:
         self.user_service = UserService(db)
         self.ai_service = AIService()
         self.message_service = MessageService(db)
+        self.scoring_service = ScoringService(db)
 
     def _get_active_training(self, user: User) -> UserTraining | None:
         """取得用戶目前進行中的訓練"""
@@ -232,6 +234,29 @@ class TrainingService:
             # 如果沒有設定（例如舊資料），預設使用 A
             persona = "A"
 
+        # 載入新版模擬人設和評分維度（如果有）
+        scenario_persona = None
+        rubrics = None
+        course_obj = None
+
+        if active_training and active_training.current_persona_id:
+            from app.models.scenario_persona import ScenarioPersona
+            scenario_persona = self.db.query(ScenarioPersona).filter(
+                ScenarioPersona.id == active_training.current_persona_id
+            ).first()
+
+        # 嘗試取得 Course 物件（新版用）
+        course_obj = self._get_course_object(testing_day, course_version)
+        if course_obj:
+            rubrics = self.scoring_service.get_rubrics_for_course(course_obj.id)
+
+            # 如果沒有人設但有 Course，嘗試選取
+            if not scenario_persona and current_round == 0:
+                scenario_persona = self.ai_service.select_persona(self.db, course_obj.id)
+                if scenario_persona and active_training:
+                    active_training.current_persona_id = scenario_persona.id
+                    self.db.commit()
+
         # 取得對話歷史
         conversation_history = self.get_conversation_history(user)
 
@@ -244,16 +269,37 @@ class TrainingService:
             persona=persona,
             user_message=user_message,
             round_count=new_round,
-            conversation_history=conversation_history
+            conversation_history=conversation_history,
+            course=course_obj,
+            scenario_persona=scenario_persona,
+            rubrics=rubrics,
         )
 
         # 儲存對話記錄（使用 testing_day）
-        self.message_service.save_message(
+        saved_message = self.message_service.save_message(
             user=user,
             user_message=user_message,
             ai_response=ai_response,
             training_day=testing_day
         )
+
+        # 如果有四面向評分結果，建立 ScoringResult
+        if ai_response.is_final and ai_response.dimensional_score and saved_message:
+            passing_score = course_obj.passing_score if course_obj and course_obj.passing_score else 60
+            scoring_result = self.scoring_service.create_scoring_result(
+                message_id=saved_message.id,
+                user_id=user.id,
+                training_day=testing_day,
+                dimensional_score=ai_response.dimensional_score,
+                dimension_feedback=ai_response.dimension_feedback,
+                summary=ai_response.reason,
+                passing_score=passing_score,
+            )
+            # 更新 message 關聯
+            saved_message.scoring_result_id = scoring_result.id
+            if scenario_persona:
+                saved_message.persona_id = scenario_persona.id
+            self.db.commit()
 
         # 更新輪數
         self._update_round(user, active_training, new_round)
@@ -348,6 +394,19 @@ class TrainingService:
             self.user_service.set_persona(user, persona)
         self.db.commit()
 
+    def _get_course_object(self, day: int, course_version: str = "v1"):
+        """取得 Course 物件（新版用）"""
+        from app.models.course import Course
+        return (
+            self.db.query(Course)
+            .filter(
+                Course.day == day,
+                Course.course_version == course_version,
+                Course.is_active == True,
+            )
+            .first()
+        )
+
     def _clear_testing_day(self, training: UserTraining | None) -> None:
         """清除 testing_day（測驗完成後呼叫）"""
         if training:
@@ -374,6 +433,9 @@ class TrainingService:
             training_status = "none"
             batch_name = None
 
+        # 新版：取得四面向評分進度報告
+        scoring_report = self.scoring_service.get_user_progress_report(user.id)
+
         return {
             "user_id": user.id,
             "line_user_id": user.line_user_id,
@@ -385,5 +447,6 @@ class TrainingService:
             "persona": persona,
             "is_completed": current_day > MAX_TRAINING_DAY,
             "training_status": training_status,
-            "batch_name": batch_name
+            "batch_name": batch_name,
+            "scoring_report": scoring_report,
         }

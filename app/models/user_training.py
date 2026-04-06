@@ -28,7 +28,8 @@ class UserTraining(Base):
     status = Column(String(20), default=TrainingStatus.PENDING.value)
 
     # 分類資訊（從原本 User 移過來）
-    persona = Column(String(20), nullable=True)   # A_無經驗 / B_有經驗
+    persona = Column(String(20), nullable=True)   # A_無經驗 / B_有經驗（舊版）
+    current_persona_id = Column(Integer, nullable=True)  # 當前日的模擬人設 ID（新版）
 
     # 時間記錄
     started_at = Column(DateTime(timezone=True), nullable=True)    # 開始訓練時間
