@@ -112,8 +112,9 @@ SIDEBAR_ITEMS = [
         {"key": "profiles", "label": "人事資料", "icon": "fa-id-card", "url": "/dashboard/profiles", "permission": "profiles:view"},
         {"key": "info_forms", "label": "人事表單", "icon": "fa-file-alt", "url": "/dashboard/info-forms", "permission": "info_form:view"},
     ]},
-    {"group": "教育訓練", "icon": "fa-book-open", "keys": ["days", "training", "messages"], "items": [
+    {"group": "教育訓練", "icon": "fa-book-open", "keys": ["days", "personas", "training", "messages"], "items": [
         {"key": "days", "label": "課程管理", "icon": "fa-calendar-alt", "url": "/dashboard/days", "permission": "courses:view"},
+        {"key": "personas", "label": "模擬人設", "icon": "fa-theater-masks", "url": "/dashboard/personas", "permission": "courses:view"},
         {"key": "training", "label": "訓練管理", "icon": "fa-graduation-cap", "url": "/dashboard/training", "permission": "training:view"},
         {"key": "messages", "label": "對話記錄", "icon": "fa-comments", "url": "/dashboard/messages", "permission": "messages:view"},
     ]},
