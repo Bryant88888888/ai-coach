@@ -10,8 +10,6 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from typing import Optional
-import uuid
-import os
 
 from app.database import get_db
 from app.config import get_settings
@@ -294,24 +292,12 @@ async def submit_duty_report(
     if not schedule:
         return JSONResponse(status_code=404, content={"error": "找不到該排班或非您的排班"})
 
-    # 處理照片上傳
+    # 處理照片上傳到 Supabase Storage
     photo_urls = []
     if photo and photo.filename:
-        settings = get_settings()
-        upload_dir = Path("app/static/uploads/duty")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-        # 生成檔名
-        ext = Path(photo.filename).suffix
-        filename = f"duty_{schedule_id}_{uuid.uuid4().hex[:8]}{ext}"
-        file_path = upload_dir / filename
-
-        # 儲存檔案
-        with open(file_path, "wb") as f:
-            content = await photo.read()
-            f.write(content)
-
-        photo_urls.append(f"duty/{filename}")
+        from app.services.storage_service import upload_to_supabase
+        url = await upload_to_supabase(photo, "leave-proofs", "duty-reports")
+        photo_urls.append(url)
 
     # 提交回報
     try:
@@ -692,21 +678,12 @@ async def submit_complaint(
     if not schedule:
         return JSONResponse(status_code=404, content={"error": "找不到該排班"})
 
-    # 處理照片上傳
+    # 處理照片上傳到 Supabase Storage
     photo_urls = []
     if photo and photo.filename:
-        upload_dir = Path("app/static/uploads/complaints")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-        ext = Path(photo.filename).suffix
-        filename = f"complaint_{schedule_id}_{uuid.uuid4().hex[:8]}{ext}"
-        file_path = upload_dir / filename
-
-        with open(file_path, "wb") as f:
-            content = await photo.read()
-            f.write(content)
-
-        photo_urls.append(f"complaints/{filename}")
+        from app.services.storage_service import upload_to_supabase
+        url = await upload_to_supabase(photo, "leave-proofs", "duty-complaints")
+        photo_urls.append(url)
 
     # 提交檢舉
     try:

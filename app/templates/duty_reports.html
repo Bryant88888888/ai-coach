@@ -65,8 +65,8 @@
                     {% if report.get_photo_urls() %}
                     <div class="flex flex-wrap gap-2 mb-2">
                         {% for url in report.get_photo_urls() %}
-                        <a href="/static/uploads/{{ url }}" target="_blank" class="block">
-                            <img src="/static/uploads/{{ url }}" alt="回報照片" class="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        <a href="{{ url }}" target="_blank" class="block">
+                            <img src="{{ url }}" alt="回報照片" class="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
                         </a>
                         {% endfor %}
                     </div>
