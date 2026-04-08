@@ -1214,6 +1214,26 @@ async def leave_apply_submit(
 
         full_name = user.real_name
 
+        # 檢查同一天是否已有請假申請（排除已拒絕的）
+        existing = db.query(LeaveRequest).filter(
+            LeaveRequest.user_id == user.id,
+            LeaveRequest.leave_date == leave_date,
+            LeaveRequest.status != LeaveStatus.REJECTED.value,
+        ).first()
+        if existing:
+            status_map = {
+                LeaveStatus.PENDING.value: "待審核",
+                LeaveStatus.PENDING_PROOF.value: "待補件",
+                LeaveStatus.APPROVED.value: "已核准",
+            }
+            status_text = status_map.get(existing.status, existing.status)
+            return templates.TemplateResponse("leave_form.html", {
+                "request": request,
+                "liff_id": settings.liff_id_leave or settings.liff_id,
+                "is_public": True,
+                "error": f"您在 {leave_date} 已有一筆請假申請（{status_text}），無法重複申請"
+            })
+
         # 處理檔案上傳到 Supabase Storage
         proof_url = None
         if proof_file and proof_file.filename:
