@@ -34,3 +34,16 @@ services:
         sync: false
       - key: CRON_SECRET
         sync: false
+
+  # 每日值日生公告（台灣時間 17:00）
+  - type: cron
+    name: daily-duty-announcement
+    runtime: python
+    schedule: "0 9 * * 1-6"  # UTC 09:00 = 台灣 17:00，週一到週六
+    buildCommand: pip install httpx
+    startCommand: python -c "import httpx; import os; r = httpx.post(os.environ['APP_URL'] + '/cron/duty-announcement', headers={'X-Cron-Secret': os.environ.get('CRON_SECRET', '')}, timeout=60.0); print(r.status_code, r.text)"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
