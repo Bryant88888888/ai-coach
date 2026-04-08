@@ -295,23 +295,27 @@ async def duty_reminder(
 
 
 def run_duty_announcement_background():
-    """背景執行今日值日生全員公告"""
+    """背景執行今日值日生全員公告（週日跳過）"""
+    from app.models.duty_schedule import DutySchedule
+    from datetime import date
+
+    today = date.today()
+
+    # 週日不執行（weekday() == 6 是星期日）
+    if today.weekday() == 6:
+        print("ℹ️ 今日為週日，跳過值日公告")
+        return
+
     db = SessionLocal()
     try:
-        from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
-        from datetime import date
-
-        today = date.today()
         line_service = LineService()
 
-        # 取得今日所有排班（不限狀態，包含已換班的）
         schedules = db.query(DutySchedule).filter(
             DutySchedule.duty_date == today,
         ).all()
 
         if schedules:
-            sent = line_service.send_daily_duty_announcement(schedules, db)
-            print(f"✅ 值日公告完成: 發送給 {sent} 人")
+            line_service.send_daily_duty_announcement(schedules, db)
         else:
             print("ℹ️ 今日無值日排班，跳過公告")
 

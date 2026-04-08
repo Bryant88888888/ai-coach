@@ -5,6 +5,7 @@ from linebot.v3.messaging import (
     MessagingApi,
     ReplyMessageRequest,
     PushMessageRequest,
+    BroadcastRequest,
     TextMessage,
     FlexMessage,
     FlexContainer,
@@ -981,66 +982,50 @@ class LineService:
             print(f"發送值日提醒失敗: {e}")
             return False
 
-    def send_daily_duty_announcement(self, schedules, db=None) -> int:
+    def send_broadcast_message(self, message: str) -> None:
+        """使用 broadcast API 一次發送訊息給所有好友"""
+        with ApiClient(self.configuration) as api_client:
+            messaging_api = MessagingApi(api_client)
+            messaging_api.broadcast(
+                BroadcastRequest(
+                    messages=[TextMessage(text=message)]
+                )
+            )
+
+    def send_daily_duty_announcement(self, schedules, db=None) -> bool:
         """
-        發送今日值日生公告給所有員工
+        發送今日值日生公告給所有好友（使用 broadcast）
 
         Args:
             schedules: 今日所有 DutySchedule 物件列表
-            db: 資料庫 Session
+            db: 資料庫 Session（保留參數相容性）
 
         Returns:
-            成功發送的人數
+            是否成功發送
         """
-        from app.database import SessionLocal
-        from app.models.user import User, UserStatus
         from datetime import date
 
-        should_close = False
-        if db is None:
-            db = SessionLocal()
-            should_close = True
+        if not schedules:
+            print("今日無值日排班，跳過公告")
+            return False
 
-        try:
-            if not schedules:
-                print("今日無值日排班，跳過公告")
-                return 0
+        # 組裝公告內容（按店家分組）
+        today = date.today()
+        weekday_names = ['一', '二', '三', '四', '五', '六', '日']
+        weekday = f"星期{weekday_names[today.weekday()]}"
 
-            # 組裝公告內容（按店家分組）
-            today = date.today()
-            weekday_names = ['一', '二', '三', '四', '五', '六', '日']
-            weekday = f"星期{weekday_names[today.weekday()]}"
+        store_duties = {}
+        for s in schedules:
+            store_name = s.config.name if s.config else "未分類"
+            user_name = s.user.real_name or s.user.nickname or "未知"
+            store_duties.setdefault(store_name, []).append(user_name)
 
-            store_duties = {}
-            for s in schedules:
-                store_name = s.config.name if s.config else "未分類"
-                user_name = s.user.real_name or s.user.nickname or "未知"
-                store_duties.setdefault(store_name, []).append(user_name)
+        lines = [f"📋 今日值日生公告\n📅 {today.isoformat()}（{weekday}）\n"]
+        for store, names in store_duties.items():
+            lines.append(f"🏪 {store}：{'、'.join(names)}")
+        lines.append("\n請各位同仁知悉！")
+        message = "\n".join(lines)
 
-            lines = [f"📋 今日值日生公告\n📅 {today.isoformat()}（{weekday}）\n"]
-            for store, names in store_duties.items():
-                lines.append(f"🏪 {store}：{'、'.join(names)}")
-            lines.append("\n請各位同仁知悉！")
-            message = "\n".join(lines)
-
-            # 取得所有可推播的 LINE 聯絡人
-            from app.models.line_contact import LineContact
-            all_contacts = db.query(LineContact).filter(
-                LineContact.line_user_id.isnot(None),
-                LineContact.line_user_id != "",
-            ).all()
-
-            sent_count = 0
-            for contact in all_contacts:
-                try:
-                    self.send_push_message(contact.line_user_id, message)
-                    sent_count += 1
-                except Exception as e:
-                    print(f"發送值日公告失敗 ({contact.display_name}): {e}")
-
-            print(f"✅ 值日公告已發送給 {sent_count}/{len(all_contacts)} 人")
-            return sent_count
-
-        finally:
-            if should_close:
-                db.close()
+        self.send_broadcast_message(message)
+        print(f"✅ 值日公告已透過 broadcast 發送給所有好友")
+        return True
