@@ -65,8 +65,8 @@
                     {% if report.get_photo_urls() %}
                     <div class="flex flex-wrap gap-2 mb-2">
                         {% for url in report.get_photo_urls() %}
-                        <a href="{{ url }}" target="_blank" class="block">
-                            <img src="{{ url }}" alt="回報照片" class="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        <a href="/static/uploads/{{ url }}" target="_blank" class="block">
+                            <img src="/static/uploads/{{ url }}" alt="回報照片" class="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
                         </a>
                         {% endfor %}
                     </div>
@@ -78,6 +78,7 @@
                 </div>
 
                 <!-- 審核動作 -->
+                {% if "duty:edit" in admin_permissions %}
                 <div class="flex lg:flex-col gap-2 lg:w-1/4">
                     <form method="POST" action="/dashboard/duty/reports/{{ report.id }}/review" class="flex-1 lg:flex-none">
                         <input type="hidden" name="status" value="approved">
@@ -92,6 +93,7 @@
                         </button>
                     </form>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
