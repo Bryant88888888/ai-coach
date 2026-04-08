@@ -35,15 +35,4 @@ services:
       - key: CRON_SECRET
         sync: false
 
-  # 每日值日生公告（台灣時間 17:00，週一到六）
-  - type: cron
-    name: daily-duty-announcement
-    runtime: python
-    schedule: "0 9 * * 1-6"
-    buildCommand: pip install httpx
-    startCommand: python -c "import httpx,os;r=httpx.post(os.environ['APP_URL']+'/cron/duty-announcement',headers={'X-Cron-Secret':os.environ.get('CRON_SECRET','')},timeout=60.0);print(r.status_code,r.text)"
-    envVars:
-      - key: APP_URL
-        sync: false
-      - key: CRON_SECRET
-        sync: false
+  # 值日公告已改為 web service 內建排程器（台灣 17:00 自動執行，不需額外 cron service）
