@@ -2790,8 +2790,12 @@ async def duty_report_review(
 
     duty_service = DutyService(db)
 
-    # 這裡應該要用登入用戶的 ID，暫時用 1
-    reviewer_id = 1
+    # 透過 admin 的 line_user_id 找到對應的 user
+    reviewer_id = None
+    if admin.line_user_id:
+        linked_user = db.query(User).filter(User.line_user_id == admin.line_user_id).first()
+        if linked_user:
+            reviewer_id = linked_user.id
 
     report = duty_service.review_report(
         report_id=report_id,
@@ -2858,8 +2862,12 @@ async def duty_complaint_handle(
 
     duty_service = DutyService(db)
 
-    # 這裡應該要用登入用戶的 ID，暫時用 1
-    handler_id = 1
+    # 透過 admin 的 line_user_id 找到對應的 user
+    handler_id = None
+    if admin.line_user_id:
+        linked_user = db.query(User).filter(User.line_user_id == admin.line_user_id).first()
+        if linked_user:
+            handler_id = linked_user.id
 
     complaint = duty_service.handle_complaint(
         complaint_id=complaint_id,
