@@ -808,7 +808,7 @@
         '男模': ['Yes M','502'],
     };
 
-    function prGenderChange() {
+    window.prGenderChange = function() {
         const gender = document.getElementById('pr-gender').value;
         const dept = document.getElementById('pr-department');
         dept.innerHTML = '<option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇部門</option>';
@@ -821,7 +821,7 @@
         document.getElementById('pr-store').innerHTML = '<option value="" style="color: rgba(255,255,255,0.25);">請先選擇部門</option>';
     }
 
-    function prDeptChange() {
+    window.prDeptChange = function() {
         const dept = document.getElementById('pr-department').value;
         const store = document.getElementById('pr-store');
         const options = PR_STORE_OPTIONS[dept] || [];
@@ -830,7 +830,7 @@
     }
 
     // ===== 介紹人 → 介紹費聯動 =====
-    function toggleReferrerFee(prefix) {
+    window.toggleReferrerFee = function(prefix) {
         const val = document.getElementById(prefix + '-referrer').value.trim();
         const section = document.getElementById(prefix + '-referrer-fee-section');
         if (val) {
