@@ -112,9 +112,9 @@
                     </td>
                     <td class="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {% if sub.form_type == '公關版本' %}
-                        藝名：{{ d.get('stage_name', '-') }} | 經紀人：{{ d.get('manager', '-') }} | 店：{{ d.get('store', '-') }} | IG：{{ d.get('ig', '-') }}
+                        藝名：{{ d.get('stage_name', '-') }} | {{ d.get('gender', '') }} | {{ d.get('department', '') }} | {{ d.get('store', '') }} | 經紀人：{{ d.get('manager', '-') }} | IG：{{ d.get('ig', '-') }}{% if d.get('referrer') %} | 介紹人：{{ d.get('referrer') }}{% if d.get('referrer_fee') %}({{ d.get('referrer_fee') }}){% endif %}{% endif %}
                         {% elif sub.form_type == '經紀人版本' %}
-                        暱稱：{{ d.get('nickname', '-') }} | 職稱：{{ d.get('job_title', '-') }} | 組長：{{ d.get('team_leader', '-') }}
+                        暱稱：{{ d.get('nickname', '-') }} | {{ d.get('gender', '') }} | {{ d.get('identity_type', '') }} | 職稱：{{ d.get('job_title', '-') }} | 組長：{{ d.get('team_leader', '-') }} | {{ d.get('location', '') }}{% if d.get('referrer') %} | 介紹人：{{ d.get('referrer') }}{% if d.get('referrer_fee') %}({{ d.get('referrer_fee') }}){% endif %}{% endif %}
                         {% else %}
                         舊({{ d.get('old_store', '') }}/{{ d.get('old_stage_name', '') }}/{{ d.get('old_manager', '') }}) → 新({{ d.get('new_store', '') }}/{{ d.get('new_stage_name', '') }}/{{ d.get('new_manager', '') }})
                         {% endif %}
@@ -164,8 +164,8 @@
 <script>
 // 各版本的欄位順序（與 Excel 欄位對應）
 const FIELDS = {
-    '公關版本': ['real_name', 'id_number', 'birth_roc', 'stage_name', 'manager', 'store', 'status', 'ig', 'note'],
-    '經紀人版本': ['real_name', 'id_number', 'birth_roc', 'nickname', 'job_title', 'team_leader', 'status', 'note'],
+    '公關版本': ['real_name', 'id_number', 'birth_roc', 'stage_name', 'gender', 'department', 'store', 'manager', 'status', 'ig', 'referrer', 'referrer_fee', 'note'],
+    '經紀人版本': ['real_name', 'id_number', 'birth_roc', 'nickname', 'gender', 'identity_type', 'job_title', 'team_leader', 'location', 'status', 'referrer', 'referrer_fee', 'note'],
     '異動資料': ['old_store', 'old_stage_name', 'old_manager', 'new_store', 'new_stage_name', 'new_manager', 'status', 'note'],
 };
 
