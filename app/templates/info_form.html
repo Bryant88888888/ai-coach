@@ -294,20 +294,45 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">經紀人</label>
-                    <input type="text" name="manager" readonly
-                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" style="opacity: 0.7; cursor: not-allowed;"
-                        id="pr-manager-field">
-                    <p class="hint-text mt-1">自動帶入您的暱稱，無法手動修改</p>
+                    <label class="field-label block mb-1.5">性別 <span style="color: #d4a853;">*</span></label>
+                    <select name="gender" required id="pr-gender"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" onchange="prGenderChange()">
+                        <option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">店家 <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="store" required maxlength="30" placeholder="請輸入所屬店家名稱"
-                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                    <label class="field-label block mb-1.5">部門 <span style="color: #d4a853;">*</span></label>
+                    <select name="department" required id="pr-department"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" onchange="prDeptChange()">
+                        <option value="" disabled selected style="color: rgba(255,255,255,0.25);">請先選擇性別</option>
+                    </select>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <label class="field-label block mb-1.5">派駐地點</label>
+                    <select name="store" id="pr-store"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" selected style="color: rgba(255,255,255,0.25);">請先選擇部門</option>
+                    </select>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <label class="field-label block mb-1.5">經紀人</label>
+                    <input type="text" name="manager" readonly
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" style="opacity: 0.7; cursor: not-allowed;"
+                        id="pr-manager-field">
+                    <p class="hint-text mt-1">自動帶入您的暱稱，無法手動修改</p>
                 </div>
 
                 <div class="divider"></div>
@@ -326,20 +351,35 @@
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">備註</label>
-                    <textarea name="note" maxlength="200" rows="3" placeholder="選填"
-                        class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
+                    <label class="field-label block mb-1.5">IG <span style="color: #d4a853;">*</span></label>
+                    <input type="text" name="ig" required maxlength="50" placeholder="例：@username"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                    <p class="hint-text mt-1">Instagram 帳號</p>
                     <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
                 <div class="divider"></div>
 
                 <div>
-                    <label class="field-label block mb-1.5">IG <span style="color: #d4a853;">*</span></label>
-                    <input type="text" name="ig" required maxlength="50" placeholder="例：@username"
-                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
-                    <p class="hint-text mt-1">Instagram 帳號</p>
-                    <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
+                    <label class="field-label block mb-1.5">介紹人</label>
+                    <input type="text" name="referrer" maxlength="30" placeholder="選填" id="pr-referrer"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" oninput="toggleReferrerFee('pr')">
+                </div>
+                <div id="pr-referrer-fee-section" class="hidden">
+                    <label class="field-label block mb-1.5">是否需要介紹費</label>
+                    <select name="referrer_fee" class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" style="color: rgba(255,255,255,0.25);">請選擇</option>
+                        <option value="是">是</option>
+                        <option value="否">否</option>
+                    </select>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <label class="field-label block mb-1.5">備註</label>
+                    <textarea name="note" maxlength="200" rows="3" placeholder="選填"
+                        class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
                 </div>
 
                 <div class="pt-2">
@@ -392,6 +432,35 @@
                 <div class="divider"></div>
 
                 <div>
+                    <label class="field-label block mb-1.5">性別 <span style="color: #d4a853;">*</span></label>
+                    <select name="gender" required
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <label class="field-label block mb-1.5">身分類別</label>
+                    <select name="identity_type"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" style="color: rgba(255,255,255,0.25);">選填</option>
+                        <option value="27">27</option>
+                        <option value="AI">AI</option>
+                        <option value="官方帳號">官方帳號</option>
+                        <option value="東辦">東辦</option>
+                        <option value="廣志">廣志</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
                     <label class="field-label block mb-1.5">職稱位階 <span style="color: #d4a853;">*</span></label>
                     <select name="job_title" required
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
@@ -415,6 +484,19 @@
                 <div class="divider"></div>
 
                 <div>
+                    <label class="field-label block mb-1.5">派駐地點</label>
+                    <select name="location"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" style="color: rgba(255,255,255,0.25);">選填</option>
+                        <option value="東辦">東辦</option>
+                        <option value="三辦">三辦</option>
+                        <option value="總公司">總公司</option>
+                    </select>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
                     <label class="field-label block mb-1.5">狀況 <span style="color: #d4a853;">*</span></label>
                     <input type="text" name="status" required maxlength="50" placeholder="請填寫目前狀況"
                         class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
@@ -424,10 +506,25 @@
                 <div class="divider"></div>
 
                 <div>
+                    <label class="field-label block mb-1.5">介紹人</label>
+                    <input type="text" name="referrer" maxlength="30" placeholder="選填" id="agent-referrer"
+                        class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]" oninput="toggleReferrerFee('agent')">
+                </div>
+                <div id="agent-referrer-fee-section" class="hidden">
+                    <label class="field-label block mb-1.5">是否需要介紹費</label>
+                    <select name="referrer_fee" class="form-input w-full px-4 py-3 rounded-lg min-h-[48px]">
+                        <option value="" style="color: rgba(255,255,255,0.25);">請選擇</option>
+                        <option value="是">是</option>
+                        <option value="否">否</option>
+                    </select>
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
                     <label class="field-label block mb-1.5">備註</label>
                     <textarea name="note" maxlength="200" rows="3" placeholder="選填"
                         class="form-input w-full px-4 py-3 rounded-lg resize-none"></textarea>
-                    <p class="field-error text-red-400 text-xs mt-1 hidden"></p>
                 </div>
 
                 <div class="pt-2">
@@ -703,6 +800,46 @@
         input.addEventListener('blur', function() { validateField(this); });
         input.addEventListener('input', function() { clearError(this); });
     });
+
+    // ===== 公關版本聯動邏輯 =====
+    const PR_STORE_OPTIONS = {
+        '酒店': ['龍昇','皇家','首席','新濠','focus','紫藤','特蘭斯','威士登','豪威','威晶','香閣','豪昇','王牌','鴻欣','金典','金聰'],
+        '按摩': ['潘朵拉','381','涵香'],
+        '男模': ['Yes M','502'],
+    };
+
+    function prGenderChange() {
+        const gender = document.getElementById('pr-gender').value;
+        const dept = document.getElementById('pr-department');
+        dept.innerHTML = '<option value="" disabled selected style="color: rgba(255,255,255,0.25);">請選擇部門</option>';
+        if (gender === '男') {
+            dept.innerHTML += '<option value="男模">男模</option>';
+        } else if (gender === '女') {
+            dept.innerHTML += '<option value="酒店">酒店</option><option value="按摩">按摩</option>';
+        }
+        // 清空派駐地點
+        document.getElementById('pr-store').innerHTML = '<option value="" style="color: rgba(255,255,255,0.25);">請先選擇部門</option>';
+    }
+
+    function prDeptChange() {
+        const dept = document.getElementById('pr-department').value;
+        const store = document.getElementById('pr-store');
+        const options = PR_STORE_OPTIONS[dept] || [];
+        store.innerHTML = '<option value="" style="color: rgba(255,255,255,0.25);">選填</option>';
+        options.forEach(o => { store.innerHTML += `<option value="${o}">${o}</option>`; });
+    }
+
+    // ===== 介紹人 → 介紹費聯動 =====
+    function toggleReferrerFee(prefix) {
+        const val = document.getElementById(prefix + '-referrer').value.trim();
+        const section = document.getElementById(prefix + '-referrer-fee-section');
+        if (val) {
+            section.classList.remove('hidden');
+        } else {
+            section.classList.add('hidden');
+            section.querySelector('select').value = '';
+        }
+    }
 
     // 身分證自動轉大寫
     document.querySelectorAll('input[name="id_number"]').forEach(input => {
