@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}模擬練習 - 寶格教育訓練{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- 頁首 -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">模擬練習</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-1">與 AI 生成的擬真諮詢者對話，磨練你的經紀人技巧</p>
+        </div>
+        <a href="/dashboard/simulation/practice"
+           class="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all font-medium">
+            <i class="fas fa-play mr-2"></i>開始新練習
+        </a>
+    </div>
+
+    {% if success_message %}
+    <div class="mb-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400">
+        <i class="fas fa-check-circle mr-2"></i>{{ success_message }}
+    </div>
+    {% endif %}
+
+    {% if error_message %}
+    <div class="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400">
+        <i class="fas fa-exclamation-circle mr-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <!-- 統計卡片 -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {% set total_count = sessions|length %}
+        {% set completed = sessions|selectattr("status", "equalto", "completed")|list %}
+        {% set avg_score = (completed|selectattr("final_score")|map(attribute="final_score")|list) %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
+            <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ total }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">總練習次數</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ completed|length }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">已完成</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
+            <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {% if avg_score %}{{ (avg_score|sum / avg_score|length)|round|int }}{% else %}-{% endif %}
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">平均分數</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
+            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {% set a_count = completed|selectattr("grade", "equalto", "A")|list|length %}
+                {{ a_count }}
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">A 級通過</div>
+        </div>
+    </div>
+
+    <!-- 練習記錄列表 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <div class="px-6 py-4 border-b dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">練習記錄</h2>
+        </div>
+
+        {% if sessions %}
+        <div class="divide-y dark:divide-gray-700">
+            {% for s in sessions %}
+            <a href="/dashboard/simulation/review/{{ s.id }}"
+               class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                <div class="flex items-center gap-4 min-w-0">
+                    <!-- 難度標記 -->
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+                        {% if s.difficulty == 'easy' %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400
+                        {% elif s.difficulty == 'medium' %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400
+                        {% else %}bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400{% endif %}">
+                        <i class="fas {% if s.difficulty == 'easy' %}fa-smile{% elif s.difficulty == 'medium' %}fa-meh{% else %}fa-fire{% endif %}"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-medium text-gray-800 dark:text-white truncate">
+                            {{ s.persona_name }}
+                            <span class="ml-2 text-xs px-2 py-0.5 rounded-full
+                                {% if s.difficulty == 'easy' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                                {% elif s.difficulty == 'medium' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400
+                                {% else %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400{% endif %}">
+                                {{ s.difficulty }}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ s.persona_summary }}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 flex-shrink-0 ml-4">
+                    <div class="text-right hidden sm:block">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ s.total_rounds }} 輪對話</div>
+                        <div class="text-xs text-gray-400 dark:text-gray-500">{{ s.created_at[:10] if s.created_at else '' }}</div>
+                    </div>
+                    {% if s.status == 'completed' and s.grade %}
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
+                        {% if s.grade == 'A' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                        {% elif s.grade == 'B' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
+                        {% elif s.grade == 'C' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400
+                        {% else %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400{% endif %}">
+                        {{ s.grade }}
+                    </div>
+                    {% elif s.status == 'active' %}
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-full text-sm">進行中</span>
+                    {% else %}
+                    <span class="px-3 py-1 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded-full text-sm">未完成</span>
+                    {% endif %}
+                    <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-16 text-center">
+            <div class="text-6xl mb-4">🎭</div>
+            <h3 class="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">還沒有練習記錄</h3>
+            <p class="text-gray-400 dark:text-gray-500 mb-6">開始你的第一次模擬練習，磨練經紀人技巧！</p>
+            <a href="/dashboard/simulation/practice"
+               class="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition font-medium">
+                <i class="fas fa-play mr-2"></i>開始練習
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

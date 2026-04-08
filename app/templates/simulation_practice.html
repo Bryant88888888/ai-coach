@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+{% block title %}模擬練習 - 對話中{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto h-[calc(100vh-6rem)] flex flex-col">
+
+    <!-- 頂部狀態列 -->
+    <div id="status-bar" class="bg-white dark:bg-gray-800 rounded-xl shadow px-4 py-3 mb-3 flex items-center justify-between">
+        <!-- 左側：人格資訊 -->
+        <div id="persona-info" class="flex items-center gap-3 min-w-0">
+            <div id="persona-avatar" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="min-w-0">
+                <div id="persona-name" class="font-medium text-gray-800 dark:text-white truncate">準備開始...</div>
+                <div id="persona-status" class="text-xs text-gray-400 dark:text-gray-500 truncate"></div>
+            </div>
+        </div>
+        <!-- 右側：指標 -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <div id="indicators" class="hidden sm:flex items-center gap-2 text-xs">
+                <span class="flex items-center gap-1" title="信任度">
+                    <i class="fas fa-handshake text-blue-400"></i>
+                    <span id="trust-val" class="font-mono">-</span>
+                </span>
+                <span class="flex items-center gap-1" title="意願度">
+                    <i class="fas fa-heart text-pink-400"></i>
+                    <span id="will-val" class="font-mono">-</span>
+                </span>
+                <span class="flex items-center gap-1" title="情緒">
+                    <i class="fas fa-face-smile text-amber-400"></i>
+                    <span id="emotion-val">-</span>
+                </span>
+            </div>
+            <button id="btn-end" onclick="endSession()" class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm transition">
+                <i class="fas fa-stop mr-1"></i>結束
+            </button>
+        </div>
+    </div>
+
+    <!-- 對話區域 -->
+    <div id="chat-area" class="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col">
+        <!-- 訊息列表 -->
+        <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- 開始畫面 -->
+            <div id="start-screen" class="flex flex-col items-center justify-center h-full text-center px-4">
+                <div class="text-6xl mb-6">🎭</div>
+                <h2 class="text-xl font-bold text-gray-700 dark:text-gray-200 mb-2">模擬練習</h2>
+                <p class="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
+                    AI 會隨機生成一個想來諮詢的人，<br>
+                    每次都不一樣 — 練習你的應對能力！
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button onclick="startSession('easy')"
+                            class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition font-medium shadow">
+                        <i class="fas fa-smile mr-2"></i>簡單
+                    </button>
+                    <button onclick="startSession('random')"
+                            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition font-medium shadow-lg">
+                        <i class="fas fa-shuffle mr-2"></i>隨機
+                    </button>
+                    <button onclick="startSession('hard')"
+                            class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition font-medium shadow">
+                        <i class="fas fa-fire mr-2"></i>困難
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 輸入區 -->
+        <div id="input-area" class="hidden border-t dark:border-gray-700 p-3">
+            <form onsubmit="sendMessage(event)" class="flex gap-2">
+                <input id="msg-input" type="text" placeholder="輸入你的回覆..."
+                       class="flex-1 px-4 py-3 border dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                       autocomplete="off" disabled>
+                <button id="btn-send" type="submit" disabled
+                        class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-xl transition font-medium">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 評分結果彈窗 -->
+<div id="score-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div id="score-content" class="p-6">
+            <!-- JS 動態填入 -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentSessionId = null;
+let isWaiting = false;
+
+// ===== 開始新 Session =====
+async function startSession(difficulty) {
+    const startScreen = document.getElementById('start-screen');
+    startScreen.innerHTML = `
+        <div class="flex flex-col items-center">
+            <div class="animate-spin text-4xl mb-4"><i class="fas fa-spinner text-indigo-500"></i></div>
+            <p class="text-gray-500 dark:text-gray-400">正在生成諮詢者角色...</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">每次都是全新的人格，請稍候</p>
+        </div>
+    `;
+
+    try {
+        const res = await fetch('/dashboard/simulation/api/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ difficulty })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            startScreen.innerHTML = `<div class="text-red-500"><i class="fas fa-exclamation-circle mr-2"></i>${data.error}</div>`;
+            return;
+        }
+
+        currentSessionId = data.session_id;
+
+        // 更新 UI
+        document.getElementById('persona-name').textContent = data.persona_name;
+        document.getElementById('persona-status').textContent = data.persona_summary;
+        document.getElementById('btn-end').classList.remove('hidden');
+        document.getElementById('indicators').classList.remove('hidden');
+        document.getElementById('input-area').classList.remove('hidden');
+        document.getElementById('msg-input').disabled = false;
+        document.getElementById('btn-send').disabled = false;
+
+        // 難度色標
+        const avatar = document.getElementById('persona-avatar');
+        if (data.difficulty === 'easy') {
+            avatar.className = 'w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-600 dark:text-green-400';
+        } else if (data.difficulty === 'hard') {
+            avatar.className = 'w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-red-600 dark:text-red-400';
+        } else {
+            avatar.className = 'w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400';
+        }
+        avatar.innerHTML = '<i class="fas fa-user"></i>';
+
+        // 清空並加入開場白
+        const messages = document.getElementById('messages');
+        messages.innerHTML = '';
+        addMessage('assistant', data.opening_message);
+        document.getElementById('msg-input').focus();
+
+    } catch (err) {
+        startScreen.innerHTML = `<div class="text-red-500"><i class="fas fa-exclamation-circle mr-2"></i>連線失敗：${err.message}</div>`;
+    }
+}
+
+// ===== 發送訊息 =====
+async function sendMessage(e) {
+    e.preventDefault();
+    if (isWaiting) return;
+
+    const input = document.getElementById('msg-input');
+    const message = input.value.trim();
+    if (!message || !currentSessionId) return;
+
+    input.value = '';
+    addMessage('user', message);
+    setWaiting(true);
+
+    try {
+        const res = await fetch('/dashboard/simulation/api/message', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: currentSessionId, message })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            addSystemMessage(data.error);
+            setWaiting(false);
+            return;
+        }
+
+        // 移除 typing indicator
+        addMessage('assistant', data.reply);
+        updateIndicators(data);
+
+        // 如果諮詢者想離開
+        if (data.wants_to_leave) {
+            addSystemMessage('對話已結束 — 諮詢者離開了');
+            setWaiting(false);
+            showEndOptions();
+            return;
+        }
+
+        setWaiting(false);
+        document.getElementById('msg-input').focus();
+
+    } catch (err) {
+        addSystemMessage(`送出失敗：${err.message}`);
+        setWaiting(false);
+    }
+}
+
+// ===== 結束 Session =====
+async function endSession() {
+    if (!currentSessionId) return;
+    if (!confirm('確定要結束這場練習？將進行評分。')) return;
+
+    setWaiting(true);
+    addSystemMessage('正在進行評分分析...');
+
+    try {
+        const res = await fetch('/dashboard/simulation/api/end', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: currentSessionId })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            addSystemMessage(data.error);
+            setWaiting(false);
+            return;
+        }
+
+        showScoreModal(data);
+        disableInput();
+
+    } catch (err) {
+        addSystemMessage(`評分失敗：${err.message}`);
+        setWaiting(false);
+    }
+}
+
+// ===== 取得已結束 Session 的評分 =====
+async function getScore() {
+    if (!currentSessionId) return;
+
+    addSystemMessage('正在進行評分分析...');
+    setWaiting(true);
+
+    try {
+        const res = await fetch('/dashboard/simulation/api/end', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: currentSessionId })
+        });
+        const data = await res.json();
+        showScoreModal(data);
+        disableInput();
+    } catch (err) {
+        addSystemMessage(`評分失敗：${err.message}`);
+        setWaiting(false);
+    }
+}
+
+// ===== UI 輔助 =====
+
+function addMessage(role, content) {
+    const messages = document.getElementById('messages');
+    // 移除 typing indicator
+    const typing = messages.querySelector('.typing-indicator');
+    if (typing) typing.remove();
+
+    const isUser = role === 'user';
+    const div = document.createElement('div');
+    div.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    div.innerHTML = `
+        <div class="max-w-[80%] px-4 py-3 rounded-2xl ${
+            isUser
+                ? 'bg-indigo-600 text-white rounded-br-md'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-md'
+        }">
+            <div class="whitespace-pre-wrap break-words">${escapeHtml(content)}</div>
+        </div>
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function addSystemMessage(text) {
+    const messages = document.getElementById('messages');
+    // 移除 typing indicator
+    const typing = messages.querySelector('.typing-indicator');
+    if (typing) typing.remove();
+
+    const div = document.createElement('div');
+    div.className = 'flex justify-center';
+    div.innerHTML = `<div class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full text-sm">${escapeHtml(text)}</div>`;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function setWaiting(waiting) {
+    isWaiting = waiting;
+    document.getElementById('msg-input').disabled = waiting;
+    document.getElementById('btn-send').disabled = waiting;
+
+    if (waiting) {
+        // 加入 typing indicator
+        const messages = document.getElementById('messages');
+        const div = document.createElement('div');
+        div.className = 'flex justify-start typing-indicator';
+        div.innerHTML = `
+            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-bl-md">
+                <div class="flex gap-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></div>
+                </div>
+            </div>
+        `;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+}
+
+function updateIndicators(data) {
+    if (data.trust_level !== undefined) {
+        document.getElementById('trust-val').textContent = Math.round(data.trust_level * 100) + '%';
+    }
+    if (data.willingness !== undefined) {
+        document.getElementById('will-val').textContent = Math.round(data.willingness * 100) + '%';
+    }
+    if (data.emotion) {
+        document.getElementById('emotion-val').textContent = data.emotion;
+    }
+}
+
+function showEndOptions() {
+    document.getElementById('input-area').innerHTML = `
+        <div class="flex justify-center gap-3 py-2">
+            <button onclick="getScore()"
+                    class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition font-medium">
+                <i class="fas fa-chart-bar mr-2"></i>查看評分
+            </button>
+            <a href="/dashboard/simulation/practice"
+               class="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition font-medium">
+                <i class="fas fa-redo mr-2"></i>再練一次
+            </a>
+        </div>
+    `;
+}
+
+function disableInput() {
+    document.getElementById('input-area').innerHTML = `
+        <div class="flex justify-center gap-3 py-2">
+            <a href="/dashboard/simulation/review/${currentSessionId}"
+               class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition font-medium">
+                <i class="fas fa-search mr-2"></i>查看完整回顧
+            </a>
+            <a href="/dashboard/simulation/practice"
+               class="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition font-medium">
+                <i class="fas fa-redo mr-2"></i>再練一次
+            </a>
+        </div>
+    `;
+    document.getElementById('btn-end').classList.add('hidden');
+}
+
+function showScoreModal(data) {
+    const score = data.score || {};
+    const fb = data.dimension_feedback || {};
+    const modal = document.getElementById('score-modal');
+    const content = document.getElementById('score-content');
+
+    const gradeColors = {
+        'A': 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
+        'B': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+        'C': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30',
+        'D': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30',
+    };
+    const gc = gradeColors[data.grade] || gradeColors['D'];
+
+    content.innerHTML = `
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-full ${gc} text-4xl font-bold mb-3">
+                ${data.grade || '-'}
+            </div>
+            <div class="text-3xl font-bold text-gray-800 dark:text-white">${score.total || 0} <span class="text-lg text-gray-400">/ 100</span></div>
+        </div>
+
+        <!-- 四維雷達 -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            ${renderScoreDim('親和力', score.rapport_empathy, fb.rapport_empathy)}
+            ${renderScoreDim('專業度', score.professional_skill, fb.professional_skill)}
+            ${renderScoreDim('應變力', score.adaptability, fb.adaptability)}
+            ${renderScoreDim('成交力', score.closing_skill, fb.closing_skill)}
+        </div>
+
+        <!-- 做得好的 -->
+        ${data.highlights ? `
+        <div class="mb-4">
+            <h4 class="font-medium text-green-600 dark:text-green-400 mb-2"><i class="fas fa-check-circle mr-1"></i>做得好</h4>
+            <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                ${data.highlights.map(h => `<li>• ${escapeHtml(h)}</li>`).join('')}
+            </ul>
+        </div>` : ''}
+
+        <!-- 需改善 -->
+        ${data.improvements ? `
+        <div class="mb-4">
+            <h4 class="font-medium text-amber-600 dark:text-amber-400 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i>可改善</h4>
+            <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                ${data.improvements.map(h => `<li>• ${escapeHtml(h)}</li>`).join('')}
+            </ul>
+        </div>` : ''}
+
+        <!-- 總結 -->
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl mb-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(data.overall_feedback || '')}</p>
+        </div>
+
+        <!-- 關鍵建議 -->
+        ${data.tip ? `
+        <div class="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl mb-4 border border-indigo-200 dark:border-indigo-800">
+            <h4 class="font-medium text-indigo-700 dark:text-indigo-400 mb-1"><i class="fas fa-lightbulb mr-1"></i>關鍵建議</h4>
+            <p class="text-sm text-indigo-600 dark:text-indigo-300">${escapeHtml(data.tip)}</p>
+        </div>` : ''}
+
+        <div class="flex justify-center gap-3">
+            <button onclick="document.getElementById('score-modal').classList.add('hidden')"
+                    class="px-5 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-xl transition">
+                關閉
+            </button>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+    modal.onclick = function(e) {
+        if (e.target === modal) modal.classList.add('hidden');
+    };
+}
+
+function renderScoreDim(label, score, feedback) {
+    const pct = (score || 0) / 25 * 100;
+    const color = pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    return `
+        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-medium text-gray-600 dark:text-gray-300">${label}</span>
+                <span class="text-sm font-bold text-gray-800 dark:text-white">${score || 0}/25</span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                <div class="${color} h-2 rounded-full transition-all" style="width:${pct}%"></div>
+            </div>
+            ${feedback ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(feedback)}</p>` : ''}
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 如果 URL 有 session_id，載入繼續
+{% if session_id %}
+(async function() {
+    currentSessionId = {{ session_id }};
+    try {
+        const res = await fetch(`/dashboard/simulation/api/detail/${currentSessionId}`);
+        const data = await res.json();
+        if (data.session) {
+            document.getElementById('start-screen').remove();
+            document.getElementById('persona-name').textContent = data.session.persona_name;
+            document.getElementById('persona-status').textContent = data.session.persona_summary;
+            document.getElementById('btn-end').classList.remove('hidden');
+            document.getElementById('indicators').classList.remove('hidden');
+            document.getElementById('input-area').classList.remove('hidden');
+            document.getElementById('msg-input').disabled = false;
+            document.getElementById('btn-send').disabled = false;
+
+            // 載入歷史訊息
+            data.messages.forEach(m => addMessage(m.role, m.content));
+            if (data.session.status !== 'active') {
+                disableInput();
+            }
+        }
+    } catch(e) {}
+})();
+{% endif %}
+</script>
+{% endblock %}

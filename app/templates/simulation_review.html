@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}練習回顧 - {{ detail.session.persona_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- 返回 -->
+    <a href="/dashboard/simulation" class="inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition">
+        <i class="fas fa-arrow-left mr-2"></i>返回列表
+    </a>
+
+    <!-- 標題 -->
+    <div class="flex items-center gap-4 mb-6">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl
+            {% if detail.session.difficulty == 'easy' %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400
+            {% elif detail.session.difficulty == 'medium' %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400
+            {% else %}bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400{% endif %}">
+            <i class="fas fa-user"></i>
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ detail.session.persona_name }}</h1>
+            <p class="text-gray-500 dark:text-gray-400">{{ detail.session.persona_summary }}</p>
+        </div>
+        {% if detail.session.grade %}
+        <div class="ml-auto w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold
+            {% if detail.session.grade == 'A' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+            {% elif detail.session.grade == 'B' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
+            {% elif detail.session.grade == 'C' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400
+            {% else %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400{% endif %}">
+            {{ detail.session.grade }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 左側：對話記錄 -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h2 class="font-semibold text-gray-800 dark:text-white">
+                        <i class="fas fa-comments mr-2 text-indigo-500"></i>對話記錄
+                    </h2>
+                    <span class="text-sm text-gray-400">{{ detail.session.total_rounds }} 輪</span>
+                </div>
+                <div class="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                    {% for msg in detail.messages %}
+                    <div class="flex {{ 'justify-end' if msg.role == 'user' else 'justify-start' }}">
+                        <div class="max-w-[80%]">
+                            <div class="px-4 py-3 rounded-2xl {{ 'bg-indigo-600 text-white rounded-br-md' if msg.role == 'user' else 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-md' }}">
+                                <div class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
+                            </div>
+                            {% if msg.role == 'assistant' and msg.emotion %}
+                            <div class="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 px-2">
+                                {% if msg.emotion %}<span>{{ msg.emotion }}</span>{% endif %}
+                                {% if msg.trust_level is not none %}<span>信任 {{ (msg.trust_level * 100)|round|int }}%</span>{% endif %}
+                                {% if msg.willingness is not none %}<span>意願 {{ (msg.willingness * 100)|round|int }}%</span>{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if msg.role == 'assistant' and msg.inner_thought %}
+                            <div class="mt-1 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-xs text-yellow-700 dark:text-yellow-400 mx-2">
+                                <i class="fas fa-brain mr-1"></i>內心：{{ msg.inner_thought }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：評分 & 人格 -->
+        <div class="space-y-4">
+            <!-- 評分結果 -->
+            {% if detail.session.score_details %}
+            {% set sd = detail.session.score_details %}
+            {% set score = sd.get('score', {}) if sd.get is defined else {} %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
+                <h3 class="font-semibold text-gray-800 dark:text-white mb-4">
+                    <i class="fas fa-chart-bar mr-2 text-indigo-500"></i>評分結果
+                </h3>
+                <div class="text-center mb-4">
+                    <div class="text-4xl font-bold text-gray-800 dark:text-white">{{ detail.session.final_score or 0 }}</div>
+                    <div class="text-sm text-gray-400">/ 100</div>
+                </div>
+                <div class="space-y-3">
+                    {% set dims = [('親和力', 'rapport_empathy'), ('專業度', 'professional_skill'), ('應變力', 'adaptability'), ('成交力', 'closing_skill')] %}
+                    {% for label, key in dims %}
+                    {% set val = score.get(key, 0) if score.get is defined else 0 %}
+                    {% set pct = (val / 25 * 100)|int %}
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600 dark:text-gray-300">{{ label }}</span>
+                            <span class="font-medium text-gray-800 dark:text-white">{{ val }}/25</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                            <div class="{{ 'bg-green-500' if pct >= 80 else 'bg-blue-500' if pct >= 60 else 'bg-amber-500' if pct >= 40 else 'bg-red-500' }} h-2 rounded-full" style="width:{{ pct }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 教練回饋 -->
+            {% if detail.session.feedback %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
+                <h3 class="font-semibold text-gray-800 dark:text-white mb-3">
+                    <i class="fas fa-comment-dots mr-2 text-indigo-500"></i>教練回饋
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ detail.session.feedback }}</p>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- 角色真實身份（揭密） -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
+                <h3 class="font-semibold text-gray-800 dark:text-white mb-3">
+                    <i class="fas fa-mask mr-2 text-purple-500"></i>角色揭密
+                </h3>
+                <div class="space-y-2 text-sm">
+                    {% if detail.persona %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">年齡</span>
+                        <span class="text-gray-800 dark:text-white">{{ detail.persona.get('age', '?') if detail.persona.get is defined else '?' }}</span>
+                    </div>
+                    {% if detail.persona.get is defined %}
+                    {% set bg = detail.persona.get('background', {}) %}
+                    {% set mt = detail.persona.get('motivation', {}) %}
+                    {% set ps = detail.persona.get('psychology', {}) %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">工作</span>
+                        <span class="text-gray-800 dark:text-white">{{ bg.get('current_job', '?') if bg.get is defined else '?' }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">經濟</span>
+                        <span class="text-gray-800 dark:text-white">{{ bg.get('financial', '?') if bg.get is defined else '?' }}</span>
+                    </div>
+                    <hr class="dark:border-gray-700">
+                    <div>
+                        <div class="text-gray-500 dark:text-gray-400 mb-1">說出口的理由</div>
+                        <div class="text-gray-800 dark:text-white">{{ mt.get('stated_reason', '?') if mt.get is defined else '?' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-red-500 dark:text-red-400 mb-1">真正動機</div>
+                        <div class="text-gray-800 dark:text-white">{{ mt.get('real_reason', '?') if mt.get is defined else '?' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-amber-500 dark:text-amber-400 mb-1">隱藏顧慮</div>
+                        <ul class="text-gray-800 dark:text-white">
+                            {% for c in ps.get('hidden_concerns', []) if ps.get is defined %}
+                            <li>• {{ c }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 情緒變化 -->
+            {% if detail.session.emotion_history %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
+                <h3 class="font-semibold text-gray-800 dark:text-white mb-3">
+                    <i class="fas fa-chart-line mr-2 text-pink-500"></i>情緒變化
+                </h3>
+                <div class="space-y-2">
+                    {% for e in detail.session.emotion_history %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-8 text-gray-400 dark:text-gray-500 text-xs">R{{ e.round if e.round is defined else e.get('round', '?') }}</span>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">{{ e.emotion if e.emotion is defined else e.get('emotion', '?') }}</span>
+                                <span class="text-xs text-gray-400">
+                                    信任 {{ ((e.trust if e.trust is defined else e.get('trust', 0)) * 100)|round|int }}%
+                                    意願 {{ ((e.willingness if e.willingness is defined else e.get('willingness', 0)) * 100)|round|int }}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 操作 -->
+            <div class="flex gap-3">
+                <a href="/dashboard/simulation/practice"
+                   class="flex-1 text-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition font-medium">
+                    <i class="fas fa-redo mr-1"></i>再練一次
+                </a>
+                <a href="/dashboard/simulation"
+                   class="flex-1 text-center px-4 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition font-medium">
+                    返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
