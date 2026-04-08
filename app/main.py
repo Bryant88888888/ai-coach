@@ -6,10 +6,39 @@ from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import asyncio
 from app.config import get_settings
 from app.database import init_db
 from app.routers import webhook_router, admin_router, frontend_router, cron_router
 from app.routers.duty_mobile import router as duty_mobile_router, api_router as duty_api_router
+from app.routers.simulation import router as simulation_router
+
+
+async def scheduler_loop():
+    """內建排程器：台灣時間 17:00（UTC 09:00）觸發每日任務"""
+    from datetime import datetime, timezone, timedelta
+    TW = timezone(timedelta(hours=8))
+
+    triggered_today = False
+    while True:
+        now = datetime.now(TW)
+        is_target_time = now.hour == 17 and now.minute == 0
+        is_workday = now.weekday() < 6  # 週一到六
+
+        if is_target_time and is_workday and not triggered_today:
+            triggered_today = True
+            print(f"⏰ 排程觸發：台灣時間 {now.strftime('%Y-%m-%d %H:%M')}")
+            try:
+                from app.routers.cron import run_duty_announcement_background
+                run_duty_announcement_background()
+            except Exception as e:
+                print(f"❌ 排程執行失敗: {e}")
+
+        # 日期變了就重置
+        if now.hour == 0 and now.minute == 0:
+            triggered_today = False
+
+        await asyncio.sleep(30)  # 每 30 秒檢查一次
 
 
 @asynccontextmanager
@@ -20,9 +49,14 @@ async def lifespan(app: FastAPI):
     init_db()
     print("✅ 資料庫初始化完成")
 
+    # 啟動內建排程器
+    task = asyncio.create_task(scheduler_loop())
+    print("⏰ 內建排程器已啟動（台灣 17:00 值日公告）")
+
     yield
 
-    # 關閉時的清理工作（如果需要）
+    # 關閉時取消排程
+    task.cancel()
     print("👋 應用程式關閉中...")
 
 
@@ -64,6 +98,7 @@ app.include_router(frontend_router)
 app.include_router(cron_router)
 app.include_router(duty_mobile_router)
 app.include_router(duty_api_router)
+app.include_router(simulation_router)
 
 
 @app.get("/")
