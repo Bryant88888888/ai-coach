@@ -51,13 +51,6 @@
                 <i class="fas fa-calendar-plus mr-2"></i>生成值日生排班
             </button>
         </form>
-        <form method="POST" action="/dashboard/duty/schedule/generate-leader" id="generate-leader-form" class="contents">
-            <input type="hidden" name="start_date" id="generate-leader-start-date">
-            <input type="hidden" name="end_date" id="generate-leader-end-date">
-            <button type="submit" onclick="syncDates('generate-leader')" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition min-h-[44px]">
-                <i class="fas fa-user-tie mr-2"></i>生成駐店組長排班
-            </button>
-        </form>
         <form method="POST" action="/dashboard/duty/schedule/clear" id="clear-form" class="contents">
             <input type="hidden" name="start_date" id="clear-start-date">
             <input type="hidden" name="end_date" id="clear-end-date">
@@ -143,17 +136,23 @@
                 {% if day in calendar_data.schedules %}
                 <div class="space-y-1">
                     {% for schedule in calendar_data.schedules[day] %}
-                    {% set is_leader = (schedule.config.name == '駐店組長') %}
                     <div class="text-xs truncate px-1.5 py-1 rounded cursor-pointer hover:opacity-80 transition
                         {% if schedule.status == 'approved' %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400
                         {% elif schedule.status == 'reported' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400
                         {% elif schedule.status == 'missed' %}bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400
-                        {% elif is_leader and schedule.status == 'scheduled' %}bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400
                         {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400{% endif %}"
                         onclick="openScheduleModal({{ schedule.id }}, '{{ schedule.user.display_name }}', '{{ schedule.duty_date }}', '{{ schedule.status }}', '{{ schedule.status_display }}')">
-                        {% if is_leader %}[組長] {% endif %}{{ schedule.user.display_name }}
+                        {{ schedule.user.display_name }}
                     </div>
                     {% endfor %}
+                </div>
+                {% endif %}
+                {% if "duty:edit" in admin_permissions %}
+                <div class="mt-1 text-center">
+                    <button onclick="openAddModal('{{ calendar_data.year }}-{{ '%02d'|format(calendar_data.month) }}-{{ '%02d'|format(day) }}')"
+                            class="text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition text-xs">
+                        <i class="fas fa-plus"></i>
+                    </button>
                 </div>
                 {% endif %}
                 {% endif %}
@@ -253,6 +252,49 @@
 <form id="delete-form" method="POST" action="/dashboard/duty/schedule/delete" class="hidden">
     <input type="hidden" name="schedule_id" id="delete-schedule-id">
 </form>
+
+<!-- 新增排班 Modal -->
+<div id="add-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">
+                <i class="fas fa-plus-circle text-indigo-500 mr-2"></i>新增排班
+            </h3>
+            <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form method="POST" action="/dashboard/duty/schedule/add" class="p-4">
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">值日日期</p>
+                <input type="date" name="duty_date" id="add-date" readonly
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">分店</p>
+                <select name="config_id" required
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                    {% for config in duty_configs %}
+                    <option value="{{ config.id }}">{{ config.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">值日生</p>
+                <select name="user_id" required
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                    <option value="">-- 選擇值日生 --</option>
+                    {% for member in duty_members %}
+                    <option value="{{ member.id }}">{{ member.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition">
+                <i class="fas fa-plus mr-2"></i>新增排班
+            </button>
+        </form>
+    </div>
+</div>
 {% endif %}
 
 <script>
@@ -298,6 +340,20 @@ function deleteSchedule() {
     }
 }
 
+// 新增排班 Modal
+function openAddModal(dateStr) {
+    document.getElementById('add-date').value = dateStr;
+    document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function closeAddModal() {
+    document.getElementById('add-modal').classList.add('hidden');
+}
+
+document.getElementById('add-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeAddModal();
+});
+
 // 點擊 modal 外部關閉
 document.getElementById('schedule-modal').addEventListener('click', function(e) {
     if (e.target === this) {
@@ -309,6 +365,7 @@ document.getElementById('schedule-modal').addEventListener('click', function(e) 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeScheduleModal();
+        closeAddModal();
     }
 });
 

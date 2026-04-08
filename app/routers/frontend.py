@@ -2555,6 +2555,9 @@ async def duty_schedule_page(
     # 取得值日生名單（for 換班選單）
     duty_members = duty_service.get_duty_members()
 
+    # 取得所有排班設定（for 新增排班選單）
+    duty_configs = db.query(DutyConfig).filter(DutyConfig.is_active == True).all()
+
     ctx = build_template_context(request, admin, db, "duty")
     ctx.update({
         "config": config,
@@ -2569,6 +2572,7 @@ async def duty_schedule_page(
         "next_year": next_year,
         "next_month": next_month,
         "duty_members": duty_members,
+        "duty_configs": duty_configs,
     })
     return templates.TemplateResponse("duty_schedule.html", ctx)
 
@@ -2704,6 +2708,43 @@ async def duty_schedule_delete(
                 url="/dashboard/duty/schedule?error=找不到該排班或無法刪除",
                 status_code=303
             )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/dashboard/duty/schedule/add")
+async def duty_schedule_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    duty_date: str = Form(...),
+    config_id: int = Form(...),
+    user_id: int = Form(...)
+):
+    """手動新增排班"""
+    result = require_permission(request, db, "duty:edit")
+    if isinstance(result, RedirectResponse):
+        return result
+
+    from app.models.duty_schedule import DutySchedule, DutyScheduleStatus
+
+    try:
+        schedule = DutySchedule(
+            config_id=config_id,
+            user_id=user_id,
+            duty_date=date.fromisoformat(duty_date),
+            status=DutyScheduleStatus.SCHEDULED.value
+        )
+        db.add(schedule)
+        db.commit()
+
+        target_date = date.fromisoformat(duty_date)
+        return RedirectResponse(
+            url=f"/dashboard/duty/schedule?year={target_date.year}&month={target_date.month}&success=已新增排班",
+            status_code=303
+        )
     except Exception as e:
         return RedirectResponse(
             url=f"/dashboard/duty/schedule?error={str(e)}",
