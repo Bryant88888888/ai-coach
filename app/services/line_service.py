@@ -1017,7 +1017,7 @@ class LineService:
         store_duties = {}
         for s in schedules:
             store_name = s.config.name if s.config else "未分類"
-            user_name = s.user.nickname or s.user.real_name or "未知"
+            user_name = s.user.display_name
             store_duties.setdefault(store_name, []).append(user_name)
 
         lines = [f"📋 今日值日生公告\n📅 {today.isoformat()}（{weekday}）\n"]
