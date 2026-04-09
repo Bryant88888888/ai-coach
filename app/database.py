@@ -80,20 +80,22 @@ def run_migrations():
 
         # 建立排程鎖表（防多 worker 重複執行）
         if 'scheduler_locks' not in table_names:
-            with engine.connect() as conn:
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS scheduler_locks (
-                            id SERIAL PRIMARY KEY,
-                            lock_key VARCHAR(50) NOT NULL,
-                            lock_date VARCHAR(10) NOT NULL,
-                            created_at TIMESTAMP DEFAULT NOW(),
-                            UNIQUE(lock_key, lock_date)
-                        )
-                    """))
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text(
+                        "CREATE TABLE scheduler_locks ("
+                        "id SERIAL PRIMARY KEY, "
+                        "lock_key VARCHAR(50) NOT NULL, "
+                        "lock_date VARCHAR(10) NOT NULL, "
+                        "created_at TIMESTAMP DEFAULT NOW(), "
+                        "CONSTRAINT uq_scheduler_lock UNIQUE(lock_key, lock_date))"
+                    ))
                     conn.commit()
                     print("Migration: Created scheduler_locks table")
-                except Exception as e:
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    pass  # 表已存在，忽略
+                else:
                     print(f"Migration note: {e}")
 
         # 檢查並加入 users 新欄位
