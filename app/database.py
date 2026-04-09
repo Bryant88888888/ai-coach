@@ -41,6 +41,7 @@ def init_db():
     from app.models import line_contact  # noqa: F401
     from app.models import scenario_persona, course_scenario, scoring_rubric, scoring_result  # noqa: F401
     from app.models import course_material, quiz  # noqa: F401
+    from app.models import simulation  # noqa: F401
     from app.models import morning_report  # noqa: F401
     from app.models import admin  # noqa: F401
 
@@ -76,6 +77,24 @@ def run_migrations():
     try:
         inspector = inspect(engine)
         table_names = inspector.get_table_names()
+
+        # 建立排程鎖表（防多 worker 重複執行）
+        if 'scheduler_locks' not in table_names:
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS scheduler_locks (
+                            id SERIAL PRIMARY KEY,
+                            lock_key VARCHAR(50) NOT NULL,
+                            lock_date VARCHAR(10) NOT NULL,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            UNIQUE(lock_key, lock_date)
+                        )
+                    """))
+                    conn.commit()
+                    print("Migration: Created scheduler_locks table")
+                except Exception as e:
+                    print(f"Migration note: {e}")
 
         # 檢查並加入 users 新欄位
         if 'users' in table_names:
@@ -554,11 +573,38 @@ def run_migrations():
         new_tables = [
             'scenario_personas', 'course_scenarios', 'scoring_rubrics',
             'scoring_results', 'course_materials', 'quizzes',
-            'quiz_questions', 'quiz_attempts'
+            'quiz_questions', 'quiz_attempts',
+            'simulation_sessions', 'simulation_messages',
         ]
         created_tables = [t for t in new_tables if t not in table_names]
         if created_tables:
             print(f"Migration: New tables created by create_all: {', '.join(created_tables)}")
+
+        # simulation_messages 表加 raw_response 欄位
+        if 'simulation_messages' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('simulation_messages')]
+            if 'raw_response' not in columns:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text(
+                            "ALTER TABLE simulation_messages ADD COLUMN raw_response TEXT"
+                        ))
+                        conn.commit()
+                        print("Migration: Added 'raw_response' column to simulation_messages")
+                    except Exception as e:
+                        print(f"Migration note (simulation_messages.raw_response): {e}")
+
+        # simulation_sessions 表加 index
+        if 'simulation_sessions' in inspector.get_table_names():
+            with engine.connect() as conn:
+                try:
+                    conn.execute(text(
+                        "CREATE INDEX IF NOT EXISTS ix_simulation_sessions_admin_id "
+                        "ON simulation_sessions (admin_id)"
+                    ))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Migration note (simulation index): {e}")
 
     except Exception as e:
         # 避免 migration 錯誤導致應用程式無法啟動

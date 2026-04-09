@@ -17,6 +17,7 @@ from app.routers.simulation import router as simulation_router
 async def scheduler_loop():
     """內建排程器：台灣時間 17:00（UTC 09:00）觸發每日任務"""
     from datetime import datetime, timezone, timedelta
+    from sqlalchemy import text
     TW = timezone(timedelta(hours=8))
 
     triggered_today = False
@@ -27,18 +28,38 @@ async def scheduler_loop():
 
         if is_target_time and is_workday and not triggered_today:
             triggered_today = True
-            print(f"⏰ 排程觸發：台灣時間 {now.strftime('%Y-%m-%d %H:%M')}")
-            try:
-                from app.routers.cron import run_duty_announcement_background
-                run_duty_announcement_background()
-            except Exception as e:
-                print(f"❌ 排程執行失敗: {e}")
 
-        # 日期變了就重置
+            # 用資料庫鎖防止多 worker 重複執行
+            try:
+                from app.database import SessionLocal
+                db = SessionLocal()
+                try:
+                    # 嘗試插入今日鎖（唯一約束阻止重複）
+                    today_str = now.strftime('%Y-%m-%d')
+                    result = db.execute(text(
+                        "INSERT INTO scheduler_locks (lock_key, lock_date) VALUES (:key, :date) ON CONFLICT DO NOTHING RETURNING id"
+                    ), {"key": "duty_announcement", "date": today_str})
+                    db.commit()
+
+                    if result.rowcount > 0:
+                        # 這個 worker 搶到鎖，執行任務
+                        print(f"⏰ 排程觸發：台灣時間 {now.strftime('%Y-%m-%d %H:%M')}")
+                        from app.routers.cron import run_duty_announcement_background
+                        run_duty_announcement_background()
+                    else:
+                        print(f"⏰ 排程已由其他 worker 執行，跳過")
+                except Exception as e:
+                    db.rollback()
+                    print(f"❌ 排程執行失敗: {e}")
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"❌ 排程鎖取得失敗: {e}")
+
         if now.hour == 0 and now.minute == 0:
             triggered_today = False
 
-        await asyncio.sleep(30)  # 每 30 秒檢查一次
+        await asyncio.sleep(30)
 
 
 @asynccontextmanager
